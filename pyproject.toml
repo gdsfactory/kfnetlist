@@ -1,0 +1,31 @@
+[build-system]
+requires = ["setuptools>=74", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "kfnetlist"
+description = "Standalone Netlist schema for kfactory / LVS tooling"
+classifiers = [
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
+    "Operating System :: OS Independent",
+]
+requires-python = ">=3.12"
+version = "0.1.0"
+authors = [{ name = "gdsfactory community", email = "contact@gdsfactory.com" }]
+dependencies = [
+    "pydantic>=2.13.3,<3",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=9.0.3,<10",
+    "ruff>=0.15.12,<0.16",
+]
+
+[tool.setuptools.packages.find]
+where = ["src"]
+
+[tool.setuptools.package-data]
+kfnetlist = ["py.typed"]
