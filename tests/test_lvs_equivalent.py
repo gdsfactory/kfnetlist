@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from kfnetlist import Net, Netlist, NetlistPort, PortRef
+from kfnetlist import Netlist, NetlistPort, PortRef
 
 
 def _make_netlist_with_pads() -> Netlist:
@@ -24,10 +24,9 @@ def test_lvs_equivalent_collapses_to_canonical_port_name() -> None:
     flat_ports = {
         (p.instance, p.port)
         for net in out.nets
-        for p in net.root
+        for p in net
         if isinstance(p, PortRef)
     }
-    # All pad ports collapse to the canonical first one ("e1")
     assert flat_ports == {("p1", "e1"), ("p2", "e1")}
 
 
@@ -51,16 +50,13 @@ def test_lvs_equivalent_merges_changed_nets_sharing_canonical_port() -> None:
         equivalent_ports={"pad_m1": [["e1", "e2", "e3", "e4"]]},
     )
 
-    # The two nets that touched the pad on different equivalent ports must merge
     pad_nets = [
         net
         for net in out.nets
-        if any(
-            isinstance(p, PortRef) and p.instance == "pad" for p in net.root
-        )
+        if any(isinstance(p, PortRef) and p.instance == "pad" for p in net)
     ]
     assert len(pad_nets) == 1
-    refs = {(p.instance, p.port) for p in pad_nets[0].root if isinstance(p, PortRef)}
+    refs = {(p.instance, p.port) for p in pad_nets[0] if isinstance(p, PortRef)}
     assert ("a", "o1") in refs
     assert ("b", "o1") in refs
     assert ("pad", "e1") in refs
@@ -68,13 +64,12 @@ def test_lvs_equivalent_merges_changed_nets_sharing_canonical_port() -> None:
 
 def test_lvs_equivalent_returns_new_netlist() -> None:
     nl = _make_netlist_with_pads()
-    before = nl.model_dump_json()
+    before = nl.to_json()
     nl.lvs_equivalent(
         cell_name="top",
         equivalent_ports={"pad_m1": [["e1", "e2", "e3", "e4"]]},
     )
-    # Original must not mutate
-    assert nl.model_dump_json() == before
+    assert nl.to_json() == before
 
 
 def test_lvs_equivalent_with_top_level_port_remap() -> None:
@@ -98,13 +93,8 @@ def test_lvs_equivalent_with_top_level_port_remap() -> None:
             "top": [["e1", "e2"]],
         },
     )
-    # the two nets collapse; top-level port remap routes both NetlistPort
-    # references to "e1"
     netlist_port_names = {
-        p.name
-        for net in out.nets
-        for p in net.root
-        if isinstance(p, NetlistPort)
+        p.name for net in out.nets for p in net if isinstance(p, NetlistPort)
     }
     assert netlist_port_names == {"e1"}
 
@@ -121,18 +111,15 @@ def test_lvs_equivalent_no_change_when_component_not_in_map() -> None:
         cell_name="top",
         equivalent_ports={"pad_m1": [["e1", "e2"]]},
     )
-    # No remapping happens
     assert {
         (p.instance, p.port)
         for net in out.nets
-        for p in net.root
+        for p in net
         if isinstance(p, PortRef)
     } == {("a", "o1"), ("b", "o1")}
 
 
 def test_lvs_equivalent_eq_via_round_trip() -> None:
-    """Two semantically identical netlists, one before remap and one canonical,
-    must compare equal after `lvs_equivalent`."""
     nl = _make_netlist_with_pads()
     out = nl.lvs_equivalent(
         cell_name="top",

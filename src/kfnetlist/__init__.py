@@ -1,6 +1,6 @@
 """Standalone netlist schema decoupled from kfactory's release cadence."""
 
-from .netlist import (
+from ._native import (
     Net,
     Netlist,
     NetlistArray,

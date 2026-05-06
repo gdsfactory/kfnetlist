@@ -15,3 +15,15 @@ venv/
 .coverage
 .coverage.*
 htmlcov/
+
+# Rust
+target/
+Cargo.lock
+
+# Compiled extension modules
+*.abi3.so
+*.so
+*.pyd
+
+# Claude session-local config
+.claude/

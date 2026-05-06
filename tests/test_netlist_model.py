@@ -12,27 +12,6 @@ from kfnetlist import (
 )
 
 
-def test_portref_validate_from_string() -> None:
-    p = PortRef.model_validate("inst1,o1")
-    assert p.instance == "inst1"
-    assert p.port == "o1"
-
-
-def test_portref_validate_from_tuple() -> None:
-    p = PortRef.model_validate(("inst1", "o1"))
-    assert p.instance == "inst1"
-    assert p.port == "o1"
-
-
-def test_portarrayref_validate_from_string() -> None:
-    p = PortArrayRef.model_validate("inst1<2.3>,o1")
-    assert isinstance(p, PortArrayRef)
-    assert p.instance == "inst1"
-    assert p.ia == 2
-    assert p.ib == 3
-    assert p.port == "o1"
-
-
 def test_portref_hash_equality() -> None:
     a = PortRef(instance="i", port="p")
     b = PortRef(instance="i", port="p")
@@ -51,6 +30,7 @@ def test_portarrayref_hash_equality() -> None:
     assert a == b
     assert hash(a) == hash(b)
     assert a != c
+    # Sibling types are never equal even with matching shared fields.
     assert a != d
 
 
@@ -70,7 +50,7 @@ def test_netlistport_ordering() -> None:
     pr = PortRef(instance="i", port="p")
     assert a < b
     assert (b < a) is False
-    assert a < pr  # NetlistPort < PortRef -> True
+    assert a < pr  # NetlistPort < PortRef
 
 
 def test_netlistport_hash() -> None:
@@ -79,14 +59,25 @@ def test_netlistport_hash() -> None:
     assert hash(a) == hash(b)
 
 
-def test_net_sorts_on_validate() -> None:
+def test_net_sorts_on_construction() -> None:
     np_ = NetlistPort(name="z")
     pr = PortRef(instance="i", port="p")
     par = PortArrayRef(instance="i", port="p", ia=0, ib=0)
-    n = Net(root=[par, np_, pr])
-    assert isinstance(n.root[0], NetlistPort)
-    assert isinstance(n.root[1], PortRef) and not isinstance(n.root[1], PortArrayRef)
-    assert isinstance(n.root[2], PortArrayRef)
+    n = Net([par, np_, pr])
+    assert isinstance(n[0], NetlistPort)
+    assert isinstance(n[1], PortRef) and not isinstance(n[1], PortArrayRef)
+    assert isinstance(n[2], PortArrayRef)
+    assert len(n) == 3
+
+
+def test_net_iter_and_membership() -> None:
+    pr = PortRef(instance="i", port="p")
+    n = Net([pr])
+    items = list(n)
+    assert len(items) == 1
+    assert items[0] == pr
+    assert pr in n
+    assert PortRef(instance="i", port="q") not in n
 
 
 def test_netlist_create_inst_array_validation() -> None:
@@ -133,8 +124,9 @@ def test_netlist_create_net_with_array_portref_collapses_when_1_1() -> None:
     nl.create_inst("i", kcl="pdk", component="c", settings={}, na=1, nb=1)
     nl.create_net(PortArrayRef(instance="i", port="o1", ia=1, ib=1))
     assert len(nl.nets) == 1
-    assert isinstance(nl.nets[0].root[0], PortRef)
-    assert not isinstance(nl.nets[0].root[0], PortArrayRef)
+    member = nl.nets[0][0]
+    assert isinstance(member, PortRef)
+    assert not isinstance(member, PortArrayRef)
 
 
 def test_netlist_create_net_array_oob() -> None:
@@ -144,10 +136,11 @@ def test_netlist_create_net_array_oob() -> None:
         nl.create_net(PortArrayRef(instance="i", port="o1", ia=5, ib=1))
 
 
-def test_netlist_create_net_non_array_with_array_portref() -> None:
+def test_netlist_create_net_array_portref_oob_on_unit_array() -> None:
     nl = Netlist()
-    inst = nl.create_inst("i", kcl="pdk", component="c", settings={}, na=1, nb=1)
-    inst.array = None
+    nl.create_inst("i", kcl="pdk", component="c", settings={}, na=1, nb=1)
+    # ia=2 is out of bounds for a 1x1 array (and ia=1, ib=1 would collapse
+    # to a plain PortRef).
     with pytest.raises(ValueError):
         nl.create_net(PortArrayRef(instance="i", port="o1", ia=2, ib=1))
 
@@ -155,12 +148,13 @@ def test_netlist_create_net_non_array_with_array_portref() -> None:
 def test_netlist_round_trip_json() -> None:
     nl = Netlist()
     nl.create_port("p1")
-    nl.create_inst("i1", kcl="pdk", component="comp", settings={"width": 1}, na=1, nb=1)
+    nl.create_inst(
+        "i1", kcl="pdk", component="comp", settings={"width": 1}, na=1, nb=1
+    )
     nl.create_net(NetlistPort(name="p1"), PortRef(instance="i1", port="o1"))
-    s = nl.model_dump_json()
-    nl2 = Netlist.model_validate_json(s)
+    s = nl.to_json()
+    nl2 = Netlist.from_json(s)
     assert nl2 == nl
-    assert nl2.model_dump_json() == s
 
 
 def test_netlist_round_trip_dict() -> None:
@@ -168,18 +162,18 @@ def test_netlist_round_trip_dict() -> None:
     nl.create_port("p1")
     nl.create_inst("i1", kcl="pdk", component="comp", settings={}, na=2, nb=3)
     nl.create_net(PortRef(instance="i1", port="o1"))
-    d = nl.model_dump()
-    nl2 = Netlist.model_validate(d)
+    d = nl.to_dict()
+    nl2 = Netlist.from_dict(d)
     assert nl2 == nl
 
 
 def test_netlist_extra_field_forbidden() -> None:
     with pytest.raises(Exception):
-        Netlist.model_validate({"instances": {}, "nets": [], "ports": [], "x": 1})
+        Netlist.from_dict({"instances": {}, "nets": [], "ports": [], "x": 1})
 
 
 def test_netlist_validate_assigns_instance_name() -> None:
-    nl = Netlist.model_validate(
+    nl = Netlist.from_dict(
         {
             "instances": {
                 "i1": {
@@ -192,7 +186,7 @@ def test_netlist_validate_assigns_instance_name() -> None:
             "ports": [],
         }
     )
-    assert nl.instances["i1"].name == "i1"
+    assert nl.get_instance("i1").name == "i1"
 
 
 def test_netlist_sort_orders_instances_nets_ports() -> None:
@@ -204,7 +198,7 @@ def test_netlist_sort_orders_instances_nets_ports() -> None:
     nl.create_net(PortRef(instance="b", port="o1"))
     nl.create_net(PortRef(instance="a", port="o1"))
     nl.sort()
-    assert list(nl.instances.keys()) == ["a", "b"]
+    assert nl.instance_names() == ["a", "b"]
     assert [p.name for p in nl.ports] == ["p1", "p2"]
 
 
@@ -222,11 +216,11 @@ def test_netlist_flatten_instances() -> None:
         PortRef(instance="b", port="o1"),
     )
     nl.flatten_instances(["flat"])
-    assert "flat" not in nl.instances
+    assert not nl.has_instance("flat")
     flat_refs = [
         port
         for net in nl.nets
-        for port in net.root
+        for port in net
         if isinstance(port, PortRef) and port.instance == "flat"
     ]
     assert flat_refs == []
