@@ -25,5 +25,11 @@ Cargo.lock
 *.so
 *.pyd
 
+# Docs build artifacts
+docs/source-built/
+docs/zensical-built.yml
+docs/.build-cache/
+docs/site/
+
 # Claude session-local config
 .claude/

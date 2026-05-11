@@ -23,6 +23,20 @@ dev = [
     "pytest>=9.0.3,<10",
     "ruff>=0.15.12,<0.16",
 ]
+notebooks = [
+    "jupytext>=1.16.2,<2",
+    "nbconvert>=7.16,<8",
+    "ipykernel>=6.29,<7",
+]
+docs = [
+    "kfnetlist[notebooks]",
+    "zensical>=0.0.40,<0.1",
+    "mike @ git+https://github.com/squidfunk/mike.git",
+    "mkdocs-literate-nav>=0.6.3,<0.7",
+    "mkdocstrings[python]>=1.0.4,<1.1",
+    "pymdown-extensions>=10.21.2,<10.22",
+    "ruff>=0.15.12,<0.16",
+]
 
 [tool.maturin]
 python-source = "src"
