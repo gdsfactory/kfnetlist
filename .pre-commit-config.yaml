@@ -1,0 +1,18 @@
+repos:
+  - repo: https://github.com/astral-sh/ruff-pre-commit
+    rev: v0.15.12
+    hooks:
+      - id: ruff-check
+        args: [--fix]
+      - id: ruff-format
+  - repo: local
+    hooks:
+      - id: ty
+        name: ty check
+        entry: uvx --with-editable '.[dev]' ty check .
+        language: python
+        additional_dependencies:
+          - uv
+          - "klayout>=0.30.8"
+          - pytest
+        pass_filenames: false

@@ -22,10 +22,7 @@ def test_lvs_equivalent_collapses_to_canonical_port_name() -> None:
         equivalent_ports={"pad_m1": [["e1", "e2", "e3", "e4"]]},
     )
     flat_ports = {
-        (p.instance, p.port)
-        for net in out.nets
-        for p in net
-        if isinstance(p, PortRef)
+        (p.instance, p.port) for net in out.nets for p in net if isinstance(p, PortRef)
     }
     assert flat_ports == {("p1", "e1"), ("p2", "e1")}
 
@@ -112,10 +109,7 @@ def test_lvs_equivalent_no_change_when_component_not_in_map() -> None:
         equivalent_ports={"pad_m1": [["e1", "e2"]]},
     )
     assert {
-        (p.instance, p.port)
-        for net in out.nets
-        for p in net
-        if isinstance(p, PortRef)
+        (p.instance, p.port) for net in out.nets for p in net if isinstance(p, PortRef)
     } == {("a", "o1"), ("b", "o1")}
 
 

@@ -9,6 +9,7 @@ from ._native import (
     PortArrayRef,
     PortRef,
 )
+from .port_check import PortCheck, check_connection
 
 __version__ = "0.1.0"
 
@@ -19,5 +20,7 @@ __all__ = [
     "NetlistInstance",
     "NetlistPort",
     "PortArrayRef",
+    "PortCheck",
     "PortRef",
+    "check_connection",
 ]

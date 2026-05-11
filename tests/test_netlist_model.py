@@ -5,7 +5,6 @@ from kfnetlist import (
     Net,
     Netlist,
     NetlistArray,
-    NetlistInstance,
     NetlistPort,
     PortArrayRef,
     PortRef,
@@ -148,9 +147,7 @@ def test_netlist_create_net_array_portref_oob_on_unit_array() -> None:
 def test_netlist_round_trip_json() -> None:
     nl = Netlist()
     nl.create_port("p1")
-    nl.create_inst(
-        "i1", kcl="pdk", component="comp", settings={"width": 1}, na=1, nb=1
-    )
+    nl.create_inst("i1", kcl="pdk", component="comp", settings={"width": 1}, na=1, nb=1)
     nl.create_net(NetlistPort(name="p1"), PortRef(instance="i1", port="o1"))
     s = nl.to_json()
     nl2 = Netlist.from_json(s)
