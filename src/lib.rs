@@ -83,6 +83,34 @@ pub(crate) fn from_py_any<'py, T: for<'de> Deserialize<'de>>(
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("from_dict: {e}")))
 }
 
+pub(crate) fn pydantic_core_schema(cls: &Bound<'_, pyo3::types::PyType>) -> PyResult<PyObject> {
+    let py = cls.py();
+    let locals = pyo3::types::PyDict::new(py);
+    locals.set_item("cls", cls)?;
+    locals.set_item(
+        "cs",
+        py.import("pydantic_core")?.getattr("core_schema")?,
+    )?;
+    py.run(
+        c"def _validate(v):
+    if isinstance(v, cls):
+        return v
+    if isinstance(v, dict):
+        return cls.from_dict(v)
+    raise ValueError(f'Cannot convert {type(v).__name__} to {cls.__name__}')
+
+_schema = cs.no_info_plain_validator_function(
+    _validate,
+    serialization=cs.plain_serializer_function_ser_schema(
+        lambda v: v.to_dict(), info_arg=False,
+    ),
+)",
+        Some(&locals),
+        Some(&locals),
+    )?;
+    Ok(locals.get_item("_schema")?.unwrap().unbind())
+}
+
 /// Python-style repr for a string: single-quoted, escapes only the minimum
 /// for the values we expect (identifiers / port names). Mirrors the output
 /// used by Python's f-string `{!r}` for ASCII strings without single quotes.

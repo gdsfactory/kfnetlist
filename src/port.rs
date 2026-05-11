@@ -91,6 +91,15 @@ impl NetlistPort {
         format!("NetlistPort(name={})", py_repr(&self.name))
     }
 
+    #[classmethod]
+    fn __get_pydantic_core_schema__(
+        cls: &Bound<'_, PyType>,
+        _source_type: &Bound<'_, PyAny>,
+        _handler: &Bound<'_, PyAny>,
+    ) -> PyResult<PyObject> {
+        crate::pydantic_core_schema(cls)
+    }
+
     fn to_json(&self) -> PyResult<String> {
         json_string(self)
     }
@@ -157,6 +166,15 @@ impl PortRef {
     fn as_python_str(&self, inst_name: Option<String>) -> String {
         let inst = inst_name.unwrap_or_else(|| self.instance.clone());
         format!("{}[{}]", inst, py_repr(&self.port))
+    }
+
+    #[classmethod]
+    fn __get_pydantic_core_schema__(
+        cls: &Bound<'_, PyType>,
+        _source_type: &Bound<'_, PyAny>,
+        _handler: &Bound<'_, PyAny>,
+    ) -> PyResult<PyObject> {
+        crate::pydantic_core_schema(cls)
     }
 
     fn to_json(&self) -> PyResult<String> {
@@ -237,6 +255,15 @@ impl PortArrayRef {
             self.ia,
             self.ib
         )
+    }
+
+    #[classmethod]
+    fn __get_pydantic_core_schema__(
+        cls: &Bound<'_, PyType>,
+        _source_type: &Bound<'_, PyAny>,
+        _handler: &Bound<'_, PyAny>,
+    ) -> PyResult<PyObject> {
+        crate::pydantic_core_schema(cls)
     }
 
     fn to_json(&self) -> PyResult<String> {

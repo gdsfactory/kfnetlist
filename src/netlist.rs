@@ -498,6 +498,15 @@ impl Netlist {
         )
     }
 
+    #[classmethod]
+    fn __get_pydantic_core_schema__(
+        cls: &Bound<'_, PyType>,
+        _source_type: &Bound<'_, PyAny>,
+        _handler: &Bound<'_, PyAny>,
+    ) -> PyResult<PyObject> {
+        crate::pydantic_core_schema(cls)
+    }
+
     fn to_json(&self) -> PyResult<String> {
         json_string(&self.to_wire())
     }
