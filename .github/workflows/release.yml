@@ -67,6 +67,7 @@ jobs:
   publish:
     needs: [build, sdist]
     runs-on: ubuntu-latest
+    environment: pypi
     permissions:
       id-token: write  # trusted publishing
     steps:
