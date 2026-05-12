@@ -31,7 +31,6 @@ notebooks = [
 docs = [
     "kfnetlist[notebooks]",
     "zensical>=0.0.40,<0.1",
-    "mike @ git+https://github.com/squidfunk/mike.git",
     "mkdocs-literate-nav>=0.6.3,<0.7",
     "mkdocstrings[python]>=1.0.4,<1.1",
     "pymdown-extensions>=10.21.2,<10.22",
