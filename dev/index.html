@@ -286,7 +286,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="./guides/lvs_equivalence/" class="md-tabs__link">
+        <a href="./guides/equivalent_ports/" class="md-tabs__link">
           
   
   Guides
@@ -941,14 +941,14 @@
   
   
     <li class="md-nav__item">
-      <a href="./guides/lvs_equivalence/" class="md-nav__link">
+      <a href="./guides/equivalent_ports/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  LVS Equivalence
+  Equivalent Ports
 
     
   </span>
@@ -1325,7 +1325,7 @@
 
 
 <h1 id="kfnetlist">kfnetlist</h1>
-<p><strong>kfnetlist</strong> is a standalone, Rust-backed netlist schema for <a href="https://github.com/gdsfactory/kfactory">kfactory</a> and LVS tooling.</p>
+<p><strong>kfnetlist</strong> is a standalone, Rust-backed netlist schema for <a href="https://github.com/gdsfactory/kfactory">kfactory</a> and netlist tooling.</p>
 <p>It provides a fast, type-safe data model for circuit connectivity — instances, nets, ports, and arrays — with full JSON/dict serialization and Pydantic v2 integration. The core is implemented in Rust via PyO3 and has zero runtime Python dependencies.</p>
 <hr />
 <div class="grid cards">
@@ -1359,8 +1359,8 @@
 <li>
 <p><span class="twemoji lg middle"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 6a6 6 0 0 1 6 6c0 2.22-1.21 4.16-3 5.2V19a1 1 0 0 1-1 1h-4a1 1 0 0 1-1-1v-1.8c-1.79-1.04-3-2.98-3-5.2a6 6 0 0 1 6-6m2 15v1a1 1 0 0 1-1 1h-2a1 1 0 0 1-1-1v-1zm6-10h3v2h-3zM1 11h3v2H1zM13 1v3h-2V1zM4.92 3.5l2.13 2.14-1.42 1.41L3.5 4.93zm12.03 2.13 2.12-2.13 1.43 1.43-2.13 2.12z"/></svg></span> <strong>Guides</strong></p>
 <hr />
-<p>LVS equivalence, instance flattening, and common patterns.</p>
-<p><a href="guides/lvs_equivalence/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> LVS Equivalence</a>
+<p>Equivalent ports, instance flattening, and common patterns.</p>
+<p><a href="guides/equivalent_ports/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> Equivalent Ports</a>
 &nbsp;·&nbsp;
 <a href="guides/faq/"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M13.22 19.03a.75.75 0 0 1 0-1.06L18.19 13H3.75a.75.75 0 0 1 0-1.5h14.44l-4.97-4.97a.749.749 0 0 1 .326-1.275.75.75 0 0 1 .734.215l6.25 6.25a.75.75 0 0 1 0 1.06l-6.25 6.25a.75.75 0 0 1-1.06 0"/></svg></span> FAQ</a></p>
 </li>
@@ -1373,20 +1373,21 @@
 <li><strong>Zero runtime dependencies</strong> — the base package has no Python dependencies</li>
 <li><strong>Full serialization</strong> — <code>to_json()</code> / <code>from_json()</code> and <code>to_dict()</code> / <code>from_dict()</code> on every type</li>
 <li><strong>Pydantic v2 support</strong> — all types implement <code>__get_pydantic_core_schema__</code></li>
-<li><strong>LVS equivalence</strong> — fold electrically-equivalent ports for layout-vs-schematic comparison</li>
+<li><strong>Equivalent ports</strong> — fold electrically-equivalent ports into canonical names for netlist comparison</li>
 <li><strong>Instance flattening</strong> — merge sub-cell instances into the parent, reconnecting touching nets</li>
 <li><strong>Port checking</strong> — <code>PortCheck</code> bitmask and <code>check_connection()</code> for geometric port-pair comparison</li>
 <li><strong>Netlist extraction</strong> — extract hierarchical netlists from kfactory/klayout cells</li>
 </ul>
 <h2 id="relationship-to-kfactory">Relationship to kfactory</h2>
-<p>kfnetlist is the netlist data model that kfactory uses internally. It is published as a
-separate package so that:</p>
+<p>kfnetlist is the netlist data model that <a href="https://github.com/gdsfactory/kfactory">kfactory</a>
+uses internally. It is published as a separate package so that:</p>
 <ul>
 <li>Tools that only need netlist manipulation do not have to depend on kfactory or klayout</li>
 <li>The netlist schema can evolve on its own release cadence</li>
-<li>Downstream projects (LVS runners, PnR tools) can consume netlists without pulling in a
-  full layout framework</li>
+<li>Downstream projects can consume netlists without pulling in a full layout framework</li>
 </ul>
+<p>For end-to-end examples of netlist extraction using kfactory, see the
+<a href="https://gdsfactory.github.io/kfactory/dev/schematics/overview/">kfactory schematics documentation</a>.</p>
 
 
 

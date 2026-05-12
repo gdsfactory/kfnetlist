@@ -8,9 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://gdsfactory.github.io/dev/guides/lvs_equivalence/">
+        <link rel="canonical" href="https://gdsfactory.github.io/dev/guides/equivalent_ports/">
       
       
+        <link rel="prev" href="../../extraction/port_checking/">
+      
+      
+        <link rel="next" href="../instance_flattening/">
       
       
         
@@ -21,7 +25,7 @@
     
     
       
-        <title>LVS Equivalence - kfnetlist</title>
+        <title>Equivalent Ports - kfnetlist</title>
       
     
     
@@ -77,7 +81,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#lvs-equivalence" class="md-skip">
+        <a href="#equivalent-ports" class="md-skip">
           Skip to content
         </a>
       
@@ -117,7 +121,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              LVS Equivalence
+              Equivalent Ports
             
           </span>
         </div>
@@ -275,14 +279,16 @@
   
   
   
+    
+  
   
     
       
     
     
     
-      <li class="md-tabs__item">
-        <a href="../equivalent_ports/" class="md-tabs__link">
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="././" class="md-tabs__link">
           
   
   Guides
@@ -817,24 +823,29 @@
       
   
   
+    
   
   
+  
     
     
     
     
-      
-      
-    
-    
-    <li class="md-nav__item md-nav__item--nested">
       
         
         
-        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" checked>
         
           
-          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="">
             
   
   
@@ -851,7 +862,7 @@
             <span class="md-nav__icon md-icon"></span>
           </label>
         
-        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="true">
           <label class="md-nav__title" for="__nav_5">
             <span class="md-nav__icon md-icon"></span>
             
@@ -865,10 +876,36 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../equivalent_ports/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Equivalent Ports
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -883,6 +920,104 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#building-a-netlist-with-equivalent-ports" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Building a netlist with equivalent ports
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#applying-lvs_equivalent" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Applying <code>lvs_equivalent()</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#how-it-works" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How it works
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#port-mapping" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Port mapping
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#immutability" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Immutability
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Summary
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        See Also
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1306,8 +1441,8 @@
   
 
 
-<p><a class="md-button" href="../lvs_equivalence/lvs_equivalence.ipynb"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7z"/></svg></span> Download notebook (.ipynb)</a></p>
-<h1 id="lvs-equivalence">LVS Equivalence</h1>
+<p><a class="md-button" href="../equivalent_ports/equivalent_ports.ipynb"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7z"/></svg></span> Download notebook (.ipynb)</a></p>
+<h1 id="equivalent-ports">Equivalent Ports</h1>
 <p>Some components — pads, bumps, redistribution-layer vias — have multiple ports
 that are <strong>electrically equivalent</strong>: they connect to the same metal plane. A
 naive netlist comparison would fail because the extracted netlist tracks every
@@ -1354,8 +1489,8 @@ the other.</p>
   net[1]: &lt;out&gt; — pad1.p2
   net[2]: pad1.p1 — wg1.o2
 </code></pre></div>
-<p>The pad's <code>p1</code> and <code>p2</code> appear in separate nets. For LVS, these should be
-treated as one.</p>
+<p>The pad's <code>p1</code> and <code>p2</code> appear in separate nets. For netlist comparison,
+these should be treated as one.</p>
 <h2 id="applying-lvs_equivalent">Applying <code>lvs_equivalent()</code></h2>
 <p>The <code>equivalent_ports</code> dict maps component names to groups of port names that
 should be merged. Within each group, the first port name becomes the canonical

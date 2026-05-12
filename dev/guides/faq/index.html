@@ -288,7 +288,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../lvs_equivalence/" class="md-tabs__link">
+        <a href="../equivalent_ports/" class="md-tabs__link">
           
   
   Guides
@@ -879,14 +879,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../lvs_equivalence/" class="md-nav__link">
+      <a href="../equivalent_ports/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  LVS Equivalence
+  Equivalent Ports
 
     
   </span>
@@ -1613,8 +1613,9 @@
 <h2 id="general">General</h2>
 <h3 id="what-is-the-relationship-between-kfnetlist-and-kfactory">What is the relationship between kfnetlist and kfactory?</h3>
 <p>kfnetlist is the netlist data model that kfactory uses internally for netlist
-extraction and LVS. It is published as a separate package so that tools that
-only need netlist manipulation do not have to depend on kfactory or klayout.</p>
+extraction and connectivity verification. It is published as a separate package
+so that tools that only need netlist manipulation do not have to depend on
+kfactory or klayout.</p>
 <h3 id="does-kfnetlist-require-klayout">Does kfnetlist require klayout?</h3>
 <p>The core package (<code>kfnetlist.Netlist</code>, <code>Net</code>, port types, serialization) has
 <strong>no runtime dependencies</strong> at all.</p>
@@ -1622,7 +1623,7 @@ only need netlist manipulation do not have to depend on kfactory or klayout.</p>
 since they work with layout geometry and klayout's <code>LayoutToNetlist</code> engine.</p>
 <h3 id="why-is-the-core-written-in-rust">Why is the core written in Rust?</h3>
 <p>Performance and type safety. Netlist operations (sorting, hashing, equality
-checking, union-find for LVS equivalence) benefit from Rust's speed, and the
+checking, union-find for port equivalence) benefit from Rust's speed, and the
 strong type system catches errors at compile time rather than runtime.</p>
 <h2 id="usage">Usage</h2>
 <h3 id="why-do-instances-nets-and-ports-return-new-objects-each-time">Why do <code>instances</code>, <code>nets</code>, and <code>ports</code> return new objects each time?</h3>
@@ -1631,8 +1632,8 @@ internal state. If you need to modify the netlist, use the mutation API
 (<code>create_inst</code>, <code>create_net</code>, <code>add_net</code>, etc.).</p>
 <h3 id="why-does-sort-matter">Why does <code>sort()</code> matter?</h3>
 <p>Net member ordering and net ordering can vary between construction runs. If
-you need to compare two netlists for equality (e.g. LVS), call <code>sort()</code> on
-both first to get deterministic ordering.</p>
+you need to compare two netlists for equality, call <code>sort()</code> on both first to
+get deterministic ordering.</p>
 <h3 id="how-do-i-compare-two-netlists">How do I compare two netlists?</h3>
 <div class="highlight"><pre><span></span><code><span class="n">nl_a</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
 <span class="n">nl_b</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
@@ -1650,14 +1651,15 @@ cell hierarchy. In kfactory, the standard shim is:</p>
 </code></pre></div>
 <h3 id="what-are-equivalent-ports">What are "equivalent ports"?</h3>
 <p>Ports that are electrically the same (e.g. two pins on the same metal pad).
-<code>lvs_equivalent()</code> folds them into a single canonical port so that LVS
-comparison works correctly. See the <a href="../lvs_equivalence/">LVS Equivalence</a>
+<code>lvs_equivalent()</code> folds them into a single canonical port so that netlist
+comparison works correctly. See the <a href="../equivalent_ports/">Equivalent Ports</a>
 guide.</p>
 <h3 id="why-are-some-instances-flattened-during-extraction">Why are some instances flattened during extraction?</h3>
 <p>Unnamed instances (auto-generated routing, helper cells) and instances with
 excluded purposes are flattened into the parent netlist. This keeps the
-extracted netlist focused on the functional components that matter for LVS.
-See the <a href="../instance_flattening/">Instance Flattening</a> guide.</p>
+extracted netlist focused on the functional components that matter for
+connectivity verification. See the <a href="../instance_flattening/">Instance Flattening</a>
+guide.</p>
 
 
 

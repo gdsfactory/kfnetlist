@@ -288,7 +288,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../guides/lvs_equivalence/" class="md-tabs__link">
+        <a href="../../guides/equivalent_ports/" class="md-tabs__link">
           
   
   Guides
@@ -998,14 +998,14 @@
   
   
     <li class="md-nav__item">
-      <a href="../../guides/lvs_equivalence/" class="md-nav__link">
+      <a href="../../guides/equivalent_ports/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  LVS Equivalence
+  Equivalent Ports
 
     
   </span>
@@ -1481,7 +1481,7 @@ geometric optical extraction.</p>
 <tr>
 <td><code>port_mapping</code></td>
 <td><code>None</code></td>
-<td>Remap port names before marking (used with LVS-equivalent ports)</td>
+<td>Remap port names before marking (used with equivalent ports)</td>
 </tr>
 </tbody>
 </table>
@@ -1489,9 +1489,9 @@ geometric optical extraction.</p>
 <p>A <code>kdb.LayoutToNetlist</code> object with the extracted electrical netlist.</p>
 <h2 id="port-mapping">Port mapping</h2>
 <p>When <code>port_mapping</code> is provided, ports whose names appear in the mapping for
-their cell are renamed before materialization. This is used by the LVS
-equivalence flow to collapse multiple equivalent ports into a single canonical
-port name, preventing them from being marked as separate electrical nodes.</p>
+their cell are renamed before materialization. This collapses multiple
+equivalent ports into a single canonical port name, preventing them from being
+marked as separate electrical nodes.</p>
 <h2 id="see-also">See Also</h2>
 <table>
 <thead>
@@ -1510,8 +1510,8 @@ port name, preventing them from being marked as separate electrical nodes.</p>
 <td><a href="../overview/">Extraction Overview</a></td>
 </tr>
 <tr>
-<td>LVS equivalence</td>
-<td><a href="../../guides/lvs_equivalence/">Guides: LVS Equivalence</a></td>
+<td>Equivalent ports</td>
+<td><a href="../../guides/equivalent_ports/">Guides: Equivalent Ports</a></td>
 </tr>
 </tbody>
 </table>
