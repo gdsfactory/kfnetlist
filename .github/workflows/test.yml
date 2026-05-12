@@ -25,9 +25,5 @@ jobs:
       - uses: dtolnay/rust-toolchain@stable
       - uses: astral-sh/setup-uv@v7
       - uses: extractions/setup-just@v4
-
-      - name: Build native extension
-        run: uv run --extra dev maturin develop --release
-
       - name: Test with pytest
         run: just test ${{ matrix.python-version }}
