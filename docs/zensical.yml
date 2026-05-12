@@ -49,9 +49,6 @@ extra:
     provider: mike
     default: latest
 
-watch:
-  - ../src/kfnetlist
-
 markdown_extensions:
   - admonition
   - attr_list
