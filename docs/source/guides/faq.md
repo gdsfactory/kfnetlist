@@ -5,8 +5,9 @@
 ### What is the relationship between kfnetlist and kfactory?
 
 kfnetlist is the netlist data model that kfactory uses internally for netlist
-extraction and LVS. It is published as a separate package so that tools that
-only need netlist manipulation do not have to depend on kfactory or klayout.
+extraction and connectivity verification. It is published as a separate package
+so that tools that only need netlist manipulation do not have to depend on
+kfactory or klayout.
 
 ### Does kfnetlist require klayout?
 
@@ -19,7 +20,7 @@ since they work with layout geometry and klayout's `LayoutToNetlist` engine.
 ### Why is the core written in Rust?
 
 Performance and type safety. Netlist operations (sorting, hashing, equality
-checking, union-find for LVS equivalence) benefit from Rust's speed, and the
+checking, union-find for port equivalence) benefit from Rust's speed, and the
 strong type system catches errors at compile time rather than runtime.
 
 ## Usage
@@ -33,8 +34,8 @@ internal state. If you need to modify the netlist, use the mutation API
 ### Why does `sort()` matter?
 
 Net member ordering and net ordering can vary between construction runs. If
-you need to compare two netlists for equality (e.g. LVS), call `sort()` on
-both first to get deterministic ordering.
+you need to compare two netlists for equality, call `sort()` on both first to
+get deterministic ordering.
 
 ### How do I compare two netlists?
 
@@ -64,13 +65,14 @@ lambda i: Instance(kcl=cell.kcl, instance=i)
 ### What are "equivalent ports"?
 
 Ports that are electrically the same (e.g. two pins on the same metal pad).
-`lvs_equivalent()` folds them into a single canonical port so that LVS
-comparison works correctly. See the [LVS Equivalence](lvs_equivalence.py)
+`lvs_equivalent()` folds them into a single canonical port so that netlist
+comparison works correctly. See the [Equivalent Ports](equivalent_ports.py)
 guide.
 
 ### Why are some instances flattened during extraction?
 
 Unnamed instances (auto-generated routing, helper cells) and instances with
 excluded purposes are flattened into the parent netlist. This keeps the
-extracted netlist focused on the functional components that matter for LVS.
-See the [Instance Flattening](instance_flattening.py) guide.
+extracted netlist focused on the functional components that matter for
+connectivity verification. See the [Instance Flattening](instance_flattening.py)
+guide.

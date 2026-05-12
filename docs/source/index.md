@@ -1,6 +1,6 @@
 # kfnetlist
 
-**kfnetlist** is a standalone, Rust-backed netlist schema for [kfactory](https://github.com/gdsfactory/kfactory) and LVS tooling.
+**kfnetlist** is a standalone, Rust-backed netlist schema for [kfactory](https://github.com/gdsfactory/kfactory) and netlist tooling.
 
 It provides a fast, type-safe data model for circuit connectivity — instances, nets, ports, and arrays — with full JSON/dict serialization and Pydantic v2 integration. The core is implemented in Rust via PyO3 and has zero runtime Python dependencies.
 
@@ -44,9 +44,9 @@ It provides a fast, type-safe data model for circuit connectivity — instances,
 
     ---
 
-    LVS equivalence, instance flattening, and common patterns.
+    Equivalent ports, instance flattening, and common patterns.
 
-    [:octicons-arrow-right-24: LVS Equivalence](guides/lvs_equivalence.py)
+    [:octicons-arrow-right-24: Equivalent Ports](guides/equivalent_ports.py)
     &nbsp;·&nbsp;
     [:octicons-arrow-right-24: FAQ](guides/faq.md)
 
@@ -60,17 +60,19 @@ It provides a fast, type-safe data model for circuit connectivity — instances,
 - **Zero runtime dependencies** — the base package has no Python dependencies
 - **Full serialization** — `to_json()` / `from_json()` and `to_dict()` / `from_dict()` on every type
 - **Pydantic v2 support** — all types implement `__get_pydantic_core_schema__`
-- **LVS equivalence** — fold electrically-equivalent ports for layout-vs-schematic comparison
+- **Equivalent ports** — fold electrically-equivalent ports into canonical names for netlist comparison
 - **Instance flattening** — merge sub-cell instances into the parent, reconnecting touching nets
 - **Port checking** — `PortCheck` bitmask and `check_connection()` for geometric port-pair comparison
 - **Netlist extraction** — extract hierarchical netlists from kfactory/klayout cells
 
 ## Relationship to kfactory
 
-kfnetlist is the netlist data model that kfactory uses internally. It is published as a
-separate package so that:
+kfnetlist is the netlist data model that [kfactory](https://github.com/gdsfactory/kfactory)
+uses internally. It is published as a separate package so that:
 
 - Tools that only need netlist manipulation do not have to depend on kfactory or klayout
 - The netlist schema can evolve on its own release cadence
-- Downstream projects (LVS runners, PnR tools) can consume netlists without pulling in a
-  full layout framework
+- Downstream projects can consume netlists without pulling in a full layout framework
+
+For end-to-end examples of netlist extraction using kfactory, see the
+[kfactory schematics documentation](https://gdsfactory.github.io/kfactory/dev/schematics/overview/).

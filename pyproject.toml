@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "kfnetlist"
-description = "Standalone Netlist schema for kfactory / LVS tooling"
+description = "Standalone Netlist schema for kfactory and netlist tooling"
 classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -13,7 +13,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 requires-python = ">=3.12"
-version = "0.1.0"
+version = "0.0.0"
 authors = [{ name = "gdsfactory community", email = "contact@gdsfactory.com" }]
 dependencies = []
 
@@ -48,3 +48,36 @@ exclude = ["docs"]
 
 [tool.ty.src]
 exclude = ["docs"]
+
+[tool.tbump]
+
+[tool.tbump.version]
+current = "0.0.0"
+regex = '''
+  (?P<major>\d+)
+  \.
+  (?P<minor>\d+)
+  \.
+  (?P<patch>\d+)
+  (?:(?P<pre>(a|b|rc)\d+))?
+  (?:\.post(?P<post>\d+))?
+  (?:\.dev(?P<dev>\d+))?
+'''
+
+[tool.tbump.git]
+message_template = "Bump to {new_version}"
+tag_template = "v{new_version}"
+
+[[tool.tbump.file]]
+src = "pyproject.toml"
+search = 'version = "{current_version}"'
+
+[[tool.tbump.file]]
+src = "pyproject.toml"
+search = 'current = "{current_version}"'
+
+[[tool.tbump.file]]
+src = "Cargo.toml"
+
+[[tool.tbump.file]]
+src = "src/kfnetlist/__init__.py"

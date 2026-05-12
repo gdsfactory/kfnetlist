@@ -32,7 +32,7 @@ def l2n_elec(
 | `cell` | — | Root cell to extract from (protocol-typed) |
 | `mark_port_types` | `("electrical", "RF", "DC")` | Port types to materialize as text markers |
 | `connectivity` | `None` (uses `cell.kcl.connectivity`) | Layer connectivity rules |
-| `port_mapping` | `None` | Remap port names before marking (used with LVS-equivalent ports) |
+| `port_mapping` | `None` | Remap port names before marking (used with equivalent ports) |
 
 ### Returns
 
@@ -41,9 +41,9 @@ A `kdb.LayoutToNetlist` object with the extracted electrical netlist.
 ## Port mapping
 
 When `port_mapping` is provided, ports whose names appear in the mapping for
-their cell are renamed before materialization. This is used by the LVS
-equivalence flow to collapse multiple equivalent ports into a single canonical
-port name, preventing them from being marked as separate electrical nodes.
+their cell are renamed before materialization. This collapses multiple
+equivalent ports into a single canonical port name, preventing them from being
+marked as separate electrical nodes.
 
 ## See Also
 
@@ -51,4 +51,4 @@ port name, preventing them from being marked as separate electrical nodes.
 |-------|-------|
 | Optical extraction | [Optical Nets](optical_nets.md) |
 | Full extraction pipeline | [Extraction Overview](overview.md) |
-| LVS equivalence | [Guides: LVS Equivalence](../guides/lvs_equivalence.py) |
+| Equivalent ports | [Guides: Equivalent Ports](../guides/equivalent_ports.py) |

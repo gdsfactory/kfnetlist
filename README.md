@@ -1,7 +1,7 @@
 # kfnetlist
 
 **kfnetlist** is a standalone, Rust-backed netlist schema for
-[kfactory](https://github.com/gdsfactory/kfactory) and LVS tooling.
+[kfactory](https://github.com/gdsfactory/kfactory) and netlist tooling.
 
 It provides a fast, type-safe data model for circuit connectivity — instances,
 nets, ports, and arrays — with full JSON/dict serialization and Pydantic v2
@@ -66,8 +66,8 @@ print(nl.to_json())
 - **Full serialization** — `to_json()` / `from_json()` and `to_dict()` /
   `from_dict()` on every type
 - **Pydantic v2 support** — all types implement `__get_pydantic_core_schema__`
-- **LVS equivalence** — `Netlist.lvs_equivalent()` folds electrically-equivalent
-  ports for layout-vs-schematic comparison
+- **Equivalent ports** — `Netlist.lvs_equivalent()` folds electrically-equivalent
+  ports into canonical names for netlist comparison
 - **Instance flattening** — `Netlist.flatten_instances()` merges sub-cell
   instances into the parent, reconnecting touching nets
 - **Port checking** — `PortCheck` bitmask and `check_connection()` for

@@ -185,4 +185,4 @@ print("Properties return fresh snapshots ✓")
 # |-------|-------|
 # | Port reference types | [Ports & Refs](ports_and_refs.py) |
 # | Serialization | [Serialization](serialization.py) |
-# | LVS equivalence | [Guides: LVS Equivalence](../guides/lvs_equivalence.py) |
+# | Equivalent ports | [Guides: Equivalent Ports](../guides/equivalent_ports.py) |

@@ -18,7 +18,7 @@ nav:
       - Electrical L2N: extraction/electrical_l2n.md
       - Port Checking: extraction/port_checking.md
   - Guides:
-      - LVS Equivalence: guides/lvs_equivalence.md
+      - Equivalent Ports: guides/equivalent_ports.md
       - Instance Flattening: guides/instance_flattening.md
       - FAQ: guides/faq.md
   - Reference:

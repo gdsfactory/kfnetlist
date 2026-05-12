@@ -21,7 +21,7 @@ returns a `dict[str, Netlist]` keyed by cell name.
 ```
 extract(cell)
     │
-    ├── gather LVS-equivalent ports from cell/factory metadata
+    ├── gather equivalent ports from cell/factory metadata
     │
     ├── l2n_elec(cell)              ← electrical connectivity
     │   ├── duplicate layout
@@ -37,7 +37,7 @@ extract(cell)
         │
         ├── merge optical + electrical nets
         ├── flatten unnamed / excluded instances
-        └── apply lvs_equivalent() if equivalent ports defined
+        └── apply equivalent port folding if equivalent ports defined
 ```
 
 ## Requirements
@@ -62,9 +62,23 @@ lambda i: Instance(kcl=cell.kcl, instance=i)
 | [`l2n_elec`](electrical_l2n.md) | Electrical layout-to-netlist |
 | [`check_connection`](port_checking.py) | Port-pair comparison bitmask |
 
+## kfactory examples
+
+kfactory uses kfnetlist internally for netlist extraction. The kfactory docs
+have end-to-end examples showing extraction in practice:
+
+- [Schematic-Driven Design](https://gdsfactory.github.io/kfactory/dev/schematics/overview/) —
+  building circuits, extracting netlists with `cell.netlist()`, and comparing
+  connectivity
+- [Netlist & Schematic I/O](https://gdsfactory.github.io/kfactory/dev/schematics/netlist/) —
+  inspecting `Netlist` objects, sorting for stable comparison, serialization,
+  and handling electrically-equivalent ports
+- [45° Crossing with Virtual Cells](https://gdsfactory.github.io/kfactory/dev/schematics/crossing45/) —
+  advanced hierarchical design with netlist verification and code generation
+
 ## See Also
 
 | Topic | Where |
 |-------|-------|
 | Core netlist data model | [Concepts: Netlist Model](../concepts/netlist_model.py) |
-| LVS equivalence | [Guides: LVS Equivalence](../guides/lvs_equivalence.py) |
+| Equivalent ports | [Guides: Equivalent Ports](../guides/equivalent_ports.py) |

@@ -13,7 +13,7 @@
 # ---
 
 # %% [markdown]
-# # LVS Equivalence
+# # Equivalent Ports
 #
 # Some components — pads, bumps, redistribution-layer vias — have multiple ports
 # that are **electrically equivalent**: they connect to the same metal plane. A
@@ -64,8 +64,8 @@ for i, net in enumerate(nl.nets):
     print(f"  net[{i}]: {' — '.join(members)}")
 
 # %% [markdown]
-# The pad's `p1` and `p2` appear in separate nets. For LVS, these should be
-# treated as one.
+# The pad's `p1` and `p2` appear in separate nets. For netlist comparison,
+# these should be treated as one.
 #
 # ## Applying `lvs_equivalent()`
 #
