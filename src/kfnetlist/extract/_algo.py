@@ -42,8 +42,12 @@ class _CellLike(Protocol):
     factory_name: str
     virtual: bool
     lvs_equivalent_ports: list[list[str]] | None
-    settings: _SettingsLike
 
+    # Declared as read-only properties (rather than class attributes) so that
+    # implementations are free to expose narrower concrete types: protocol
+    # attributes are invariant, properties are covariant on read.
+    @property
+    def settings(self) -> _SettingsLike: ...
     @property
     def library_cell(self) -> _CellLike: ...
     @property
@@ -62,11 +66,13 @@ class _InstanceLike(Protocol):
     name: str
     na: int
     nb: int
-    cell: _CellLike
     instance: kdb.Instance
     dcplx_trans: kdb.DCplxTrans
     purpose: str | None
 
+    # Read-only for the same covariance reason as `_CellLike.settings`.
+    @property
+    def cell(self) -> _CellLike: ...
     @property
     def ports(self) -> Iterable[_PortLike]: ...
     def is_named(self) -> bool: ...

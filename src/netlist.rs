@@ -8,7 +8,7 @@ use serde::{Deserialize, Serialize};
 
 use crate::instance::{NetlistArray, NetlistInstance, NetlistInstanceWire};
 use crate::net::{Net, NetMember};
-use crate::port::{NetlistPort, PortArrayRef, PortRef};
+use crate::port::{NetlistPort, PortArrayRef, PortArrayRefData, PortRef};
 use crate::{cmp_to_py, from_py_any, json_parse, json_string, richcmp_result, to_py_dict};
 
 /// Wire format used by serde for `Netlist`. Mirrors the JSON shape but
@@ -203,8 +203,10 @@ impl Netlist {
         let iter = ports.try_iter()?;
         for item in iter {
             let item = item?;
+            // PortArrayRef must be checked before PortRef because it
+            // inherits from it.
             if let Ok(b) = item.downcast::<PortArrayRef>() {
-                let par = b.borrow().clone();
+                let par = PortArrayRefData::from_py(b);
                 let inst = self.instances.get(&par.instance).ok_or_else(|| {
                     PyValueError::new_err(format!("Unknown instance {}", par.instance))
                 })?;

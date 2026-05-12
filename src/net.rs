@@ -4,7 +4,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyList, PyType};
 use serde::{Deserialize, Serialize};
 
-use crate::port::{NetlistPort, PortArrayRef, PortRef};
+use crate::port::{NetlistPort, PortArrayRef, PortArrayRefData, PortRef};
 use crate::{
     cmp_to_py, from_py_any, hash64, json_parse, json_string, richcmp_result, to_py_dict,
 };
@@ -16,15 +16,15 @@ use crate::{
 ///      kind-tag ordering Port < Ref < ArrayRef.
 ///   2. `serde(untagged)` tries variants in declaration order. NetlistPort
 ///      (only `name`) and PortRef (`instance, port`) are uniquely identified
-///      by their fields. PortArrayRef has the same `instance, port` plus
+///      by their fields. PortArrayRefData has the same `instance, port` plus
 ///      `ia, ib`; `deny_unknown_fields` on PortRef makes serde reject the
-///      array shape and fall through to PortArrayRef.
+///      array shape and fall through to ArrayRef.
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(untagged)]
 pub enum NetMember {
     Port(NetlistPort),
     Ref(PortRef),
-    ArrayRef(PortArrayRef),
+    ArrayRef(PortArrayRefData),
 }
 
 impl NetMember {
@@ -32,13 +32,15 @@ impl NetMember {
         Ok(match self {
             NetMember::Port(p) => Py::new(py, p)?.into_any().into_bound(py),
             NetMember::Ref(r) => Py::new(py, r)?.into_any().into_bound(py),
-            NetMember::ArrayRef(r) => Py::new(py, r)?.into_any().into_bound(py),
+            NetMember::ArrayRef(d) => d.into_py(py)?.into_any().into_bound(py),
         })
     }
 
     pub(crate) fn from_py(obj: &Bound<'_, PyAny>) -> PyResult<Self> {
+        // PortArrayRef must be checked before PortRef because it inherits
+        // from it.
         if let Ok(b) = obj.downcast::<PortArrayRef>() {
-            Ok(NetMember::ArrayRef(b.borrow().clone()))
+            Ok(NetMember::ArrayRef(PortArrayRefData::from_py(b)))
         } else if let Ok(b) = obj.downcast::<PortRef>() {
             Ok(NetMember::Ref(b.borrow().clone()))
         } else if let Ok(b) = obj.downcast::<NetlistPort>() {

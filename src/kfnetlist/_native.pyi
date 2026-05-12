@@ -24,6 +24,8 @@ class PortRef:
     port: str
 
     def __init__(self, instance: str, port: str) -> None: ...
+    @property
+    def name(self) -> str: ...
     def __hash__(self) -> int: ...
     def __lt__(self, other: object) -> bool: ...
     def __le__(self, other: object) -> bool: ...
@@ -37,9 +39,7 @@ class PortRef:
     @classmethod
     def from_dict(cls, obj: dict[str, Any]) -> Self: ...
 
-class PortArrayRef:
-    instance: str
-    port: str
+class PortArrayRef(PortRef):
     ia: int
     ib: int
 
