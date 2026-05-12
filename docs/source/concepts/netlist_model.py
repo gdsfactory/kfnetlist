@@ -39,10 +39,7 @@
 from kfnetlist import (
     Net,
     Netlist,
-    NetlistArray,
-    NetlistInstance,
     NetlistPort,
-    PortArrayRef,
     PortRef,
 )
 

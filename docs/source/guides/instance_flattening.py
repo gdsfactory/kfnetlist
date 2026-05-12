@@ -21,7 +21,7 @@
 # the parent cell's netlist.
 
 # %%
-from kfnetlist import Netlist, NetlistPort, PortRef
+from kfnetlist import Netlist, PortRef
 
 # %% [markdown]
 # ## Example: flattening a helper instance
@@ -37,18 +37,24 @@ nl.create_inst("helper", kcl="PDK", component="passthrough")
 nl.create_inst("sink", kcl="PDK", component="sink")
 
 # src.out → helper.in
-nl.create_net(PortRef(instance="src", port="out"), PortRef(instance="helper", port="in"))
+nl.create_net(
+    PortRef(instance="src", port="out"), PortRef(instance="helper", port="in")
+)
 
 # helper.out → sink.in
-nl.create_net(PortRef(instance="helper", port="out"), PortRef(instance="sink", port="in"))
+nl.create_net(
+    PortRef(instance="helper", port="out"), PortRef(instance="sink", port="in")
+)
 
 nl.sort()
 
 print("Before flattening:")
 print(f"  Instances: {nl.instance_names()}")
 for i, net in enumerate(nl.nets):
-    members = [f"{m.instance}.{m.port}" if isinstance(m, PortRef) else f"<{m.name}>"
-               for m in net]
+    members = [
+        f"{m.instance}.{m.port}" if isinstance(m, PortRef) else f"<{m.name}>"
+        for m in net
+    ]
     print(f"  net[{i}]: {' — '.join(members)}")
 
 # %% [markdown]
@@ -64,8 +70,10 @@ nl.sort()
 print("\nAfter flattening 'helper':")
 print(f"  Instances: {nl.instance_names()}")
 for i, net in enumerate(nl.nets):
-    members = [f"{m.instance}.{m.port}" if isinstance(m, PortRef) else f"<{m.name}>"
-               for m in net]
+    members = [
+        f"{m.instance}.{m.port}" if isinstance(m, PortRef) else f"<{m.name}>"
+        for m in net
+    ]
     print(f"  net[{i}]: {' — '.join(members)}")
 
 # %% [markdown]

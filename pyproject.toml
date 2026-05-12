@@ -42,3 +42,9 @@ docs = [
 python-source = "src"
 module-name = "kfnetlist._native"
 features = ["pyo3/extension-module"]
+
+[tool.ruff]
+exclude = ["docs"]
+
+[tool.ty.src]
+exclude = ["docs"]

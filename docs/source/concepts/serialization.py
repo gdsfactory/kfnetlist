@@ -69,10 +69,12 @@ print("Dict:", aref.to_dict())
 # ### Net
 
 # %%
-net = Net([
-    NetlistPort(name="in"),
-    PortRef(instance="wg1", port="o1"),
-])
+net = Net(
+    [
+        NetlistPort(name="in"),
+        PortRef(instance="wg1", port="o1"),
+    ]
+)
 print("JSON:", net.to_json())
 print("Dict:", net.to_dict())
 

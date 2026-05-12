@@ -41,7 +41,7 @@ from typing import Any
 import jupytext
 import nbformat
 from nbconvert import MarkdownExporter
-from nbconvert.preprocessors import ExecutePreprocessor, TagRemovePreprocessor
+from nbconvert.preprocessors import ExecutePreprocessor
 from traitlets.config import Config
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -79,9 +79,7 @@ _PY_LINK_RE = re.compile(r"(\]\((?!https?://)[^)]+?)\.py(#[^)]*)?\)")
 
 def rewrite_py_links(text: str) -> str:
     """Rewrite Markdown links from foo.py → foo.md (skips http(s) URLs)."""
-    return _PY_LINK_RE.sub(
-        lambda m: f"{m.group(1)}.md{m.group(2) or ''})", text
-    )
+    return _PY_LINK_RE.sub(lambda m: f"{m.group(1)}.md{m.group(2) or ''})", text)
 
 
 def fence_indented_blocks(text: str) -> str:
@@ -101,8 +99,10 @@ def fence_indented_blocks(text: str) -> str:
             out.append(line)
             i += 1
             continue
-        if not in_fence and line.startswith("    ") and (
-            i == 0 or lines[i - 1].strip() == ""
+        if (
+            not in_fence
+            and line.startswith("    ")
+            and (i == 0 or lines[i - 1].strip() == "")
         ):
             block: list[str] = []
             while i < len(lines):
@@ -258,9 +258,7 @@ def gen_api_reference(out_root: Path, src_pkg: Path) -> list[Path]:
             parts = parts[:-1]
             sub_parts = parts[1:]
             doc_rel = (
-                Path("index.md")
-                if not sub_parts
-                else Path(*sub_parts) / "index.md"
+                Path("index.md") if not sub_parts else Path(*sub_parts) / "index.md"
             )
         else:
             sub_parts = parts[1:]
@@ -269,11 +267,7 @@ def gen_api_reference(out_root: Path, src_pkg: Path) -> list[Path]:
         target.parent.mkdir(parents=True, exist_ok=True)
         ident = ".".join(parts)
         if is_package:
-            target.write_text(
-                f"::: {ident}\n"
-                "    options:\n"
-                "      members: false\n"
-            )
+            target.write_text(f"::: {ident}\n    options:\n      members: false\n")
         else:
             target.write_text(f"::: {ident}\n")
         written.append(target)
@@ -286,14 +280,9 @@ def gen_api_reference(out_root: Path, src_pkg: Path) -> list[Path]:
     return written
 
 
-def _api_tree_to_yaml(
-    tree: list[tuple[int, str, str]], indent: int = 0
-) -> str:
+def _api_tree_to_yaml(tree: list[tuple[int, str, str]], indent: int = 0) -> str:
     n = len(tree)
-    is_pkg = [
-        i + 1 < n and tree[i + 1][0] > tree[i][0]
-        for i in range(n)
-    ]
+    is_pkg = [i + 1 < n and tree[i + 1][0] > tree[i][0] for i in range(n)]
     pad = " " * indent
     lines: list[str] = []
     for i, (depth, title, doc_rel) in enumerate(tree):
