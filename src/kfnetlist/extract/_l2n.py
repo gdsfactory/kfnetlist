@@ -67,12 +67,26 @@ def l2n_elec(
             c_.name,
             port_mapping.get(c_.factory_name, {}) if c_.has_factory_name() else {},
         )
+        # For each equivalence group (keyed by its canonical name), pick the
+        # first port whose ``port_type`` is markable — that's the one we
+        # stamp into the layout, labelled with the canonical name. Without
+        # this step a group whose declared canonical has a non-markable
+        # ``port_type`` (e.g. a pad cell where ``"pad"`` is the canonical
+        # but ``port_type='pad'``) would emit no label at all, leaving the
+        # extracted net unnamed.
+        preferred_for_canonical: dict[str, str] = {}
         for port in c_.ports:
-            port_name = mapping.get(port.name, port.name)
-            if port_name == port.name and port.port_type in mark_port_types:
-                c.shapes(port.layer_info).insert(
-                    kdb.Text(string=port.name, trans=port.trans)
-                )
+            if port.port_type not in mark_port_types:
+                continue
+            canonical = mapping.get(port.name, port.name)
+            preferred_for_canonical.setdefault(canonical, port.name)
+        for port in c_.ports:
+            canonical = mapping.get(port.name, port.name)
+            if preferred_for_canonical.get(canonical) != port.name:
+                continue
+            c.shapes(port.layer_info).insert(
+                kdb.Text(string=canonical, trans=port.trans)
+            )
 
     l2n: kdb.LayoutToNetlist = kdb.LayoutToNetlist(
         kdb.RecursiveShapeIterator(ly_elec, ly_elec.cell(cell.name), [])
