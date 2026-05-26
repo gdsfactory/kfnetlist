@@ -91,6 +91,8 @@ This ensures that equivalent ports resolve to the same net name in the extracted
 
 Connectivity rules come from `cell.kcl.connectivity` -- a list of layer groups. Each group is a chain of layers that connect to each other:
 
+
+
 ```python
 connectivity = [
     [metal1_info, via1_info, metal2_info],
@@ -98,7 +100,11 @@ connectivity = [
 ]
 ```
 
-> Diogo: This information is already readily available in the layerstack configuration of each gdsfactory's PDK. TODO
+If not provided, get it directly from active PDK technology information `_l2n.py::l2n_elec(...)`: 
+
+```python
+connectivity = connectivity or cell.kcl.connectivity
+```
 
 For each layer group, the module:
 

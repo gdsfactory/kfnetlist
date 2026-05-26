@@ -1,0 +1,11 @@
+{
+  "top_circuit": "TOP",
+  "dbu": 0.001,
+  "layers": [
+    "M1",
+    "M2"
+  ],
+  "circuits": {
+    "TOP": {}
+  }
+}
