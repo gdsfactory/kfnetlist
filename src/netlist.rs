@@ -331,8 +331,9 @@ impl Netlist {
             .filter(|p| !ports_in_nets.contains(&p.name))
             .map(|p| p.name.clone())
             .collect();
-        unconnected.sort();
-
+        unconnected.sort(); // Sort just to make test results deterministic.
+        // Singleton nets are often a sign of an unintentional open connection, so we report them as well.
+        // Singleton nets can also just be an electrical interconnect net
         let singleton_list = PyList::empty(py);
         for net in &self.nets {
             if net.members.len() == 1 {
