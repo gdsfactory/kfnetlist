@@ -311,6 +311,61 @@ impl Netlist {
         Ok(())
     }
 
+    /// Detect open (unconnected) elements in this netlist.
+    ///
+    /// Returns a dict with:
+    /// - ``unconnected_ports``: top-level port names not appearing in any net
+    /// - ``singleton_nets``: nets with only a single member (dangling stubs)
+    fn detect_opens<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let mut ports_in_nets: HashSet<String> = HashSet::new();
+        for net in &self.nets {
+            for m in &net.members {
+                if let NetMember::Port(p) = m {
+                    ports_in_nets.insert(p.name.clone());
+                }
+            }
+        }
+        let mut unconnected: Vec<String> = self
+            .ports
+            .iter()
+            .filter(|p| !ports_in_nets.contains(&p.name))
+            .map(|p| p.name.clone())
+            .collect();
+        unconnected.sort();
+
+        let singleton_list = PyList::empty(py);
+        for net in &self.nets {
+            if net.members.len() == 1 {
+                singleton_list.append(Py::new(py, net.clone())?)?;
+            }
+        }
+
+        let dict = PyDict::new(py);
+        dict.set_item("unconnected_ports", unconnected)?;
+        dict.set_item("singleton_nets", singleton_list)?;
+        Ok(dict)
+    }
+
+    /// Return nets present in *reference* but absent from ``self``.
+    ///
+    /// This is the set difference ``set(reference.nets) - set(self.nets)``
+    /// and represents nets that should exist (according to the reference
+    /// netlist / schematic) but were not found during extraction.
+    fn find_open_nets<'py>(
+        &self,
+        py: Python<'py>,
+        reference: &Netlist,
+    ) -> PyResult<Bound<'py, PyList>> {
+        let own: HashSet<&Net> = self.nets.iter().collect();
+        let list = PyList::empty(py);
+        for net in &reference.nets {
+            if !own.contains(net) {
+                list.append(Py::new(py, net.clone())?)?;
+            }
+        }
+        Ok(list)
+    }
+
     /// Sort instances by name, ports by name, members within each net,
     /// and the nets list itself.
     fn sort(&mut self) {
