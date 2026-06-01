@@ -213,7 +213,7 @@ def parse_l2n(
     Returns
     -------
     dict
-        ``{"top_circuit": str, "layers": list[str],
+        ``{"top_circuit": str, "layers": list[{"name": str, "layer": int, "datatype": int}],
         "circuits": {name: {...}, ...}}``.
     """
     top_cell_name = l2n.internal_top_cell().name
@@ -234,7 +234,15 @@ def parse_l2n(
     if excl_layers is not None:
         filtered_infos = [i for i in filtered_infos if i not in excl_layers]
     reported_layers = sorted(
-        _layer_display_name(info) for info in filtered_infos
+        (
+            {
+                "name": _layer_display_name(info),
+                "layer": info.layer,
+                "datatype": info.datatype,
+            }
+            for info in filtered_infos
+        ),
+        key=lambda d: d["name"],
     )
 
     if flatten:

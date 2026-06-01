@@ -298,9 +298,13 @@ class TestParseL2N:
     def test_layers_reported(self, l2n_fixture) -> None:
         l2n, _, _ = l2n_fixture
         result = parse_l2n(l2n)
-        assert "M1" in result["layers"]
-        assert "M2" in result["layers"]
-        assert result["layers"] == sorted(result["layers"])
+        layer_names = [l["name"] for l in result["layers"]]
+        assert "M1" in layer_names
+        assert "M2" in layer_names
+        assert layer_names == sorted(layer_names)
+        for entry in result["layers"]:
+            assert "layer" in entry
+            assert "datatype" in entry
 
     def test_both_circuits_present(self, l2n_fixture) -> None:
         l2n, _, _ = l2n_fixture
@@ -324,14 +328,16 @@ class TestParseL2N:
     def test_include_layers(self, l2n_fixture) -> None:
         l2n, m1_info, m2_info = l2n_fixture
         result = parse_l2n(l2n, include_layers=[m1_info])
-        assert "M1" in result["layers"]
-        assert "M2" not in result["layers"]
+        layer_names = [l["name"] for l in result["layers"]]
+        assert "M1" in layer_names
+        assert "M2" not in layer_names
 
     def test_exclude_layers(self, l2n_fixture) -> None:
         l2n, m1_info, m2_info = l2n_fixture
         result = parse_l2n(l2n, exclude_layers=[m2_info])
-        assert "M1" in result["layers"]
-        assert "M2" not in result["layers"]
+        layer_names = [l["name"] for l in result["layers"]]
+        assert "M1" in layer_names
+        assert "M2" not in layer_names
 
     def test_include_instances(self, l2n_fixture) -> None:
         l2n, _, _ = l2n_fixture
