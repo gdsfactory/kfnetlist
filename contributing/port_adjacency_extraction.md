@@ -170,12 +170,12 @@ These bitmasks define the minimum bits that `check_connection()` must return for
 ```
   └─ for h, inst_layer_dict in inst_ports.items():
         for layer, ports in inst_layer_dict.items():
-  
+
           ┌─── 4.1 Adjacent bucket ports ─────────────────────────────┐
           │  additional = inst_ports[(hx+1, hy)][layer]               │
           │             + inst_ports[(hx, hy+1)][layer]               │
           └───────────────────────────────────────────────────────────┘
-  
+
           ┌─── 4.2 Instance↔Instance pairing (opposite, not snapped) ┐
           │  for n, (_, _, ia, ib, inst, port) in enumerate(ports):   │
           │    for (_, _, ia2, ib2, inst2, port2) in                  │

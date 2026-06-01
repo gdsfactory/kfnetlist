@@ -8,8 +8,6 @@ from pathlib import Path
 import pytest
 from klayout import db as kdb
 
-DATA_DIR = Path(__file__).parent / "data"
-
 from kfnetlist.extract._parser import (
     _discover_layer_regions,
     _layer_display_name,
@@ -20,10 +18,13 @@ from kfnetlist.extract._parser import (
     parse_l2n,
 )
 
+DATA_DIR = Path(__file__).parent / "data"
+
 
 # ---------------------------------------------------------------------------
 # Helpers
 # ---------------------------------------------------------------------------
+
 
 def _build_l2n() -> tuple[kdb.LayoutToNetlist, kdb.LayerInfo, kdb.LayerInfo]:
     """Two-cell hierarchy with M1 and M2, two named nets in TOP."""
@@ -36,17 +37,15 @@ def _build_l2n() -> tuple[kdb.LayoutToNetlist, kdb.LayerInfo, kdb.LayerInfo]:
 
     leaf = ly.create_cell("LEAF")
     leaf.shapes(l1).insert(kdb.Box(0, 0, 1000, 1000))
-    leaf.shapes(l1).insert(kdb.Text("PIN_A", kdb.Trans(kdb.Point(500, 500))))
+    leaf.shapes(l1).insert(kdb.Text("PIN_A", kdb.Trans(kdb.Point(500, 500))))  # ty: ignore[no-matching-overload]
 
     top = ly.create_cell("TOP")
     top.insert(kdb.CellInstArray(leaf.cell_index(), kdb.Trans()))
     top.shapes(l1).insert(kdb.Box(0, 0, 2000, 100))
     top.shapes(l2).insert(kdb.Box(500, 500, 1500, 600))
-    top.shapes(l1).insert(kdb.Text("NET_X", kdb.Trans(kdb.Point(100, 50))))
+    top.shapes(l1).insert(kdb.Text("NET_X", kdb.Trans(kdb.Point(100, 50))))  # ty: ignore[no-matching-overload]
 
-    l2n = kdb.LayoutToNetlist(
-        kdb.RecursiveShapeIterator(ly, top, [])
-    )
+    l2n = kdb.LayoutToNetlist(kdb.RecursiveShapeIterator(ly, top, []))
     r1 = l2n.make_layer(l1, "M1")
     r2 = l2n.make_layer(l2, "M2")
     l2n.connect(r1)
@@ -65,6 +64,7 @@ def l2n_fixture() -> tuple[kdb.LayoutToNetlist, kdb.LayerInfo, kdb.LayerInfo]:
 # _layer_display_name
 # ---------------------------------------------------------------------------
 
+
 class TestLayerDisplayName:
     def test_named_layer(self) -> None:
         info = kdb.LayerInfo(1, 0, "M1")
@@ -78,6 +78,7 @@ class TestLayerDisplayName:
 # ---------------------------------------------------------------------------
 # _discover_layer_regions
 # ---------------------------------------------------------------------------
+
 
 class TestDiscoverLayerRegions:
     def test_returns_registered_layers(self, l2n_fixture) -> None:
@@ -97,6 +98,7 @@ class TestDiscoverLayerRegions:
 # ---------------------------------------------------------------------------
 # _net_shapes_by_layer
 # ---------------------------------------------------------------------------
+
 
 class TestNetShapesByLayer:
     def test_returns_shapes_for_occupied_layers(self, l2n_fixture) -> None:
@@ -119,6 +121,7 @@ class TestNetShapesByLayer:
 # _serialize_net
 # ---------------------------------------------------------------------------
 
+
 class TestSerializeNet:
     def test_returns_none_for_empty_net(self, l2n_fixture) -> None:
         l2n, _, _ = l2n_fixture
@@ -135,9 +138,7 @@ class TestSerializeNet:
         leaf_circuit = l2n.netlist().circuit_by_name("LEAF")
         for net in leaf_circuit.each_net():
             if net.name == "PIN_A":
-                result = _serialize_net(
-                    net, l2n, layer_regions, None, None, None
-                )
+                result = _serialize_net(net, l2n, layer_regions, None, None, None)
                 assert result is not None
                 assert result["name"] == "PIN_A"
                 assert "pins" in result
@@ -175,9 +176,7 @@ class TestSerializeNet:
         all_infos = set(layer_regions.keys())
         top_circuit = l2n.netlist().circuit_by_name("TOP")
         for net in top_circuit.each_net():
-            result = _serialize_net(
-                net, l2n, layer_regions, None, None, all_infos
-            )
+            result = _serialize_net(net, l2n, layer_regions, None, None, all_infos)
             assert result is None
 
     def test_layer_polygons_populated(self, l2n_fixture) -> None:
@@ -209,14 +208,13 @@ class TestSerializeNet:
 # _serialize_circuit
 # ---------------------------------------------------------------------------
 
+
 class TestSerializeCircuit:
     def test_leaf_circuit_has_pins_and_nets(self, l2n_fixture) -> None:
         l2n, _, _ = l2n_fixture
         layer_regions = _discover_layer_regions(l2n)
         leaf = l2n.netlist().circuit_by_name("LEAF")
-        result = _serialize_circuit(
-            leaf, l2n, layer_regions, None, None, None, None
-        )
+        result = _serialize_circuit(leaf, l2n, layer_regions, None, None, None, None)
         assert "pins" in result
         assert "PIN_A" in result["pins"]
         assert "nets" in result
@@ -225,9 +223,7 @@ class TestSerializeCircuit:
         l2n, _, _ = l2n_fixture
         layer_regions = _discover_layer_regions(l2n)
         top = l2n.netlist().circuit_by_name("TOP")
-        result = _serialize_circuit(
-            top, l2n, layer_regions, None, None, None, None
-        )
+        result = _serialize_circuit(top, l2n, layer_regions, None, None, None, None)
         assert "subcircuits" in result
         refs = [s["circuit_ref"] for s in result["subcircuits"]]
         assert "LEAF" in refs
@@ -245,18 +241,14 @@ class TestSerializeCircuit:
         l2n, _, _ = l2n_fixture
         layer_regions = _discover_layer_regions(l2n)
         top = l2n.netlist().circuit_by_name("TOP")
-        result = _serialize_circuit(
-            top, l2n, layer_regions, None, {"LEAF"}, None, None
-        )
+        result = _serialize_circuit(top, l2n, layer_regions, None, {"LEAF"}, None, None)
         assert result.get("subcircuits", []) == []
 
     def test_unnamed_subcircuit_gets_dollar_id(self, l2n_fixture) -> None:
         l2n, _, _ = l2n_fixture
         layer_regions = _discover_layer_regions(l2n)
         top = l2n.netlist().circuit_by_name("TOP")
-        result = _serialize_circuit(
-            top, l2n, layer_regions, None, None, None, None
-        )
+        result = _serialize_circuit(top, l2n, layer_regions, None, None, None, None)
         for sc in result.get("subcircuits", []):
             if sc["name"].startswith("$"):
                 assert sc["name"][1:].isdigit()
@@ -265,9 +257,7 @@ class TestSerializeCircuit:
         l2n, _, _ = l2n_fixture
         layer_regions = _discover_layer_regions(l2n)
         leaf = l2n.netlist().circuit_by_name("LEAF")
-        result = _serialize_circuit(
-            leaf, l2n, layer_regions, None, None, None, None
-        )
+        result = _serialize_circuit(leaf, l2n, layer_regions, None, None, None, None)
         pins = result.get("pins", [])
         assert pins == sorted(pins)
 
@@ -275,6 +265,7 @@ class TestSerializeCircuit:
 # ---------------------------------------------------------------------------
 # parse_l2n
 # ---------------------------------------------------------------------------
+
 
 class TestParseL2N:
     def test_top_level_keys(self, l2n_fixture) -> None:
@@ -298,7 +289,7 @@ class TestParseL2N:
     def test_layers_reported(self, l2n_fixture) -> None:
         l2n, _, _ = l2n_fixture
         result = parse_l2n(l2n)
-        layer_names = [l["name"] for l in result["layers"]]
+        layer_names = [ly["name"] for ly in result["layers"]]
         assert "M1" in layer_names
         assert "M2" in layer_names
         assert layer_names == sorted(layer_names)
@@ -328,14 +319,14 @@ class TestParseL2N:
     def test_include_layers(self, l2n_fixture) -> None:
         l2n, m1_info, m2_info = l2n_fixture
         result = parse_l2n(l2n, include_layers=[m1_info])
-        layer_names = [l["name"] for l in result["layers"]]
+        layer_names = [ly["name"] for ly in result["layers"]]
         assert "M1" in layer_names
         assert "M2" not in layer_names
 
     def test_exclude_layers(self, l2n_fixture) -> None:
         l2n, m1_info, m2_info = l2n_fixture
         result = parse_l2n(l2n, exclude_layers=[m2_info])
-        layer_names = [l["name"] for l in result["layers"]]
+        layer_names = [ly["name"] for ly in result["layers"]]
         assert "M1" in layer_names
         assert "M2" not in layer_names
 
@@ -367,6 +358,7 @@ class TestParseL2N:
 # l2n_to_json
 # ---------------------------------------------------------------------------
 
+
 class TestL2NToJson:
     def test_returns_valid_json(self, l2n_fixture) -> None:
         l2n, _, _ = l2n_fixture
@@ -397,19 +389,16 @@ class TestL2NToJson:
 # Golden-file tests against tests/data/
 # ---------------------------------------------------------------------------
 
+
 class TestGoldenFiles:
     def test_hierarchical_matches_golden(self, l2n_fixture) -> None:
         l2n, _, _ = l2n_fixture
         result = parse_l2n(l2n)
-        expected = json.loads(
-            (DATA_DIR / "parse_l2n_hierarchical.json").read_text()
-        )
+        expected = json.loads((DATA_DIR / "parse_l2n_hierarchical.json").read_text())
         assert result == expected
 
     def test_flat_matches_golden(self, l2n_fixture) -> None:
         l2n, _, _ = l2n_fixture
         result = parse_l2n(l2n, flatten=True)
-        expected = json.loads(
-            (DATA_DIR / "parse_l2n_flat.json").read_text()
-        )
+        expected = json.loads((DATA_DIR / "parse_l2n_flat.json").read_text())
         assert result == expected

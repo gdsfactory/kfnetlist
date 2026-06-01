@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+# TODO: remove ty: ignore comments once Netlist.group_nets is implemented and the stub is updated
 from kfnetlist import Netlist, NetlistPort, PortRef
 
 
@@ -17,12 +18,10 @@ def test_group_nets_merges_equivalent_port_nets() -> None:
         PortRef(instance="a", port="o2"),
     )
 
-    out = nl.group_nets(equivalent_ports=[["VDD", "VDDIO"]])
+    out = nl.group_nets(equivalent_ports=[["VDD", "VDDIO"]])  # ty: ignore[unresolved-attribute]
 
     port_nets = [
-        net
-        for net in out.nets
-        if any(isinstance(m, NetlistPort) for m in net)
+        net for net in out.nets if any(isinstance(m, NetlistPort) for m in net)
     ]
     assert len(port_nets) == 1
     members = {
@@ -48,7 +47,7 @@ def test_group_nets_untouched_nets_preserved() -> None:
         PortRef(instance="a", port="o2"),
     )
 
-    out = nl.group_nets(equivalent_ports=[["X", "Y"]])
+    out = nl.group_nets(equivalent_ports=[["X", "Y"]])  # ty: ignore[unresolved-attribute]
     assert len(out.nets) == 2
 
 
@@ -66,7 +65,7 @@ def test_group_nets_removes_non_canonical_ports() -> None:
         PortRef(instance="a", port="o2"),
     )
 
-    out = nl.group_nets(equivalent_ports=[["VDD", "VDDIO"]])
+    out = nl.group_nets(equivalent_ports=[["VDD", "VDDIO"]])  # ty: ignore[unresolved-attribute]
     port_names = {p.name for p in out.ports}
     assert "VDD" in port_names
     assert "VDDIO" not in port_names
@@ -87,7 +86,7 @@ def test_group_nets_returns_new_netlist() -> None:
     )
 
     before = nl.to_json()
-    nl.group_nets(equivalent_ports=[["VDD", "VDDIO"]])
+    nl.group_nets(equivalent_ports=[["VDD", "VDDIO"]])  # ty: ignore[unresolved-attribute]
     assert nl.to_json() == before
 
 
@@ -100,7 +99,7 @@ def test_group_nets_empty_equivalence_is_noop() -> None:
         PortRef(instance="a", port="o1"),
     )
 
-    out = nl.group_nets(equivalent_ports=[])
+    out = nl.group_nets(equivalent_ports=[])  # ty: ignore[unresolved-attribute]
     assert len(out.nets) == 1
     assert len(out.ports) == 1
 
@@ -129,9 +128,7 @@ def test_group_nets_multiple_groups_independent() -> None:
         PortRef(instance="a", port="p4"),
     )
 
-    out = nl.group_nets(
-        equivalent_ports=[["VDD", "VDDIO"], ["VSS", "GND"]]
-    )
+    out = nl.group_nets(equivalent_ports=[["VDD", "VDDIO"], ["VSS", "GND"]])  # ty: ignore[unresolved-attribute]
     assert len(out.nets) == 2
     port_names = {p.name for p in out.ports}
     assert port_names == {"VDD", "VSS"}

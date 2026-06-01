@@ -2,7 +2,12 @@
 
 import pytest
 
-from kfnetlist import LvsError, exclude_from_rdb_xml, filter_rdb_xml, include_from_rdb_xml
+from kfnetlist import (
+    LvsError,
+    exclude_from_rdb_xml,
+    filter_rdb_xml,
+    include_from_rdb_xml,
+)
 
 SAMPLE_XML = """\
 <?xml version="1.0" encoding="utf-8"?>

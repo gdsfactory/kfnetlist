@@ -16,10 +16,14 @@ nav:
       - Overview: extraction/overview.md
       - Optical Nets: extraction/optical_nets.md
       - Electrical L2N: extraction/electrical_l2n.md
+      - L2N Parsing: extraction/l2n_parsing.md
+      - Short Detection: extraction/short_detection.md
       - Port Checking: extraction/port_checking.md
   - Guides:
       - Equivalent Ports: guides/equivalent_ports.md
       - Instance Flattening: guides/instance_flattening.md
+      - Open Detection: guides/open_detection.md
+      - RDB Filtering: guides/rdb_filtering.md
       - FAQ: guides/faq.md
   - Reference:
       # The "API" sub-tree is auto-generated and spliced in at build time

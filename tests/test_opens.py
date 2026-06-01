@@ -1,6 +1,6 @@
 """Tests for open detection: unconnected ports, singleton nets, missing nets."""
 
-from kfnetlist import Net, Netlist, NetlistPort, PortRef
+from kfnetlist import Netlist, NetlistPort, PortRef
 
 
 class TestDetectOpens:
@@ -128,7 +128,13 @@ class TestFindOpenNets:
         assert len(missing_list) == 1
         # The missing net should be the VSS net
         members = missing_list[0].members()
-        member_reprs = {m.name if hasattr(m, "name") and not hasattr(m, "instance") else f"{m.instance},{m.port}" for m in members}
+        member_reprs = {
+            m.name
+            if hasattr(m, "name") and not hasattr(m, "instance")
+            # TODO: refactor to use isinstance narrowing so ty can resolve .instance/.port on PortRef
+            else f"{m.instance},{m.port}"  # ty: ignore[unresolved-attribute]
+            for m in members
+        }
         assert "VSS" in member_reprs
         assert "b,p1" in member_reprs
 

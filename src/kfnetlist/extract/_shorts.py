@@ -12,7 +12,7 @@ from __future__ import annotations
 import dataclasses
 from typing import TYPE_CHECKING
 
-from ._parser import _discover_layer_regions, _layer_display_name, _net_shapes_by_layer
+from ._parser import _discover_layer_regions, _layer_display_name
 
 if TYPE_CHECKING:
     from collections.abc import Sequence
@@ -81,7 +81,7 @@ def detect_shorts(
             shapes = l2n.shapes_of_net(net, layer_region, True)
             if shapes.is_empty():
                 continue
-            name = net.name or f"${net.cluster_id()}"
+            name = net.name or f"${net.cluster_id}"
             net_shapes.append((name, shapes))
 
         for i, (name_a, shapes_a) in enumerate(net_shapes):
@@ -180,9 +180,7 @@ def shorts_to_lyrdb(
     from pathlib import Path
 
     report = shorts_to_rdb(shorts, cell_name=cell_name, dbu=dbu)
-    with tempfile.NamedTemporaryFile(
-        suffix=".lyrdb", delete=False, mode="w"
-    ) as f:
+    with tempfile.NamedTemporaryFile(suffix=".lyrdb", delete=False, mode="w") as f:
         path = f.name
     try:
         report.save(path)

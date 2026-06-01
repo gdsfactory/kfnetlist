@@ -70,16 +70,10 @@ def _serialize_net(
             layer_set = set(net_shapes)
             if include_layers is not None and not layer_set & include_layers:
                 return None
-            if (
-                exclude_layers is not None
-                and layer_set
-                and layer_set <= exclude_layers
-            ):
+            if exclude_layers is not None and layer_set and layer_set <= exclude_layers:
                 return None
 
-    pins: list[str] = [
-        pr.pin().name() for pr in net.each_pin() if pr.pin().name()
-    ]
+    pins: list[str] = [pr.pin().name() for pr in net.each_pin() if pr.pin().name()]
 
     subcircuit_pins: list[dict[str, str]] = []
     for sc_pin in net.each_subcircuit_pin():
@@ -114,9 +108,7 @@ def _serialize_net(
             for poly in shapes.each():
                 polys.append([[p.x, p.y] for p in poly.each_point_hull()])
                 for h in range(poly.holes()):
-                    holes.append(
-                        [[p.x, p.y] for p in poly.each_point_hole(h)]
-                    )
+                    holes.append([[p.x, p.y] for p in poly.each_point_hole(h)])
             layer_to_polygons[name] = polys
             if holes:
                 layer_to_holes[name] = holes
@@ -138,9 +130,7 @@ def _serialize_circuit(
     """Serialize one circuit: pins, subcircuits, and nets."""
     pins = sorted(p.name() for p in circuit.each_pin() if p.name())
 
-    has_inst_filter = (
-        include_instances is not None or exclude_instances is not None
-    )
+    has_inst_filter = include_instances is not None or exclude_instances is not None
     included_subc_ids: set[int] = set()
     subcircuits: list[dict[str, Any]] = []
 
@@ -221,12 +211,8 @@ def parse_l2n(
 
     incl_layers = set(include_layers) if include_layers is not None else None
     excl_layers = set(exclude_layers) if exclude_layers is not None else None
-    incl_inst = (
-        set(include_instances) if include_instances is not None else None
-    )
-    excl_inst = (
-        set(exclude_instances) if exclude_instances is not None else None
-    )
+    incl_inst = set(include_instances) if include_instances is not None else None
+    excl_inst = set(exclude_instances) if exclude_instances is not None else None
 
     filtered_infos = list(layer_regions)
     if incl_layers is not None:

@@ -7,7 +7,12 @@ import pytest
 kdb = pytest.importorskip("klayout.db")
 rdb_mod = pytest.importorskip("klayout.rdb")
 
-from kfnetlist.extract._shorts import ShortResult, detect_shorts, shorts_to_lyrdb, shorts_to_rdb
+from kfnetlist.extract._shorts import (  # noqa: E402
+    ShortResult,
+    detect_shorts,
+    shorts_to_lyrdb,
+    shorts_to_rdb,
+)
 
 
 def _make_l2n_with_short() -> tuple[kdb.LayoutToNetlist, str]:
@@ -172,7 +177,10 @@ class TestShortsToRdb:
         # Create a mock ShortResult with a real Region
         region = kdb.Region(kdb.Box(100, 100, 200, 200))
         short = ShortResult(
-            net_a="VDD", net_b="VSS", layer="M1", overlap=region,
+            net_a="VDD",
+            net_b="VSS",
+            layer="M1",
+            overlap=region,
         )
         db = shorts_to_rdb([short], cell_name="TOP", dbu=0.001)
 
@@ -194,7 +202,10 @@ class TestShortsToRdb:
     def test_rdb_polygon_values(self):
         region = kdb.Region(kdb.Box(0, 0, 1000, 1000))
         short = ShortResult(
-            net_a="A", net_b="B", layer="M1", overlap=region,
+            net_a="A",
+            net_b="B",
+            layer="M1",
+            overlap=region,
         )
         db = shorts_to_rdb([short], cell_name="TOP", dbu=0.001)
         items = list(db.each_item())
@@ -209,7 +220,10 @@ class TestShortsToLyrdb:
     def test_produces_valid_xml(self):
         region = kdb.Region(kdb.Box(100, 100, 200, 200))
         short = ShortResult(
-            net_a="VDD", net_b="VSS", layer="M1", overlap=region,
+            net_a="VDD",
+            net_b="VSS",
+            layer="M1",
+            overlap=region,
         )
         xml = shorts_to_lyrdb([short], cell_name="TOP", dbu=0.001)
         assert "<?xml" in xml
@@ -224,7 +238,10 @@ class TestShortsToLyrdb:
     def test_lyrdb_roundtrips_through_klayout(self):
         region = kdb.Region(kdb.Box(0, 0, 500, 500))
         short = ShortResult(
-            net_a="NET_A", net_b="NET_B", layer="M2", overlap=region,
+            net_a="NET_A",
+            net_b="NET_B",
+            layer="M2",
+            overlap=region,
         )
         xml = shorts_to_lyrdb([short], cell_name="TOP", dbu=0.001)
 
@@ -232,9 +249,7 @@ class TestShortsToLyrdb:
         import tempfile
         from pathlib import Path
 
-        with tempfile.NamedTemporaryFile(
-            suffix=".lyrdb", delete=False, mode="w"
-        ) as f:
+        with tempfile.NamedTemporaryFile(suffix=".lyrdb", delete=False, mode="w") as f:
             f.write(xml)
             path = f.name
         try:
@@ -251,7 +266,10 @@ class TestShortsToLyrdb:
 
         region = kdb.Region(kdb.Box(0, 0, 100, 100))
         short = ShortResult(
-            net_a="A", net_b="B", layer="M1", overlap=region,
+            net_a="A",
+            net_b="B",
+            layer="M1",
+            overlap=region,
         )
         xml = shorts_to_lyrdb([short], cell_name="TOP", dbu=0.001)
 

@@ -93,7 +93,7 @@ Key takeaways for the array/cross-instance case:
 - `l2n.extract_netlist()` handles the array expansion internally; you never need to manually flatten.
 - Cross-instance connectivity is purely overlap-based in the parent coordinate system — no cell names or labels required.
 
---- 
+---
 
 # Example Python pseudo code:
 

@@ -100,7 +100,7 @@ connectivity = [
 ]
 ```
 
-If not provided, get it directly from active PDK technology information `_l2n.py::l2n_elec(...)`: 
+If not provided, get it directly from active PDK technology information `_l2n.py::l2n_elec(...)`:
 
 ```python
 connectivity = connectivity or cell.kcl.connectivity
