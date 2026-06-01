@@ -3,8 +3,7 @@
 Given a :class:`klayout.db.LayoutToNetlist` (from :func:`l2n_elec`),
 detects unexpected polygon overlaps between different nets on the same
 layer.  Overlap regions are computed via ``Region.__and__`` (boolean
-intersection) and returned as structured results that can be converted
-to a KLayout Report Database for visualisation in the marker browser.
+intersection) and returned as structured results.
 """
 
 from __future__ import annotations
@@ -18,7 +17,6 @@ if TYPE_CHECKING:
     from collections.abc import Sequence
 
     from klayout import db as kdb
-    from klayout import rdb
 
 
 @dataclasses.dataclass
@@ -97,93 +95,3 @@ def detect_shorts(
                         )
                     )
     return shorts
-
-
-def shorts_to_rdb(
-    shorts: list[ShortResult],
-    *,
-    cell_name: str = "top",
-    dbu: float = 0.001,
-) -> rdb.ReportDatabase:
-    """Convert short results to a klayout :class:`rdb.ReportDatabase`.
-
-    Parameters
-    ----------
-    shorts:
-        Results from :func:`detect_shorts`.
-    cell_name:
-        Cell name for the report database.
-    dbu:
-        Database unit in microns, used to convert integer coordinates to
-        microns for the RDB markers.
-
-    Returns
-    -------
-    rdb.ReportDatabase
-        Loadable in KLayout's marker browser.
-    """
-    from klayout import rdb as klayout_rdb
-
-    db = klayout_rdb.ReportDatabase("Geometric short detection")
-    db.generator = "kfnetlist"
-    db.top_cell_name = cell_name
-    cell_id = db.create_cell(cell_name).rdb_id()
-
-    cat = db.create_category("LVS")
-    cat.description = "LVS Errors"
-    short_cat = db.create_category(cat, "short")
-    short_cat.description = "Geometric shorts (unexpected overlaps)"
-
-    for s in shorts:
-        n_locations = s.overlap.count()
-        text = (
-            f"Geometric short between '{s.net_a}' and '{s.net_b}' "
-            f"on {s.layer} ({n_locations} location"
-            f"{'s' if n_locations != 1 else ''})"
-        )
-        item = db.create_item(cell_id, short_cat.rdb_id())
-        item.add_value(klayout_rdb.RdbItemValue(text))
-        for poly in s.overlap.each():
-            item.add_value(klayout_rdb.RdbItemValue(poly.to_dtype(dbu)))
-
-    return db
-
-
-def shorts_to_lyrdb(
-    shorts: list[ShortResult],
-    *,
-    cell_name: str = "top",
-    dbu: float = 0.001,
-) -> str:
-    """Convert short results to lyrdb XML string.
-
-    This is a convenience wrapper around :func:`shorts_to_rdb` that
-    serialises the result to KLayout's lyrdb XML format.  The XML can
-    be loaded with ``rdb.ReportDatabase.load()`` or fed to the Rust
-    filtering functions (:func:`kfnetlist.include_from_rdb_xml`, etc.).
-
-    Parameters
-    ----------
-    shorts:
-        Results from :func:`detect_shorts`.
-    cell_name:
-        Cell name for the report database.
-    dbu:
-        Database unit in microns.
-
-    Returns
-    -------
-    str
-        lyrdb XML string loadable by KLayout.
-    """
-    import tempfile
-    from pathlib import Path
-
-    report = shorts_to_rdb(shorts, cell_name=cell_name, dbu=dbu)
-    with tempfile.NamedTemporaryFile(suffix=".lyrdb", delete=False, mode="w") as f:
-        path = f.name
-    try:
-        report.save(path)
-        return Path(path).read_text()
-    finally:
-        Path(path).unlink(missing_ok=True)

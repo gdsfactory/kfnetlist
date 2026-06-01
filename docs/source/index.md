@@ -46,13 +46,11 @@ It provides a fast, type-safe data model for circuit connectivity — instances,
 
     ---
 
-    Equivalent ports, open detection, RDB filtering, and common patterns.
+    Equivalent ports, open detection, and common patterns.
 
     [:octicons-arrow-right-24: Equivalent Ports](guides/equivalent_ports.py)
     &nbsp;·&nbsp;
     [:octicons-arrow-right-24: Open Detection](guides/open_detection.py)
-    &nbsp;·&nbsp;
-    [:octicons-arrow-right-24: RDB Filtering](guides/rdb_filtering.py)
     &nbsp;·&nbsp;
     [:octicons-arrow-right-24: FAQ](guides/faq.md)
 
@@ -73,8 +71,6 @@ It provides a fast, type-safe data model for circuit connectivity — instances,
 - **L2N parsing** — convert klayout `LayoutToNetlist` results to JSON-serializable dicts
 - **Short detection** — find geometric polygon overlaps between distinct nets
 - **Open detection** — find unconnected ports, singleton nets, and missing nets vs. a reference
-- **RDB filtering** — filter KLayout Report Databases by error category with typed `LvsError` constants
-- **Error summary** — generate Markdown tables from verification results
 
 ## Relationship to kfactory
 

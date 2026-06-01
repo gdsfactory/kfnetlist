@@ -9,46 +9,10 @@ mod instance;
 mod net;
 mod netlist;
 mod port;
-pub mod rdb;
-
 use instance::{NetlistArray, NetlistInstance};
 use net::{Net, NetIter};
 use netlist::Netlist;
 use port::{NetlistPort, PortArrayRef, PortRef};
-
-#[pyfunction]
-#[pyo3(signature = (xml, paths))]
-fn include_from_rdb(xml: &str, paths: Vec<String>) -> String {
-    rdb::include_from_rdb(xml, &paths)
-}
-
-#[pyfunction]
-#[pyo3(signature = (xml, paths))]
-fn exclude_from_rdb(xml: &str, paths: Vec<String>) -> String {
-    rdb::exclude_from_rdb(xml, &paths)
-}
-
-#[pyfunction]
-#[pyo3(signature = (xml, predicate))]
-fn filter_rdb(xml: &str, predicate: Bound<'_, PyAny>) -> PyResult<String> {
-    let mut error: Option<PyErr> = None;
-    let result = rdb::filter_rdb(xml, |path| {
-        if error.is_some() {
-            return false;
-        }
-        match predicate.call1((path,)).and_then(|r| r.extract::<bool>()) {
-            Ok(keep) => keep,
-            Err(e) => {
-                error = Some(e);
-                false
-            }
-        }
-    });
-    if let Some(e) = error {
-        return Err(e);
-    }
-    Ok(result)
-}
 
 #[pymodule]
 fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -60,9 +24,6 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Net>()?;
     m.add_class::<NetIter>()?;
     m.add_class::<Netlist>()?;
-    m.add_function(wrap_pyfunction!(include_from_rdb, m)?)?;
-    m.add_function(wrap_pyfunction!(exclude_from_rdb, m)?)?;
-    m.add_function(wrap_pyfunction!(filter_rdb, m)?)?;
     Ok(())
 }
 

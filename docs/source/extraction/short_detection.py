@@ -25,8 +25,6 @@
 # | Function | Returns | Purpose |
 # |----------|---------|---------|
 # | `detect_shorts(l2n, ...)` | `list[ShortResult]` | Find polygon overlaps between different nets |
-# | `shorts_to_rdb(shorts, ...)` | `rdb.ReportDatabase` | Convert to KLayout marker browser format |
-# | `shorts_to_lyrdb(shorts, ...)` | `str` | Convert to lyrdb XML string |
 #
 # ## How it works
 #
@@ -71,33 +69,18 @@
 # ## Example
 #
 # ```python
-# from kfnetlist.extract import detect_shorts, shorts_to_rdb
+# from kfnetlist.extract import detect_shorts
 #
 # shorts = detect_shorts(l2n)
 #
 # for s in shorts:
 #     print(f"Short: {s.net_a} <-> {s.net_b} on {s.layer}")
-#
-# # Convert to KLayout report database for marker browser
-# rdb = shorts_to_rdb(shorts, cell_name="TOP", dbu=0.001)
-# rdb.save("shorts.lyrdb")
 # ```
-#
-# ## Report output
-#
-# `shorts_to_rdb()` creates a `ReportDatabase` with items under the
-# category `LVS.short`.  Each item includes a text description and the
-# overlap polygon geometry, viewable in KLayout's marker browser.
-#
-# `shorts_to_lyrdb()` is a convenience wrapper that serializes to an
-# lyrdb XML string.  This XML can be passed directly to the RDB filtering
-# functions (`include_from_rdb_xml`, `exclude_from_rdb_xml`).
 #
 # ## See Also
 #
 # | Topic | Where |
 # |-------|-------|
 # | L2N parsing | [L2N Parsing](l2n_parsing.py) |
-# | RDB filtering | [RDB Filtering](../guides/rdb_filtering.py) |
 # | Open detection | [Open Detection](../guides/open_detection.py) |
 # | Extraction overview | [Overview](overview.md) |

@@ -8,7 +8,7 @@ from ._geometry import get_optical_nets
 from ._l2n import l2n_elec
 from ._parser import l2n_to_json, parse_l2n
 from ._settings import serialize_setting
-from ._shorts import ShortResult, detect_shorts, shorts_to_lyrdb, shorts_to_rdb
+from ._shorts import ShortResult, detect_shorts
 
 __all__ = [
     "ShortResult",
@@ -19,6 +19,4 @@ __all__ = [
     "l2n_to_json",
     "parse_l2n",
     "serialize_setting",
-    "shorts_to_lyrdb",
-    "shorts_to_rdb",
 ]

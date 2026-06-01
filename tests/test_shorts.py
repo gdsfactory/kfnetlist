@@ -5,13 +5,10 @@ from __future__ import annotations
 import pytest
 
 kdb = pytest.importorskip("klayout.db")
-rdb_mod = pytest.importorskip("klayout.rdb")
 
 from kfnetlist.extract._shorts import (  # noqa: E402
     ShortResult,
     detect_shorts,
-    shorts_to_lyrdb,
-    shorts_to_rdb,
 )
 
 
@@ -164,119 +161,3 @@ class TestDetectShorts:
         l2n, cell = _make_l2n_no_short()
         shorts = detect_shorts(l2n, circuit_name="DOES_NOT_EXIST")
         assert shorts == []
-
-
-class TestShortsToRdb:
-    def test_empty_shorts_produces_valid_rdb(self):
-        db = shorts_to_rdb([], cell_name="TOP")
-        assert db.top_cell_name == "TOP"
-        # No items
-        assert sum(1 for _ in db.each_item()) == 0
-
-    def test_rdb_has_correct_structure(self):
-        # Create a mock ShortResult with a real Region
-        region = kdb.Region(kdb.Box(100, 100, 200, 200))
-        short = ShortResult(
-            net_a="VDD",
-            net_b="VSS",
-            layer="M1",
-            overlap=region,
-        )
-        db = shorts_to_rdb([short], cell_name="TOP", dbu=0.001)
-
-        items = list(db.each_item())
-        assert len(items) == 1
-
-        item = items[0]
-        cat = db.category_by_id(item.category_id())
-        assert cat.path() == "LVS.short"
-
-        values = list(item.each_value())
-        assert len(values) >= 1
-        # First value is text description
-        assert values[0].is_string()
-        assert "VDD" in values[0].string()
-        assert "VSS" in values[0].string()
-        assert "M1" in values[0].string()
-
-    def test_rdb_polygon_values(self):
-        region = kdb.Region(kdb.Box(0, 0, 1000, 1000))
-        short = ShortResult(
-            net_a="A",
-            net_b="B",
-            layer="M1",
-            overlap=region,
-        )
-        db = shorts_to_rdb([short], cell_name="TOP", dbu=0.001)
-        items = list(db.each_item())
-        values = list(items[0].each_value())
-        # Should have text + at least one polygon
-        assert len(values) >= 2
-        polygon_values = [v for v in values if v.is_polygon()]
-        assert len(polygon_values) >= 1
-
-
-class TestShortsToLyrdb:
-    def test_produces_valid_xml(self):
-        region = kdb.Region(kdb.Box(100, 100, 200, 200))
-        short = ShortResult(
-            net_a="VDD",
-            net_b="VSS",
-            layer="M1",
-            overlap=region,
-        )
-        xml = shorts_to_lyrdb([short], cell_name="TOP", dbu=0.001)
-        assert "<?xml" in xml
-        assert "<report-database>" in xml
-        assert "VDD" in xml
-        assert "VSS" in xml
-
-    def test_empty_produces_valid_xml(self):
-        xml = shorts_to_lyrdb([], cell_name="TOP")
-        assert "<report-database>" in xml
-
-    def test_lyrdb_roundtrips_through_klayout(self):
-        region = kdb.Region(kdb.Box(0, 0, 500, 500))
-        short = ShortResult(
-            net_a="NET_A",
-            net_b="NET_B",
-            layer="M2",
-            overlap=region,
-        )
-        xml = shorts_to_lyrdb([short], cell_name="TOP", dbu=0.001)
-
-        # Load the XML into a klayout ReportDatabase
-        import tempfile
-        from pathlib import Path
-
-        with tempfile.NamedTemporaryFile(suffix=".lyrdb", delete=False, mode="w") as f:
-            f.write(xml)
-            path = f.name
-        try:
-            loaded = rdb_mod.ReportDatabase("")
-            loaded.load(path)
-            items = list(loaded.each_item())
-            assert len(items) == 1
-        finally:
-            Path(path).unlink(missing_ok=True)
-
-    def test_lyrdb_filterable_by_rust(self):
-        """The lyrdb XML can be filtered by the Rust include/exclude functions."""
-        from kfnetlist import LvsError, include_from_rdb_xml
-
-        region = kdb.Region(kdb.Box(0, 0, 100, 100))
-        short = ShortResult(
-            net_a="A",
-            net_b="B",
-            layer="M1",
-            overlap=region,
-        )
-        xml = shorts_to_lyrdb([short], cell_name="TOP", dbu=0.001)
-
-        # Include only shorts
-        kept = include_from_rdb_xml(xml, [LvsError.SHORT])
-        assert "LVS.short" in kept
-
-        # Exclude shorts
-        excluded = include_from_rdb_xml(xml, ["LVS.open"])
-        assert "LVS.short" not in excluded or "<item>" not in excluded

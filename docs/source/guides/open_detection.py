@@ -114,5 +114,4 @@ for net in missing:
 # | Topic | Where |
 # |-------|-------|
 # | Short detection | [Short Detection](../extraction/short_detection.py) |
-# | RDB filtering & error handling | [RDB Filtering](rdb_filtering.py) |
 # | Netlist data model | [Concepts: Netlist Model](../concepts/netlist_model.py) |

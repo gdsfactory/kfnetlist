@@ -23,7 +23,6 @@ nav:
       - Equivalent Ports: guides/equivalent_ports.md
       - Instance Flattening: guides/instance_flattening.md
       - Open Detection: guides/open_detection.md
-      - RDB Filtering: guides/rdb_filtering.md
       - FAQ: guides/faq.md
   - Reference:
       # The "API" sub-tree is auto-generated and spliced in at build time

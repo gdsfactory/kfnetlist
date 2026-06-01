@@ -85,4 +85,3 @@ have end-to-end examples showing extraction in practice:
 | Core netlist data model | [Concepts: Netlist Model](../concepts/netlist_model.py) |
 | Equivalent ports | [Guides: Equivalent Ports](../guides/equivalent_ports.py) |
 | Open detection | [Guides: Open Detection](../guides/open_detection.py) |
-| RDB filtering & error handling | [Guides: RDB Filtering](../guides/rdb_filtering.py) |
