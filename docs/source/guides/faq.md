@@ -65,7 +65,7 @@ lambda i: Instance(kcl=cell.kcl, instance=i)
 ### What are "equivalent ports"?
 
 Ports that are electrically the same (e.g. two pins on the same metal pad).
-`lvs_equivalent()` folds them into a single canonical port so that netlist
+`normalize()` folds them into a single canonical port so that netlist
 comparison works correctly. See the [Equivalent Ports](equivalent_ports.py)
 guide.
 
