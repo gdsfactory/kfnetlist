@@ -125,6 +125,8 @@ def get_optical_nets(
 
     portnames: set[str] = set()
     nets: list[Net] = []
+    connected_cell_ports: set[str] = set()
+    connected_inst_ports: set[tuple[str, str, int, int]] = set()
 
     for i, port in enumerate(cell.ports):
         if port.port_type not in port_types:
@@ -197,6 +199,8 @@ def get_optical_nets(
                                 ]
                             )
                         )
+                        connected_cell_ports.add(cellport.name)
+                        connected_cell_ports.add(cellport2.name)
 
                 for _, _, ia2, ib2, inst2, port2 in ports_near:
                     if (
@@ -210,6 +214,10 @@ def get_optical_nets(
                                     _net_ref(inst2, port2.name, ia2, ib2),
                                 ]
                             )
+                        )
+                        connected_cell_ports.add(cellport.name)
+                        connected_inst_ports.add(
+                            (inst2.name, port2.name, ia2, ib2)
                         )
 
     for h, inst_layer_dict in inst_ports.items():
@@ -232,5 +240,21 @@ def get_optical_nets(
                                 ]
                             )
                         )
+                        connected_inst_ports.add((inst.name, port.name, ia, ib))
+                        connected_inst_ports.add(
+                            (inst2.name, port2.name, ia2, ib2)
+                        )
+
+    for _layer_dict in cell_ports.values():
+        for cellport_list in _layer_dict.values():
+            for _, cellport in cellport_list:
+                if cellport.name not in connected_cell_ports:
+                    nets.append(Net([NetlistPort(name=cellport.name)]))
+
+    for _layer_dict in inst_ports.values():
+        for inst_port_list in _layer_dict.values():
+            for _, _, ia, ib, inst, port in inst_port_list:
+                if (inst.name, port.name, ia, ib) not in connected_inst_ports:
+                    nets.append(Net([_net_ref(inst, port.name, ia, ib)]))
 
     return nets

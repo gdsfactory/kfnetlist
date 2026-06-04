@@ -217,7 +217,7 @@ def _build_cell_netlist(
                                 )
                             )
                         break
-            if len(net_refs) > 1:
+            if net_refs:
                 nl.create_net(*net_refs)
 
     inst_names: set[str] = set()

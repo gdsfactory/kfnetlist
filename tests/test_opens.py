@@ -83,7 +83,7 @@ class TestDetectOpens:
         assert len(singletons) == 1
 
 
-class TestFindOpenNets:
+class TestFindNetDifference:
     def test_identical_netlists_returns_empty(self):
         nl = Netlist()
         nl.create_inst("a", kcl="pdk", component="res", settings={})
@@ -93,8 +93,9 @@ class TestFindOpenNets:
             PortRef(instance="a", port="p1"),
         )
         ref_nl = Netlist.from_json(nl.to_json())
-        missing = nl.find_open_nets(ref_nl)
-        assert list(missing) == []
+        diff = nl.find_net_difference(ref_nl)
+        assert list(diff["missing"]) == []
+        assert list(diff["extra"]) == []
 
     def test_missing_net_detected(self):
         # Reference has two nets
@@ -123,8 +124,8 @@ class TestFindOpenNets:
             PortRef(instance="a", port="p1"),
         )
 
-        missing = ext_nl.find_open_nets(ref_nl)
-        missing_list = list(missing)
+        diff = ext_nl.find_net_difference(ref_nl)
+        missing_list = list(diff["missing"])
         assert len(missing_list) == 1
         # The missing net should be the VSS net
         members = missing_list[0].members()
@@ -137,8 +138,9 @@ class TestFindOpenNets:
         }
         assert "VSS" in member_reprs
         assert "b,p1" in member_reprs
+        assert list(diff["extra"]) == []
 
-    def test_extra_nets_not_reported(self):
+    def test_extra_nets_reported(self):
         # Reference has one net, extracted has two
         ref_nl = Netlist()
         ref_nl.create_inst("a", kcl="pdk", component="res", settings={})
@@ -162,10 +164,12 @@ class TestFindOpenNets:
             PortRef(instance="b", port="p1"),
         )
 
-        missing = ext_nl.find_open_nets(ref_nl)
-        assert list(missing) == []
+        diff = ext_nl.find_net_difference(ref_nl)
+        assert list(diff["missing"]) == []
+        extra_list = list(diff["extra"])
+        assert len(extra_list) == 1
 
-    def test_empty_reference_returns_empty(self):
+    def test_empty_reference_returns_all_as_extra(self):
         ext_nl = Netlist()
         ext_nl.create_inst("a", kcl="pdk", component="res", settings={})
         ext_nl.create_port("VDD")
@@ -174,10 +178,11 @@ class TestFindOpenNets:
             PortRef(instance="a", port="p1"),
         )
         ref_nl = Netlist()
-        missing = ext_nl.find_open_nets(ref_nl)
-        assert list(missing) == []
+        diff = ext_nl.find_net_difference(ref_nl)
+        assert list(diff["missing"]) == []
+        assert len(list(diff["extra"])) == 1
 
-    def test_empty_extracted_returns_all_reference_nets(self):
+    def test_empty_extracted_returns_all_as_missing(self):
         ref_nl = Netlist()
         ref_nl.create_inst("a", kcl="pdk", component="res", settings={})
         ref_nl.create_port("VDD")
@@ -186,8 +191,9 @@ class TestFindOpenNets:
             PortRef(instance="a", port="p1"),
         )
         ext_nl = Netlist()
-        missing = ext_nl.find_open_nets(ref_nl)
-        assert len(list(missing)) == 1
+        diff = ext_nl.find_net_difference(ref_nl)
+        assert len(list(diff["missing"])) == 1
+        assert list(diff["extra"]) == []
 
     def test_set_semantics_on_net_equality(self):
         """Nets are compared by sorted member content, not by insertion order."""
@@ -212,5 +218,6 @@ class TestFindOpenNets:
             PortRef(instance="b", port="o1"),
         )
 
-        missing = ext_nl.find_open_nets(ref_nl)
-        assert list(missing) == []
+        diff = ext_nl.find_net_difference(ref_nl)
+        assert list(diff["missing"]) == []
+        assert list(diff["extra"]) == []

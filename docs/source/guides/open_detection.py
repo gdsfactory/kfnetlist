@@ -23,7 +23,7 @@
 # | Method | Returns | Purpose |
 # |--------|---------|---------|
 # | `detect_opens()` | `dict` | Find unconnected ports and singleton nets in a single netlist |
-# | `find_open_nets(reference)` | `list[Net]` | Find nets present in `reference` but missing from `self` |
+# | `find_net_difference(reference)` | `dict[str, list[Net]]` | Find nets missing from or extra in `self` compared to `reference` |
 
 # %% [markdown]
 # ## `detect_opens()`
@@ -62,11 +62,11 @@ print("Singleton nets:", len(result["singleton_nets"]))
 #   is a dangling stub that often indicates an accidental open.
 
 # %% [markdown]
-# ## `find_open_nets(reference)`
+# ## `find_net_difference(reference)`
 #
-# Compares two netlists by set-difference on their nets.  Returns nets that
-# exist in the *reference* (typically a schematic netlist) but are absent
-# from `self` (typically the extracted/layout netlist).
+# Compares two netlists by symmetric difference on their nets.  Returns a dict
+# with `"missing"` nets (in *reference* but absent from `self`) and `"extra"`
+# nets (in `self` but absent from *reference*).
 
 # %%
 schematic = Netlist()
@@ -85,11 +85,12 @@ extracted.create_port("VDD")
 extracted.create_port("VSS")
 extracted.create_net(NetlistPort(name="VDD"), PortRef(instance="a", port="p1"))
 
-missing = extracted.find_open_nets(schematic)
-print(f"Missing nets: {len(missing)}")
-for net in missing:
+diff = extracted.find_net_difference(schematic)
+print(f"Missing nets: {len(diff['missing'])}")
+for net in diff["missing"]:
     members = list(net)
     print(f"  Net members: {[str(m) for m in members]}")
+print(f"Extra nets: {len(diff['extra'])}")
 
 # %% [markdown]
 # Net equality is based on sorted member content, so insertion order does
@@ -103,10 +104,12 @@ for net in missing:
 # if opens["unconnected_ports"]:
 #     print(f"Warning: unconnected ports: {opens['unconnected_ports']}")
 #
-# # 2. Compare against schematic for missing nets
-# missing = extracted_nl.find_open_nets(schematic_nl)
-# if missing:
-#     print(f"Error: {len(missing)} nets missing from layout")
+# # 2. Compare against schematic for net differences
+# diff = extracted_nl.find_net_difference(schematic_nl)
+# if diff["missing"]:
+#     print(f"Error: {len(diff['missing'])} nets missing from layout")
+# if diff["extra"]:
+#     print(f"Warning: {len(diff['extra'])} unexpected nets in layout")
 # ```
 #
 # ## See Also
