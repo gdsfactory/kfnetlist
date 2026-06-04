@@ -302,7 +302,7 @@ def extract(
             exclude_purposes=exclude_purposes,
         )
         if equivalent_ports.get(c_.name) is not None:
-            nl = nl.lvs_equivalent(
+            nl = nl.normalize(
                 cell_name=c_.name,
                 equivalent_ports=equivalent_ports,
                 port_mapping=port_mapping,
