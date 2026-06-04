@@ -58,6 +58,32 @@ pub(crate) fn richcmp_result(py: Python<'_>, value: Option<bool>) -> PyObject {
     }
 }
 
+/// Normalize a free-form settings value in place so that integer-valued floats
+/// are stored as integers (e.g. `1.0` -> `1`, but `1.5` is left untouched).
+/// This is the lossless direction (`float -> int` only when `is_integer()`), so
+/// a value defined by the user/system matches the same value recovered by
+/// extraction once both sides are normalized. Recurses through arrays/objects.
+pub(crate) fn normalize_value(value: &mut serde_json::Value) {
+    use serde_json::Value::{Array, Number, Object};
+    match value {
+        Number(n) if n.is_f64() => {
+            if let Some(f) = n.as_f64() {
+                if f.is_finite() && f.fract() == 0.0 {
+                    if f >= i64::MIN as f64 && f <= i64::MAX as f64 {
+                        *n = serde_json::Number::from(f as i64);
+                    } else if f >= 0.0 && f <= u64::MAX as f64 {
+                        *n = serde_json::Number::from(f as u64);
+                    }
+                    // Otherwise it has no exact integer representation; leave it.
+                }
+            }
+        }
+        Array(items) => items.iter_mut().for_each(normalize_value),
+        Object(map) => map.values_mut().for_each(normalize_value),
+        _ => {}
+    }
+}
+
 pub(crate) fn json_string<T: Serialize>(value: &T) -> PyResult<String> {
     serde_json::to_string(value)
         .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("serialize: {e}")))
