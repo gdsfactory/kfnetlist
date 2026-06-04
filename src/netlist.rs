@@ -550,17 +550,6 @@ impl Netlist {
         Ok(nl)
     }
 
-    /// Sort instances by name, ports by name, members within each net,
-    /// and the nets list itself.
-    fn sort(&mut self) {
-        self.instances.sort_keys();
-        for net in &mut self.nets {
-            net.sort_in_place();
-        }
-        self.nets.sort();
-        self.ports.sort();
-    }
-
     fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<PyObject> {
         let py = other.py();
         let Ok(other) = other.downcast::<Netlist>() else {
