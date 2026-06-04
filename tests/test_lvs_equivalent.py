@@ -17,7 +17,7 @@ def _make_netlist_with_pads() -> Netlist:
 
 def test_lvs_equivalent_collapses_to_canonical_port_name() -> None:
     nl = _make_netlist_with_pads()
-    out = nl.lvs_equivalent(
+    out = nl.normalize(
         cell_name="top",
         equivalent_ports={"pad_m1": [["e1", "e2", "e3", "e4"]]},
     )
@@ -42,7 +42,7 @@ def test_lvs_equivalent_merges_changed_nets_sharing_canonical_port() -> None:
         PortRef(instance="b", port="o1"),
     )
 
-    out = nl.lvs_equivalent(
+    out = nl.normalize(
         cell_name="top",
         equivalent_ports={"pad_m1": [["e1", "e2", "e3", "e4"]]},
     )
@@ -62,7 +62,7 @@ def test_lvs_equivalent_merges_changed_nets_sharing_canonical_port() -> None:
 def test_lvs_equivalent_returns_new_netlist() -> None:
     nl = _make_netlist_with_pads()
     before = nl.to_json()
-    nl.lvs_equivalent(
+    nl.normalize(
         cell_name="top",
         equivalent_ports={"pad_m1": [["e1", "e2", "e3", "e4"]]},
     )
@@ -83,7 +83,7 @@ def test_lvs_equivalent_with_top_level_port_remap() -> None:
         PortRef(instance="pad", port="e1"),
     )
 
-    out = nl.lvs_equivalent(
+    out = nl.normalize(
         cell_name="top",
         equivalent_ports={
             "pad_m1": [["e1", "e2", "e3", "e4"]],
@@ -104,7 +104,7 @@ def test_lvs_equivalent_no_change_when_component_not_in_map() -> None:
         PortRef(instance="a", port="o1"),
         PortRef(instance="b", port="o1"),
     )
-    out = nl.lvs_equivalent(
+    out = nl.normalize(
         cell_name="top",
         equivalent_ports={"pad_m1": [["e1", "e2"]]},
     )
@@ -115,7 +115,7 @@ def test_lvs_equivalent_no_change_when_component_not_in_map() -> None:
 
 def test_lvs_equivalent_eq_via_round_trip() -> None:
     nl = _make_netlist_with_pads()
-    out = nl.lvs_equivalent(
+    out = nl.normalize(
         cell_name="top",
         equivalent_ports={"pad_m1": [["e1", "e2", "e3", "e4"]]},
     )

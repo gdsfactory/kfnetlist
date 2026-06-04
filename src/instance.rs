@@ -172,6 +172,12 @@ impl NetlistInstance {
         self.array = value;
     }
 
+    /// Normalize this instance's settings in place: integer-valued floats are
+    /// stored as integers (`1.0` -> `1`; `1.5` is left as-is).
+    fn normalize(&mut self) {
+        crate::normalize_value(&mut self.settings);
+    }
+
     fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<PyObject> {
         let py = other.py();
         let Ok(other) = other.downcast::<NetlistInstance>() else {

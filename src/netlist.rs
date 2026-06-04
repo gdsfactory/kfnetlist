@@ -9,7 +9,9 @@ use serde::{Deserialize, Serialize};
 use crate::instance::{NetlistArray, NetlistInstance, NetlistInstanceWire};
 use crate::net::{Net, NetMember};
 use crate::port::{NetlistPort, PortArrayRef, PortArrayRefData, PortRef};
-use crate::{cmp_to_py, from_py_any, json_parse, json_string, richcmp_result, to_py_dict};
+use crate::{
+    cmp_to_py, from_py_any, json_parse, json_string, normalize_value, richcmp_result, to_py_dict,
+};
 
 /// Wire format used by serde for `Netlist`. Mirrors the JSON shape but
 /// stores instances by name without redundant `name` fields.
@@ -71,6 +73,12 @@ impl Netlist {
                 .collect(),
             nets: wire.nets,
             ports: wire.ports,
+        }
+    }
+
+    fn normalize_settings(&mut self) {
+        for inst in self.instances.values_mut() {
+            normalize_value(&mut inst.settings);
         }
     }
 
@@ -378,163 +386,179 @@ impl Netlist {
         self.ports.sort();
     }
 
-    /// Return a deep copy of the netlist with equivalent ports collapsed
-    /// to a single canonical port name. Nets that, after relabeling, share
-    /// the same canonical port reference are merged.
-    #[pyo3(signature = (cell_name, equivalent_ports, port_mapping=None))]
-    fn lvs_equivalent(
+
+    /// Return a deep copy of the netlist with normalized settings (integer-
+    /// valued floats become integers) and sorted contents.
+    ///
+    /// When `cell_name` and `equivalent_ports` are given, equivalent ports
+    /// are also collapsed to a single canonical port name and nets that share
+    /// a canonical reference are merged.
+    #[pyo3(signature = (cell_name=None, equivalent_ports=None, port_mapping=None))]
+    fn normalize(
         &self,
         py: Python<'_>,
-        cell_name: String,
-        equivalent_ports: &Bound<'_, PyAny>,
+        cell_name: Option<String>,
+        equivalent_ports: Option<&Bound<'_, PyAny>>,
         port_mapping: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<Self> {
         let _ = py;
-        let equivalent_ports: HashMap<String, Vec<Vec<String>>> = from_py_any(equivalent_ports)?;
-        let mut port_mapping: HashMap<String, HashMap<String, String>> = match port_mapping {
-            Some(obj) if !obj.is_none() => from_py_any(obj)?,
-            _ => {
-                let mut m: HashMap<String, HashMap<String, String>> = HashMap::new();
-                for (cell, lists) in &equivalent_ports {
-                    let entry = m.entry(cell.clone()).or_default();
-                    for port_list in lists {
-                        if let Some(canonical) = port_list.first() {
-                            for port in port_list {
-                                entry.insert(port.clone(), canonical.clone());
+        let mut nl = self.deep_clone();
+
+        if let (Some(cell_name), Some(eq_ports_obj)) = (cell_name, equivalent_ports) {
+            let equivalent_ports: HashMap<String, Vec<Vec<String>>> = from_py_any(eq_ports_obj)?;
+            let mut port_mapping: HashMap<String, HashMap<String, String>> = match port_mapping {
+                Some(obj) if !obj.is_none() => from_py_any(obj)?,
+                _ => {
+                    let mut m: HashMap<String, HashMap<String, String>> = HashMap::new();
+                    for (cell, lists) in &equivalent_ports {
+                        let entry = m.entry(cell.clone()).or_default();
+                        for port_list in lists {
+                            if let Some(canonical) = port_list.first() {
+                                for port in port_list {
+                                    entry.insert(port.clone(), canonical.clone());
+                                }
                             }
                         }
                     }
+                    m
                 }
-                m
-            }
-        };
+            };
 
-        let mut nl = self.deep_clone();
+            let matched_insts: HashSet<String> = nl
+                .instances
+                .iter()
+                .filter(|(_, inst)| equivalent_ports.contains_key(&inst.component))
+                .map(|(name, _)| name.clone())
+                .collect();
 
-        let matched_insts: HashSet<String> = nl
-            .instances
-            .iter()
-            .filter(|(_, inst)| equivalent_ports.contains_key(&inst.component))
-            .map(|(name, _)| name.clone())
-            .collect();
+            let mut canonical_groups: HashMap<CanonicalKey, Vec<usize>> = HashMap::new();
+            let mut changed_net: Vec<bool> = vec![false; nl.nets.len()];
 
-        // Group changed nets by the canonical port reference they touch.
-        // Nets that share a canonical key get merged via union-find.
-        let mut canonical_groups: HashMap<CanonicalKey, Vec<usize>> = HashMap::new();
-        let mut changed_net: Vec<bool> = vec![false; nl.nets.len()];
-
-        for (net_idx, net) in nl.nets.iter_mut().enumerate() {
-            for member in net.members.iter_mut() {
-                let (instance, port_name_ref): (&str, &mut String) = match member {
-                    NetMember::Ref(r) => (r.instance.as_str(), &mut r.port),
-                    NetMember::ArrayRef(r) => (r.instance.as_str(), &mut r.port),
-                    NetMember::Port(_) => continue,
-                };
-                if !matched_insts.contains(instance) {
-                    continue;
-                }
-                let component = &nl_component_lookup(&nl.instances, instance);
-                let Some(mapping) = port_mapping.get(component) else {
-                    continue;
-                };
-                let Some(canonical) = mapping.get(port_name_ref.as_str()) else {
-                    continue;
-                };
-                let canonical = canonical.clone();
-                *port_name_ref = canonical.clone();
-                changed_net[net_idx] = true;
-                let key = match member {
-                    NetMember::Ref(r) => CanonicalKey::Ref {
-                        instance: r.instance.clone(),
-                        port: r.port.clone(),
-                    },
-                    NetMember::ArrayRef(r) => CanonicalKey::ArrayRef {
-                        instance: r.instance.clone(),
-                        port: r.port.clone(),
-                        ia: r.ia,
-                        ib: r.ib,
-                    },
-                    NetMember::Port(_) => unreachable!(),
-                };
-                canonical_groups.entry(key).or_default().push(net_idx);
-            }
-        }
-
-        // Union-find over net indices.
-        let mut uf = UnionFind::new(nl.nets.len());
-        for indices in canonical_groups.values() {
-            if indices.len() < 2 {
-                continue;
-            }
-            let first = indices[0];
-            for &i in &indices[1..] {
-                uf.union(first, i);
-            }
-        }
-
-        // Top-level port lookup keyed by name.
-        let port_index_by_name: HashMap<String, NetlistPort> = nl
-            .ports
-            .iter()
-            .map(|p| (p.name.clone(), p.clone()))
-            .collect();
-
-        // Group changed nets by their UF root and merge them.
-        let mut groups: HashMap<usize, Vec<usize>> = HashMap::new();
-        for (idx, &is_changed) in changed_net.iter().enumerate() {
-            if !is_changed {
-                continue;
-            }
-            let root = uf.find(idx);
-            groups.entry(root).or_default().push(idx);
-        }
-
-        let mut deleted: HashSet<usize> = HashSet::new();
-        let mut new_nets: Vec<Net> = Vec::new();
-        let cell_mapping = port_mapping.entry(cell_name.clone()).or_default().clone();
-
-        for idxs in groups.values() {
-            let mut seen: HashSet<NetMember> = HashSet::new();
-            for &i in idxs {
-                deleted.insert(i);
-                for m in &nl.nets[i].members {
-                    let resolved = match m {
-                        NetMember::Port(p) => match cell_mapping.get(&p.name) {
-                            Some(canon) => match port_index_by_name.get(canon) {
-                                Some(np) => NetMember::Port(np.clone()),
-                                None => {
-                                    return Err(PyValueError::new_err(format!(
-                                        "lvs_equivalent: canonical port {canon:?} not present \
-                                         in netlist ports"
-                                    )));
-                                }
-                            },
-                            None => NetMember::Port(p.clone()),
-                        },
-                        other => other.clone(),
+            for (net_idx, net) in nl.nets.iter_mut().enumerate() {
+                for member in net.members.iter_mut() {
+                    let (instance, port_name_ref): (&str, &mut String) = match member {
+                        NetMember::Ref(r) => (r.instance.as_str(), &mut r.port),
+                        NetMember::ArrayRef(r) => (r.instance.as_str(), &mut r.port),
+                        NetMember::Port(_) => continue,
                     };
-                    seen.insert(resolved);
+                    if !matched_insts.contains(instance) {
+                        continue;
+                    }
+                    let component = &nl_component_lookup(&nl.instances, instance);
+                    let Some(mapping) = port_mapping.get(component) else {
+                        continue;
+                    };
+                    let Some(canonical) = mapping.get(port_name_ref.as_str()) else {
+                        continue;
+                    };
+                    let canonical = canonical.clone();
+                    *port_name_ref = canonical.clone();
+                    changed_net[net_idx] = true;
+                    let key = match member {
+                        NetMember::Ref(r) => CanonicalKey::Ref {
+                            instance: r.instance.clone(),
+                            port: r.port.clone(),
+                        },
+                        NetMember::ArrayRef(r) => CanonicalKey::ArrayRef {
+                            instance: r.instance.clone(),
+                            port: r.port.clone(),
+                            ia: r.ia,
+                            ib: r.ib,
+                        },
+                        NetMember::Port(_) => unreachable!(),
+                    };
+                    canonical_groups.entry(key).or_default().push(net_idx);
                 }
             }
-            new_nets.push(Net::from_members(seen.into_iter().collect()));
-        }
 
-        // Replace deleted nets with merged ones.
-        let mut surviving: Vec<Net> = Vec::with_capacity(nl.nets.len());
-        for (i, n) in nl.nets.drain(..).enumerate() {
-            if !deleted.contains(&i) {
-                surviving.push(n);
+            let mut uf = UnionFind::new(nl.nets.len());
+            for indices in canonical_groups.values() {
+                if indices.len() < 2 {
+                    continue;
+                }
+                let first = indices[0];
+                for &i in &indices[1..] {
+                    uf.union(first, i);
+                }
             }
+
+            let port_index_by_name: HashMap<String, NetlistPort> = nl
+                .ports
+                .iter()
+                .map(|p| (p.name.clone(), p.clone()))
+                .collect();
+
+            let mut groups: HashMap<usize, Vec<usize>> = HashMap::new();
+            for (idx, &is_changed) in changed_net.iter().enumerate() {
+                if !is_changed {
+                    continue;
+                }
+                let root = uf.find(idx);
+                groups.entry(root).or_default().push(idx);
+            }
+
+            let mut deleted: HashSet<usize> = HashSet::new();
+            let mut new_nets: Vec<Net> = Vec::new();
+            let cell_mapping = port_mapping.entry(cell_name).or_default().clone();
+
+            for idxs in groups.values() {
+                let mut seen: HashSet<NetMember> = HashSet::new();
+                for &i in idxs {
+                    deleted.insert(i);
+                    for m in &nl.nets[i].members {
+                        let resolved = match m {
+                            NetMember::Port(p) => match cell_mapping.get(&p.name) {
+                                Some(canon) => match port_index_by_name.get(canon) {
+                                    Some(np) => NetMember::Port(np.clone()),
+                                    None => {
+                                        return Err(PyValueError::new_err(format!(
+                                            "normalize: canonical port {canon:?} not present \
+                                             in netlist ports"
+                                        )));
+                                    }
+                                },
+                                None => NetMember::Port(p.clone()),
+                            },
+                            other => other.clone(),
+                        };
+                        seen.insert(resolved);
+                    }
+                }
+                new_nets.push(Net::from_members(seen.into_iter().collect()));
+            }
+
+            let mut surviving: Vec<Net> = Vec::with_capacity(nl.nets.len());
+            for (i, n) in nl.nets.drain(..).enumerate() {
+                if !deleted.contains(&i) {
+                    surviving.push(n);
+                }
+            }
+            surviving.extend(new_nets);
+            nl.nets = surviving;
+
+            let mut seen_ports: HashSet<NetlistPort> = HashSet::new();
+            nl.ports.retain(|p| seen_ports.insert(p.clone()));
         }
-        surviving.extend(new_nets);
-        nl.nets = surviving;
 
-        // Dedupe ports (the cell-level mapping may have made some redundant).
-        let mut seen_ports: HashSet<NetlistPort> = HashSet::new();
-        nl.ports.retain(|p| seen_ports.insert(p.clone()));
-
-        nl.sort();
+        nl.normalize_settings();
+        nl.instances.sort_keys();
+        for net in &mut nl.nets {
+            net.sort_in_place();
+        }
+        nl.nets.sort();
+        nl.ports.sort();
         Ok(nl)
+    }
+
+    /// Sort instances by name, ports by name, members within each net,
+    /// and the nets list itself.
+    fn sort(&mut self) {
+        self.instances.sort_keys();
+        for net in &mut self.nets {
+            net.sort_in_place();
+        }
+        self.nets.sort();
+        self.ports.sort();
     }
 
     fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<PyObject> {
