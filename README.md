@@ -66,7 +66,7 @@ print(nl.to_json())
 - **Full serialization** — `to_json()` / `from_json()` and `to_dict()` /
   `from_dict()` on every type
 - **Pydantic v2 support** — all types implement `__get_pydantic_core_schema__`
-- **Equivalent ports** — `Netlist.lvs_equivalent()` folds electrically-equivalent
+- **Equivalent ports** — `Netlist.normalize()` folds electrically-equivalent
   ports into canonical names for netlist comparison
 - **Instance flattening** — `Netlist.flatten_instances()` merges sub-cell
   instances into the parent, reconnecting touching nets

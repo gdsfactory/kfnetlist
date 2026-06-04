@@ -20,7 +20,7 @@
 # naive netlist comparison would fail because the extracted netlist tracks every
 # individual port, while the schematic may declare only one logical connection.
 #
-# `Netlist.lvs_equivalent()` solves this by folding equivalent ports into a
+# `Netlist.normalize()` solves this by folding equivalent ports into a
 # single canonical name, merging nets that share a canonical port.
 
 # %%
@@ -67,7 +67,7 @@ for i, net in enumerate(nl.nets):
 # The pad's `p1` and `p2` appear in separate nets. For netlist comparison,
 # these should be treated as one.
 #
-# ## Applying `lvs_equivalent()`
+# ## Applying `normalize()`
 #
 # The `equivalent_ports` dict maps component names to groups of port names that
 # should be merged. Within each group, the first port name becomes the canonical
@@ -78,7 +78,7 @@ equivalent_ports = {
     "pad": [["p1", "p2"]],
 }
 
-equiv_nl = nl.lvs_equivalent(
+equiv_nl = nl.normalize(
     cell_name="top",
     equivalent_ports=equivalent_ports,
 )
@@ -100,7 +100,7 @@ for i, net in enumerate(equiv_nl.nets):
 #
 # ## How it works
 #
-# `lvs_equivalent()` internally uses a **union-find** data structure with path
+# `normalize()` internally uses a **union-find** data structure with path
 # compression:
 #
 # 1. For each instance whose component has equivalent port groups, all port
@@ -113,7 +113,7 @@ for i, net in enumerate(equiv_nl.nets):
 # You can also supply an explicit `port_mapping` dict for finer control:
 #
 # ```python
-# equiv_nl = nl.lvs_equivalent(
+# equiv_nl = nl.normalize(
 #     cell_name="top",
 #     equivalent_ports={"pad": [["p1", "p2"]]},
 #     port_mapping={"pad": {"p2": "p1"}},
@@ -127,7 +127,7 @@ for i, net in enumerate(equiv_nl.nets):
 # %% [markdown]
 # ## Immutability
 #
-# `lvs_equivalent()` returns a **new** `Netlist` — the original is unchanged.
+# `normalize()` returns a **new** `Netlist` — the original is unchanged.
 
 # %%
 assert nl.to_dict() != equiv_nl.to_dict()
@@ -138,8 +138,8 @@ print("Original netlist unchanged ✓")
 #
 # | Operation | API |
 # |-----------|-----|
-# | Fold equivalent ports | `nl.lvs_equivalent(cell_name, equivalent_ports)` |
-# | With explicit mapping | `nl.lvs_equivalent(cell_name, equivalent_ports, port_mapping)` |
+# | Fold equivalent ports | `nl.normalize(cell_name, equivalent_ports)` |
+# | With explicit mapping | `nl.normalize(cell_name, equivalent_ports, port_mapping)` |
 #
 # ## See Also
 #
