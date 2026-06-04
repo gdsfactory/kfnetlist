@@ -21,7 +21,7 @@
       
       
       <link rel="icon" href="../../assets/images/favicon.png">
-      <meta name="generator" content="zensical-0.0.41">
+      <meta name="generator" content="zensical-0.0.44">
     
     
       
@@ -949,10 +949,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#applying-lvs_equivalent" class="md-nav__link">
+  <a href="#applying-normalize" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Applying <code>lvs_equivalent()</code>
+        Applying <code>normalize()</code>
       </span>
     </span>
   </a>
@@ -1355,10 +1355,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#applying-lvs_equivalent" class="md-nav__link">
+  <a href="#applying-normalize" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Applying <code>lvs_equivalent()</code>
+        Applying <code>normalize()</code>
       </span>
     </span>
   </a>
@@ -1447,7 +1447,7 @@
 that are <strong>electrically equivalent</strong>: they connect to the same metal plane. A
 naive netlist comparison would fail because the extracted netlist tracks every
 individual port, while the schematic may declare only one logical connection.</p>
-<p><code>Netlist.lvs_equivalent()</code> solves this by folding equivalent ports into a
+<p><code>Netlist.normalize()</code> solves this by folding equivalent ports into a
 single canonical name, merging nets that share a canonical port.</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist</span><span class="w"> </span><span class="kn">import</span> <span class="n">Netlist</span><span class="p">,</span> <span class="n">NetlistPort</span><span class="p">,</span> <span class="n">PortRef</span>
 </code></pre></div>
@@ -1491,7 +1491,7 @@ the other.</p>
 </code></pre></div>
 <p>The pad's <code>p1</code> and <code>p2</code> appear in separate nets. For netlist comparison,
 these should be treated as one.</p>
-<h2 id="applying-lvs_equivalent">Applying <code>lvs_equivalent()</code></h2>
+<h2 id="applying-normalize">Applying <code>normalize()</code></h2>
 <p>The <code>equivalent_ports</code> dict maps component names to groups of port names that
 should be merged. Within each group, the first port name becomes the canonical
 name.</p>
@@ -1499,7 +1499,7 @@ name.</p>
     <span class="s2">&quot;pad&quot;</span><span class="p">:</span> <span class="p">[[</span><span class="s2">&quot;p1&quot;</span><span class="p">,</span> <span class="s2">&quot;p2&quot;</span><span class="p">]],</span>
 <span class="p">}</span>
 
-<span class="n">equiv_nl</span> <span class="o">=</span> <span class="n">nl</span><span class="o">.</span><span class="n">lvs_equivalent</span><span class="p">(</span>
+<span class="n">equiv_nl</span> <span class="o">=</span> <span class="n">nl</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span>
     <span class="n">cell_name</span><span class="o">=</span><span class="s2">&quot;top&quot;</span><span class="p">,</span>
     <span class="n">equivalent_ports</span><span class="o">=</span><span class="n">equivalent_ports</span><span class="p">,</span>
 <span class="p">)</span>
@@ -1522,7 +1522,7 @@ name.</p>
 <p>After mapping, <code>pad1.p2</code> is rewritten to <code>pad1.p1</code>, and the two nets that
 shared a canonical port are merged into one.</p>
 <h2 id="how-it-works">How it works</h2>
-<p><code>lvs_equivalent()</code> internally uses a <strong>union-find</strong> data structure with path
+<p><code>normalize()</code> internally uses a <strong>union-find</strong> data structure with path
 compression:</p>
 <ol>
 <li>For each instance whose component has equivalent port groups, all port
@@ -1532,7 +1532,7 @@ compression:</p>
 </ol>
 <h2 id="port-mapping">Port mapping</h2>
 <p>You can also supply an explicit <code>port_mapping</code> dict for finer control:</p>
-<div class="highlight"><pre><span></span><code><span class="n">equiv_nl</span> <span class="o">=</span> <span class="n">nl</span><span class="o">.</span><span class="n">lvs_equivalent</span><span class="p">(</span>
+<div class="highlight"><pre><span></span><code><span class="n">equiv_nl</span> <span class="o">=</span> <span class="n">nl</span><span class="o">.</span><span class="n">normalize</span><span class="p">(</span>
     <span class="n">cell_name</span><span class="o">=</span><span class="s2">&quot;top&quot;</span><span class="p">,</span>
     <span class="n">equivalent_ports</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;pad&quot;</span><span class="p">:</span> <span class="p">[[</span><span class="s2">&quot;p1&quot;</span><span class="p">,</span> <span class="s2">&quot;p2&quot;</span><span class="p">]]},</span>
     <span class="n">port_mapping</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;pad&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;p2&quot;</span><span class="p">:</span> <span class="s2">&quot;p1&quot;</span><span class="p">}},</span>
@@ -1542,7 +1542,7 @@ compression:</p>
 <code>equivalent_ports</code> and <code>port_mapping</code> are given, <code>equivalent_ports</code> defines
 which ports are equivalent and <code>port_mapping</code> specifies the canonical names.</p>
 <h2 id="immutability">Immutability</h2>
-<p><code>lvs_equivalent()</code> returns a <strong>new</strong> <code>Netlist</code> — the original is unchanged.</p>
+<p><code>normalize()</code> returns a <strong>new</strong> <code>Netlist</code> — the original is unchanged.</p>
 <div class="highlight"><pre><span></span><code><span class="k">assert</span> <span class="n">nl</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span> <span class="o">!=</span> <span class="n">equiv_nl</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Original netlist unchanged ✓&quot;</span><span class="p">)</span>
 </code></pre></div>
@@ -1559,11 +1559,11 @@ which ports are equivalent and <code>port_mapping</code> specifies the canonical
 <tbody>
 <tr>
 <td>Fold equivalent ports</td>
-<td><code>nl.lvs_equivalent(cell_name, equivalent_ports)</code></td>
+<td><code>nl.normalize(cell_name, equivalent_ports)</code></td>
 </tr>
 <tr>
 <td>With explicit mapping</td>
-<td><code>nl.lvs_equivalent(cell_name, equivalent_ports, port_mapping)</code></td>
+<td><code>nl.normalize(cell_name, equivalent_ports, port_mapping)</code></td>
 </tr>
 </tbody>
 </table>
@@ -1641,7 +1641,7 @@ which ports are equivalent and <code>port_mapping</code> specifies the canonical
       <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["navigation.tabs","navigation.tabs.sticky"],"search":"../../assets/javascripts/workers/search.e2d2d235.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"default":"latest","provider":"mike"}}</script>
     
     
-      <script src="../../assets/javascripts/bundle.dbc0afdc.min.js"></script>
+      <script src="../../assets/javascripts/bundle.6e5f0216.min.js"></script>
       
     
   </body>
