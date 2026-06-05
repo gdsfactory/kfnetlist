@@ -216,9 +216,7 @@ def get_optical_nets(
                             )
                         )
                         connected_cell_ports.add(cellport.name)
-                        connected_inst_ports.add(
-                            (inst2.name, port2.name, ia2, ib2)
-                        )
+                        connected_inst_ports.add((inst2.name, port2.name, ia2, ib2))
 
     for h, inst_layer_dict in inst_ports.items():
         for layer, ports in inst_layer_dict.items():
@@ -241,9 +239,7 @@ def get_optical_nets(
                             )
                         )
                         connected_inst_ports.add((inst.name, port.name, ia, ib))
-                        connected_inst_ports.add(
-                            (inst2.name, port2.name, ia2, ib2)
-                        )
+                        connected_inst_ports.add((inst2.name, port2.name, ia2, ib2))
 
     for _layer_dict in cell_ports.values():
         for cellport_list in _layer_dict.values():

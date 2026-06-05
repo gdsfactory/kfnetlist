@@ -355,24 +355,36 @@ impl Netlist {
         Ok(dict)
     }
 
-    /// Return nets present in *reference* but absent from ``self``.
+    /// Return a dict with ``missing`` and ``extra`` net lists.
     ///
-    /// This is the set difference ``set(reference.nets) - set(self.nets)``
-    /// and represents nets that should exist (according to the reference
-    /// netlist / schematic) but were not found during extraction.
-    fn find_open_nets<'py>(
+    /// * **missing** – nets in *reference* but not in ``self``
+    /// * **extra** – nets in ``self`` but not in *reference*
+    fn find_net_difference<'py>(
         &self,
         py: Python<'py>,
         reference: &Netlist,
-    ) -> PyResult<Bound<'py, PyList>> {
+    ) -> PyResult<Bound<'py, PyDict>> {
         let own: HashSet<&Net> = self.nets.iter().collect();
-        let list = PyList::empty(py);
+        let ref_set: HashSet<&Net> = reference.nets.iter().collect();
+
+        let missing = PyList::empty(py);
         for net in &reference.nets {
             if !own.contains(net) {
-                list.append(Py::new(py, net.clone())?)?;
+                missing.append(Py::new(py, net.clone())?)?;
             }
         }
-        Ok(list)
+
+        let extra = PyList::empty(py);
+        for net in &self.nets {
+            if !ref_set.contains(net) {
+                extra.append(Py::new(py, net.clone())?)?;
+            }
+        }
+
+        let dict = PyDict::new(py);
+        dict.set_item("missing", missing)?;
+        dict.set_item("extra", extra)?;
+        Ok(dict)
     }
 
     /// Sort instances by name, ports by name, members within each net,

@@ -130,10 +130,7 @@ class TestFindNetDifference:
         # The missing net should be the VSS net
         members = missing_list[0].members()
         member_reprs = {
-            m.name
-            if hasattr(m, "name") and not hasattr(m, "instance")
-            # TODO: refactor to use isinstance narrowing so ty can resolve .instance/.port on PortRef
-            else f"{m.instance},{m.port}"  # ty: ignore[unresolved-attribute]
+            f"{m.instance},{m.port}" if isinstance(m, PortRef) else m.name
             for m in members
         }
         assert "VSS" in member_reprs
