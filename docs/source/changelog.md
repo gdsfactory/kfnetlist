@@ -8,8 +8,8 @@
 - **Geometric short detection** — `detect_shorts()` finds polygon overlaps
   between electrically distinct nets on the same layer
 - **Open detection** — `Netlist.detect_opens()` finds unconnected ports and
-  singleton nets; `Netlist.find_open_nets(reference)` compares against a
-  reference netlist to find missing nets
+  singleton nets; `Netlist.find_net_difference(reference)` compares against a
+  reference netlist to find missing and extra nets
 
 ## 0.1.0
 
