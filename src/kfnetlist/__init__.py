@@ -11,7 +11,7 @@ from ._native import (
 )
 from .port_check import PortCheck, check_connection
 
-__version__ = "0.1.4"
+__version__ = "0.2.0"
 
 __all__ = [
     "Net",
