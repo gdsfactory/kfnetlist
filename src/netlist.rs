@@ -319,6 +319,86 @@ impl Netlist {
         Ok(())
     }
 
+    /// Detect open (unconnected) elements in this netlist.
+    ///
+    /// Returns a dict with:
+    /// - ``unconnected_ports``: top-level port names not appearing in any net
+    /// - ``singleton_nets``: nets with only a single member (dangling stubs)
+    fn detect_opens<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+        let mut ports_in_nets: HashSet<String> = HashSet::new();
+        for net in &self.nets {
+            for m in &net.members {
+                if let NetMember::Port(p) = m {
+                    ports_in_nets.insert(p.name.clone());
+                }
+            }
+        }
+        let mut unconnected: Vec<String> = self
+            .ports
+            .iter()
+            .filter(|p| !ports_in_nets.contains(&p.name))
+            .map(|p| p.name.clone())
+            .collect();
+        unconnected.sort(); // Sort just to make test results deterministic.
+        // Singleton nets are often a sign of an unintentional open connection, so we report them as well.
+        // Singleton nets can also just be an electrical interconnect net
+        let singleton_list = PyList::empty(py);
+        for net in &self.nets {
+            if net.members.len() == 1 {
+                singleton_list.append(Py::new(py, net.clone())?)?;
+            }
+        }
+
+        let dict = PyDict::new(py);
+        dict.set_item("unconnected_ports", unconnected)?;
+        dict.set_item("singleton_nets", singleton_list)?;
+        Ok(dict)
+    }
+
+    /// Return a dict with ``missing`` and ``extra`` net lists.
+    ///
+    /// * **missing** – nets in *reference* but not in ``self``
+    /// * **extra** – nets in ``self`` but not in *reference*
+    fn find_net_difference<'py>(
+        &self,
+        py: Python<'py>,
+        reference: &Netlist,
+    ) -> PyResult<Bound<'py, PyDict>> {
+        let own: HashSet<&Net> = self.nets.iter().collect();
+        let ref_set: HashSet<&Net> = reference.nets.iter().collect();
+
+        let missing = PyList::empty(py);
+        for net in &reference.nets {
+            if !own.contains(net) {
+                missing.append(Py::new(py, net.clone())?)?;
+            }
+        }
+
+        let extra = PyList::empty(py);
+        for net in &self.nets {
+            if !ref_set.contains(net) {
+                extra.append(Py::new(py, net.clone())?)?;
+            }
+        }
+
+        let dict = PyDict::new(py);
+        dict.set_item("missing", missing)?;
+        dict.set_item("extra", extra)?;
+        Ok(dict)
+    }
+
+    /// Sort instances by name, ports by name, members within each net,
+    /// and the nets list itself.
+    fn sort(&mut self) {
+        self.instances.sort_keys();
+        for net in &mut self.nets {
+            net.sort_in_place();
+        }
+        self.nets.sort();
+        self.ports.sort();
+    }
+
+
     /// Return a deep copy of the netlist with normalized settings (integer-
     /// valued floats become integers) and sorted contents.
     ///
@@ -480,17 +560,6 @@ impl Netlist {
         nl.nets.sort();
         nl.ports.sort();
         Ok(nl)
-    }
-
-    /// Sort instances by name, ports by name, members within each net,
-    /// and the nets list itself.
-    fn sort(&mut self) {
-        self.instances.sort_keys();
-        for net in &mut self.nets {
-            net.sort_in_place();
-        }
-        self.nets.sort();
-        self.ports.sort();
     }
 
     fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<PyObject> {

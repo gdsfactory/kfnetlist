@@ -1,5 +1,16 @@
 # Changelog
 
+## 0.1.5
+
+- **L2N parsing** — `parse_l2n()` and `l2n_to_json()` convert a klayout
+  `LayoutToNetlist` to a JSON-serializable dict (or string) with optional
+  hierarchy flattening and layer/instance filtering
+- **Geometric short detection** — `detect_shorts()` finds polygon overlaps
+  between electrically distinct nets on the same layer
+- **Open detection** — `Netlist.detect_opens()` finds unconnected ports and
+  singleton nets; `Netlist.find_net_difference(reference)` compares against a
+  reference netlist to find missing and extra nets
+
 ## 0.1.0
 
 Initial release.

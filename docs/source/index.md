@@ -34,19 +34,23 @@ It provides a fast, type-safe data model for circuit connectivity — instances,
 
     ---
 
-    Extract hierarchical netlists from kfactory/klayout layout cells.
+    Extract hierarchical netlists, detect shorts and opens, parse L2N results.
 
     [:octicons-arrow-right-24: Overview](extraction/overview.md)
     &nbsp;·&nbsp;
-    [:octicons-arrow-right-24: Port Checking](extraction/port_checking.py)
+    [:octicons-arrow-right-24: Short Detection](extraction/short_detection.py)
+    &nbsp;·&nbsp;
+    [:octicons-arrow-right-24: L2N Parsing](extraction/l2n_parsing.py)
 
 -   :material-lightbulb-on:{ .lg .middle } **Guides**
 
     ---
 
-    Equivalent ports, instance flattening, and common patterns.
+    Equivalent ports, open detection, and common patterns.
 
     [:octicons-arrow-right-24: Equivalent Ports](guides/equivalent_ports.py)
+    &nbsp;·&nbsp;
+    [:octicons-arrow-right-24: Open Detection](guides/open_detection.py)
     &nbsp;·&nbsp;
     [:octicons-arrow-right-24: FAQ](guides/faq.md)
 
@@ -64,6 +68,9 @@ It provides a fast, type-safe data model for circuit connectivity — instances,
 - **Instance flattening** — merge sub-cell instances into the parent, reconnecting touching nets
 - **Port checking** — `PortCheck` bitmask and `check_connection()` for geometric port-pair comparison
 - **Netlist extraction** — extract hierarchical netlists from kfactory/klayout cells
+- **L2N parsing** — convert klayout `LayoutToNetlist` results to JSON-serializable dicts
+- **Short detection** — find geometric polygon overlaps between distinct nets
+- **Open detection** — find unconnected ports, singleton nets, and missing nets vs. a reference
 
 ## Relationship to kfactory
 

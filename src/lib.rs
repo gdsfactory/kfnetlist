@@ -9,7 +9,6 @@ mod instance;
 mod net;
 mod netlist;
 mod port;
-
 use instance::{NetlistArray, NetlistInstance};
 use net::{Net, NetIter};
 use netlist::Netlist;

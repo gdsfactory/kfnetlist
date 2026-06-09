@@ -60,6 +60,8 @@ lambda i: Instance(kcl=cell.kcl, instance=i)
 | [`extract`](overview.md) | Main `extract()` orchestrator |
 | [`get_optical_nets`](optical_nets.md) | Geometric port-adjacency extraction |
 | [`l2n_elec`](electrical_l2n.md) | Electrical layout-to-netlist |
+| [`parse_l2n`](l2n_parsing.py) | Convert L2N results to JSON-serializable dicts |
+| [`detect_shorts`](short_detection.py) | Geometric short detection via polygon overlap |
 | [`check_connection`](port_checking.py) | Port-pair comparison bitmask |
 
 ## kfactory examples
@@ -82,3 +84,4 @@ have end-to-end examples showing extraction in practice:
 |-------|-------|
 | Core netlist data model | [Concepts: Netlist Model](../concepts/netlist_model.py) |
 | Equivalent ports | [Guides: Equivalent Ports](../guides/equivalent_ports.py) |
+| Open detection | [Guides: Open Detection](../guides/open_detection.py) |
