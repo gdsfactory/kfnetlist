@@ -28,6 +28,12 @@
         <loc>https://gdsfactory.github.io/dev/extraction/electrical_l2n/</loc>
       </url>
       <url>
+        <loc>https://gdsfactory.github.io/dev/extraction/l2n_parsing/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/extraction/short_detection/</loc>
+      </url>
+      <url>
         <loc>https://gdsfactory.github.io/dev/extraction/port_checking/</loc>
       </url>
       <url>
@@ -35,6 +41,9 @@
       </url>
       <url>
         <loc>https://gdsfactory.github.io/dev/guides/instance_flattening/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/guides/open_detection/</loc>
       </url>
       <url>
         <loc>https://gdsfactory.github.io/dev/guides/faq/</loc>

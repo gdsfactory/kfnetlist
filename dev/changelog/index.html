@@ -792,6 +792,60 @@
   
   
     <li class="md-nav__item">
+      <a href="../extraction/l2n_parsing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  L2N Parsing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extraction/short_detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Short Detection
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../extraction/port_checking/" class="md-nav__link">
         
   
@@ -909,6 +963,33 @@
     
   
   Instance Flattening
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/open_detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Open Detection
 
     
   </span>
@@ -1211,6 +1292,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#015" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        0.1.5
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#010" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1278,6 +1370,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#015" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        0.1.5
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#010" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1310,6 +1413,17 @@
 
 
 <h1 id="changelog">Changelog</h1>
+<h2 id="015">0.1.5</h2>
+<ul>
+<li><strong>L2N parsing</strong> — <code>parse_l2n()</code> and <code>l2n_to_json()</code> convert a klayout
+  <code>LayoutToNetlist</code> to a JSON-serializable dict (or string) with optional
+  hierarchy flattening and layer/instance filtering</li>
+<li><strong>Geometric short detection</strong> — <code>detect_shorts()</code> finds polygon overlaps
+  between electrically distinct nets on the same layer</li>
+<li><strong>Open detection</strong> — <code>Netlist.detect_opens()</code> finds unconnected ports and
+  singleton nets; <code>Netlist.find_net_difference(reference)</code> compares against a
+  reference netlist to find missing and extra nets</li>
+</ul>
 <h2 id="010">0.1.0</h2>
 <p>Initial release.</p>
 <ul>
