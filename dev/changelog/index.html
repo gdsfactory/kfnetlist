@@ -284,7 +284,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../guides/equivalent_ports/" class="md-tabs__link">
+        <a href="../guides/lvs_verification/" class="md-tabs__link">
           
   
   Guides
@@ -928,6 +928,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../guides/lvs_verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  LVS Verification
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../guides/equivalent_ports/" class="md-nav__link">
         
   
@@ -1292,6 +1319,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#020" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        0.2.0
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#015" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1370,6 +1408,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#020" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        0.2.0
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#015" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1413,6 +1462,19 @@
 
 
 <h1 id="changelog">Changelog</h1>
+<h2 id="020">0.2.0</h2>
+<ul>
+<li><strong><code>find_net_difference()</code></strong> (renamed from <code>find_open_nets</code>) — compares
+  two netlists by symmetric difference on their sorted nets, returning
+  <code>{"missing": [Net, ...], "extra": [Net, ...]}</code> instead of the previous
+  flat list. The new structure distinguishes nets absent from the layout
+  (missing) vs. unexpected nets (extra).</li>
+<li><strong><code>normalize()</code> replaces <code>lvs_equivalent()</code></strong> — the method name was
+  changed to better reflect its purpose: fold equivalent ports into
+  canonical names and merge nets sharing a canonical reference. The API
+  and behaviour are unchanged.</li>
+<li><strong>Python 3.14 support</strong> — classifier and CI testing added.</li>
+</ul>
 <h2 id="015">0.1.5</h2>
 <ul>
 <li><strong>L2N parsing</strong> — <code>parse_l2n()</code> and <code>l2n_to_json()</code> convert a klayout

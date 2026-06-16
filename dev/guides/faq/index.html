@@ -288,7 +288,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../equivalent_ports/" class="md-tabs__link">
+        <a href="../lvs_verification/" class="md-tabs__link">
           
   
   Guides
@@ -933,6 +933,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../lvs_verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  LVS Verification
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../equivalent_ports/" class="md-nav__link">
         
   
@@ -1222,6 +1249,78 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Why are some instances flattened during extraction?
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Verification
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Verification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-lvs-checks-does-kfnetlist-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What LVS checks does kfnetlist support?
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-interpret-a-shortresult" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How do I interpret a ShortResult?
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-the-difference-between-topological-and-geometric-shorts" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What is the difference between topological and geometric shorts?
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-does-singleton-net-mean-in-open-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What does "singleton net" mean in open detection?
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#should-i-call-sort-before-find_net_difference" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Should I call <code>sort()</code> before <code>find_net_difference()</code>?
       </span>
     </span>
   </a>
@@ -1669,6 +1768,78 @@
   
 </li>
       
+        <li class="md-nav__item">
+  <a href="#verification" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Verification
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Verification">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#what-lvs-checks-does-kfnetlist-support" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What LVS checks does kfnetlist support?
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#how-do-i-interpret-a-shortresult" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        How do I interpret a ShortResult?
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-is-the-difference-between-topological-and-geometric-shorts" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What is the difference between topological and geometric shorts?
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#what-does-singleton-net-mean-in-open-detection" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        What does "singleton net" mean in open detection?
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#should-i-call-sort-before-find_net_difference" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Should I call <code>sort()</code> before <code>find_net_difference()</code>?
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
     </ul>
   
 </nav>
@@ -1741,6 +1912,64 @@ excluded purposes are flattened into the parent netlist. This keeps the
 extracted netlist focused on the functional components that matter for
 connectivity verification. See the <a href="../instance_flattening/">Instance Flattening</a>
 guide.</p>
+<h2 id="verification">Verification</h2>
+<h3 id="what-lvs-checks-does-kfnetlist-support">What LVS checks does kfnetlist support?</h3>
+<p>kfnetlist supports three categories of connectivity verification:</p>
+<table>
+<thead>
+<tr>
+<th>Check</th>
+<th>Method</th>
+<th>Requires klayout?</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Open detection</td>
+<td><code>Netlist.detect_opens()</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td>Net comparison</td>
+<td><code>Netlist.find_net_difference(reference)</code></td>
+<td>No</td>
+</tr>
+<tr>
+<td>Geometric short detection</td>
+<td><code>detect_shorts(l2n)</code></td>
+<td>Yes</td>
+</tr>
+</tbody>
+</table>
+<p>These can be combined into a complete verification flow. See the
+<a href="../lvs_verification/">LVS Verification Guide</a> for a walkthrough.</p>
+<h3 id="how-do-i-interpret-a-shortresult">How do I interpret a ShortResult?</h3>
+<p>A <code>ShortResult</code> has four fields:</p>
+<ul>
+<li><code>net_a</code> / <code>net_b</code> — the names of the two nets that overlap</li>
+<li><code>layer</code> — the layer where the overlap occurs</li>
+<li><code>overlap</code> — a klayout <code>Region</code> containing the overlapping polygons</li>
+</ul>
+<p>You can get the overlap area with <code>s.overlap.area()</code> and the bounding box
+with <code>s.overlap.bbox()</code>. The overlap region can be visualized in klayout's
+layout viewer.</p>
+<h3 id="what-is-the-difference-between-topological-and-geometric-shorts">What is the difference between topological and geometric shorts?</h3>
+<p>A <strong>topological short</strong> occurs when two named nets share the same port
+member — i.e., the same port appears in two different nets. kfnetlist does
+not currently detect topological shorts (this requires named nets, which
+are on the roadmap).</p>
+<p>A <strong>geometric short</strong> occurs when polygons belonging to different nets
+overlap on the same layer. <code>detect_shorts(l2n)</code> detects geometric shorts
+using klayout's boolean Region intersection.</p>
+<h3 id="what-does-singleton-net-mean-in-open-detection">What does "singleton net" mean in open detection?</h3>
+<p>A singleton net is a net with exactly one member. This means a port
+reference exists in the netlist but is not connected to anything else —
+it is a dangling stub. While sometimes intentional (e.g., a monitoring
+tap), singleton nets often indicate accidental open circuits.</p>
+<h3 id="should-i-call-sort-before-find_net_difference">Should I call <code>sort()</code> before <code>find_net_difference()</code>?</h3>
+<p>Yes. <code>find_net_difference()</code> compares nets by their sorted member content,
+but the netlist-level ordering affects which nets are compared. Always call
+<code>sort()</code> on both netlists before comparison for deterministic results.</p>
 
 
 

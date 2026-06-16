@@ -288,7 +288,7 @@
     
     
       <li class="md-tabs__item">
-        <a href="../../guides/equivalent_ports/" class="md-tabs__link">
+        <a href="../../guides/lvs_verification/" class="md-tabs__link">
           
   
   Guides
@@ -938,6 +938,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#interpreting-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Interpreting results
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#building-a-short-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Building a short summary
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#filtering-by-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Filtering by layer
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1038,6 +1071,33 @@
 
           </label>
           <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/lvs_verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  LVS Verification
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
             
               
                 
@@ -1469,6 +1529,39 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#interpreting-results" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Interpreting results
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#building-a-short-summary" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Building a short summary
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#filtering-by-layer" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Filtering by layer
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1586,6 +1679,49 @@ nets overlap geometrically — a potential short.</p>
 <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">shorts</span><span class="p">:</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Short: </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">net_a</span><span class="si">}</span><span class="s2"> &lt;-&gt; </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">net_b</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">layer</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
+<h2 id="interpreting-results">Interpreting results</h2>
+<p>Each <code>ShortResult</code> carries enough data to locate and measure the short:</p>
+<div class="highlight"><pre><span></span><code><span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">shorts</span><span class="p">:</span>
+    <span class="c1"># Area of the overlapping region (in dbu^2)</span>
+    <span class="n">area</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">overlap</span><span class="o">.</span><span class="n">area</span><span class="p">()</span>
+
+    <span class="c1"># Bounding box for quick localization</span>
+    <span class="n">bbox</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">overlap</span><span class="o">.</span><span class="n">bbox</span><span class="p">()</span>
+
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">net_a</span><span class="si">}</span><span class="s2"> &lt;-&gt; </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">net_b</span><span class="si">}</span><span class="s2"> on </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">layer</span><span class="si">}</span><span class="s2">: &quot;</span>
+          <span class="sa">f</span><span class="s2">&quot;area=</span><span class="si">{</span><span class="n">area</span><span class="si">}</span><span class="s2"> dbu^2, bbox=</span><span class="si">{</span><span class="n">bbox</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>To count distinct shorted net pairs (a single pair can appear on
+multiple layers):</p>
+<div class="highlight"><pre><span></span><code><span class="n">pairs</span> <span class="o">=</span> <span class="p">{(</span><span class="n">s</span><span class="o">.</span><span class="n">net_a</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">net_b</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">shorts</span><span class="p">}</span>
+<span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span><span class="si">}</span><span class="s2"> distinct net pair(s) shorted&quot;</span><span class="p">)</span>
+</code></pre></div>
+<p>In LVS terms, every <code>ShortResult</code> is a <strong>short circuit error</strong> — two
+nets that should be electrically isolated have overlapping geometry.</p>
+<h2 id="building-a-short-summary">Building a short summary</h2>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">summarize_shorts</span><span class="p">(</span><span class="n">shorts</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a one-line summary from detect_shorts() output.&quot;&quot;&quot;</span>
+    <span class="k">if</span> <span class="ow">not</span> <span class="n">shorts</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;PASS: no shorts detected&quot;</span>
+    <span class="n">pairs</span> <span class="o">=</span> <span class="p">{(</span><span class="n">s</span><span class="o">.</span><span class="n">net_a</span><span class="p">,</span> <span class="n">s</span><span class="o">.</span><span class="n">net_b</span><span class="p">)</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">shorts</span><span class="p">}</span>
+    <span class="n">layers</span> <span class="o">=</span> <span class="p">{</span><span class="n">s</span><span class="o">.</span><span class="n">layer</span> <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">shorts</span><span class="p">}</span>
+    <span class="k">return</span> <span class="p">(</span>
+        <span class="sa">f</span><span class="s2">&quot;FAIL: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">shorts</span><span class="p">)</span><span class="si">}</span><span class="s2"> short(s) between &quot;</span>
+        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">pairs</span><span class="p">)</span><span class="si">}</span><span class="s2"> net pair(s) on </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">layers</span><span class="p">)</span><span class="si">}</span><span class="s2"> layer(s)&quot;</span>
+    <span class="p">)</span>
+</code></pre></div>
+<h2 id="filtering-by-layer">Filtering by layer</h2>
+<p>Use the <code>short_layers</code> parameter to restrict detection to specific
+layers. This is useful when only certain metal layers carry routed
+signals:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">klayout</span><span class="w"> </span><span class="kn">import</span> <span class="n">db</span> <span class="k">as</span> <span class="n">kdb</span>
+
+<span class="c1"># Only check M1 and M2</span>
+<span class="n">shorts</span> <span class="o">=</span> <span class="n">detect_shorts</span><span class="p">(</span>
+    <span class="n">l2n</span><span class="p">,</span>
+    <span class="n">short_layers</span><span class="o">=</span><span class="p">[</span><span class="n">kdb</span><span class="o">.</span><span class="n">LayerInfo</span><span class="p">(</span><span class="mi">1</span><span class="p">,</span> <span class="mi">0</span><span class="p">),</span> <span class="n">kdb</span><span class="o">.</span><span class="n">LayerInfo</span><span class="p">(</span><span class="mi">2</span><span class="p">,</span> <span class="mi">0</span><span class="p">)],</span>
+<span class="p">)</span>
+</code></pre></div>
 <h2 id="see-also">See Also</h2>
 <table>
 <thead>
@@ -1595,6 +1731,10 @@ nets overlap geometrically — a potential short.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>LVS verification workflow</td>
+<td><a href="../../guides/lvs_verification/">LVS Verification</a></td>
+</tr>
 <tr>
 <td>L2N parsing</td>
 <td><a href="../l2n_parsing/">L2N Parsing</a></td>

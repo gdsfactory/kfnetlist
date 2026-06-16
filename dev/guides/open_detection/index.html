@@ -288,7 +288,7 @@
     
     
       <li class="md-tabs__item md-tabs__item--active">
-        <a href="../equivalent_ports/" class="md-tabs__link">
+        <a href="../lvs_verification/" class="md-tabs__link">
           
   
   Guides
@@ -933,6 +933,33 @@
   
   
     <li class="md-nav__item">
+      <a href="../lvs_verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  LVS Verification
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
       <a href="../equivalent_ports/" class="md-nav__link">
         
   
@@ -1083,6 +1110,17 @@
     <span class="md-ellipsis">
       <span class="md-typeset">
         Typical workflow
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#interpreting-results-for-lvs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Interpreting results for LVS
       </span>
     </span>
   </a>
@@ -1447,6 +1485,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#interpreting-results-for-lvs" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Interpreting results for LVS
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#see-also" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1584,6 +1633,54 @@ not matter.</p>
 <span class="k">if</span> <span class="n">diff</span><span class="p">[</span><span class="s2">&quot;extra&quot;</span><span class="p">]:</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;Warning: </span><span class="si">{</span><span class="nb">len</span><span class="p">(</span><span class="n">diff</span><span class="p">[</span><span class="s1">&#39;extra&#39;</span><span class="p">])</span><span class="si">}</span><span class="s2"> unexpected nets in layout&quot;</span><span class="p">)</span>
 </code></pre></div>
+<h2 id="interpreting-results-for-lvs">Interpreting results for LVS</h2>
+<p>The open detection results map directly to LVS error categories:</p>
+<table>
+<thead>
+<tr>
+<th>Result key</th>
+<th>LVS category</th>
+<th>Severity</th>
+<th>Meaning</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>unconnected_ports</code></td>
+<td>Definite open</td>
+<td>Error</td>
+<td>A declared port has no route</td>
+</tr>
+<tr>
+<td><code>singleton_nets</code></td>
+<td>Potential open</td>
+<td>Warning</td>
+<td>A port is wired but goes nowhere</td>
+</tr>
+</tbody>
+</table>
+<p>In a full LVS workflow, opens should be checked <strong>before</strong> comparing
+against a reference netlist — an unconnected port in the extracted netlist
+will also surface as a missing net in the comparison, so fixing the open
+fixes both findings.</p>
+<div class="highlight"><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">summarize_opens</span><span class="p">(</span><span class="n">opens_result</span><span class="p">):</span>
+<span class="w">    </span><span class="sd">&quot;&quot;&quot;Build a one-line summary from detect_opens() output.&quot;&quot;&quot;</span>
+    <span class="n">n_unconnected</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="n">opens_result</span><span class="p">[</span><span class="s2">&quot;unconnected_ports&quot;</span><span class="p">])</span>
+    <span class="n">n_singletons</span> <span class="o">=</span> <span class="nb">len</span><span class="p">(</span><span class="nb">list</span><span class="p">(</span><span class="n">opens_result</span><span class="p">[</span><span class="s2">&quot;singleton_nets&quot;</span><span class="p">]))</span>
+    <span class="k">if</span> <span class="n">n_unconnected</span> <span class="o">==</span> <span class="mi">0</span> <span class="ow">and</span> <span class="n">n_singletons</span> <span class="o">==</span> <span class="mi">0</span><span class="p">:</span>
+        <span class="k">return</span> <span class="s2">&quot;PASS: no opens detected&quot;</span>
+    <span class="n">parts</span> <span class="o">=</span> <span class="p">[]</span>
+    <span class="k">if</span> <span class="n">n_unconnected</span><span class="p">:</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">n_unconnected</span><span class="si">}</span><span class="s2"> unconnected port(s)&quot;</span><span class="p">)</span>
+    <span class="k">if</span> <span class="n">n_singletons</span><span class="p">:</span>
+        <span class="n">parts</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">n_singletons</span><span class="si">}</span><span class="s2"> singleton net(s)&quot;</span><span class="p">)</span>
+    <span class="k">return</span> <span class="sa">f</span><span class="s2">&quot;FAIL: </span><span class="si">{</span><span class="s1">&#39;, &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">parts</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span>
+
+
+<span class="nb">print</span><span class="p">(</span><span class="n">summarize_opens</span><span class="p">(</span><span class="n">result</span><span class="p">))</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>FAIL: 1 unconnected port(s), 1 singleton net(s)
+</code></pre></div>
 <h2 id="see-also">See Also</h2>
 <table>
 <thead>
@@ -1593,6 +1690,10 @@ not matter.</p>
 </tr>
 </thead>
 <tbody>
+<tr>
+<td>LVS verification workflow</td>
+<td><a href="../lvs_verification/">LVS Verification</a></td>
+</tr>
 <tr>
 <td>Short detection</td>
 <td><a href="../../extraction/short_detection/">Short Detection</a></td>
