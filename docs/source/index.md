@@ -46,8 +46,10 @@ It provides a fast, type-safe data model for circuit connectivity — instances,
 
     ---
 
-    Equivalent ports, open detection, and common patterns.
+    LVS verification, equivalent ports, open detection, and common patterns.
 
+    [:octicons-arrow-right-24: LVS Verification](guides/lvs_verification.py)
+    &nbsp;·&nbsp;
     [:octicons-arrow-right-24: Equivalent Ports](guides/equivalent_ports.py)
     &nbsp;·&nbsp;
     [:octicons-arrow-right-24: Open Detection](guides/open_detection.py)
@@ -71,6 +73,7 @@ It provides a fast, type-safe data model for circuit connectivity — instances,
 - **L2N parsing** — convert klayout `LayoutToNetlist` results to JSON-serializable dicts
 - **Short detection** — find geometric polygon overlaps between distinct nets
 - **Open detection** — find unconnected ports, singleton nets, and missing nets vs. a reference
+- **Connectivity verification** — complete LVS workflow combining open detection, net comparison, and short detection
 
 ## Relationship to kfactory
 

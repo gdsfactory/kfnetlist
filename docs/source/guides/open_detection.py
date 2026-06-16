@@ -112,9 +112,42 @@ print(f"Extra nets: {len(diff['extra'])}")
 #     print(f"Warning: {len(diff['extra'])} unexpected nets in layout")
 # ```
 #
+# ## Interpreting results for LVS
+#
+# The open detection results map directly to LVS error categories:
+#
+# | Result key | LVS category | Severity | Meaning |
+# |------------|-------------|----------|---------|
+# | `unconnected_ports` | Definite open | Error | A declared port has no route |
+# | `singleton_nets` | Potential open | Warning | A port is wired but goes nowhere |
+#
+# In a full LVS workflow, opens should be checked **before** comparing
+# against a reference netlist — an unconnected port in the extracted netlist
+# will also surface as a missing net in the comparison, so fixing the open
+# fixes both findings.
+
+# %%
+def summarize_opens(opens_result):
+    """Build a one-line summary from detect_opens() output."""
+    n_unconnected = len(opens_result["unconnected_ports"])
+    n_singletons = len(list(opens_result["singleton_nets"]))
+    if n_unconnected == 0 and n_singletons == 0:
+        return "PASS: no opens detected"
+    parts = []
+    if n_unconnected:
+        parts.append(f"{n_unconnected} unconnected port(s)")
+    if n_singletons:
+        parts.append(f"{n_singletons} singleton net(s)")
+    return f"FAIL: {', '.join(parts)}"
+
+
+print(summarize_opens(result))
+
+# %% [markdown]
 # ## See Also
 #
 # | Topic | Where |
 # |-------|-------|
+# | LVS verification workflow | [LVS Verification](lvs_verification.py) |
 # | Short detection | [Short Detection](../extraction/short_detection.py) |
 # | Netlist data model | [Concepts: Netlist Model](../concepts/netlist_model.py) |

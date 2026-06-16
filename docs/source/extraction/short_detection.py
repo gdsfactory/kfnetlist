@@ -77,10 +77,69 @@
 #     print(f"Short: {s.net_a} <-> {s.net_b} on {s.layer}")
 # ```
 #
+# ## Interpreting results
+#
+# Each `ShortResult` carries enough data to locate and measure the short:
+#
+# ```python
+# for s in shorts:
+#     # Area of the overlapping region (in dbu^2)
+#     area = s.overlap.area()
+#
+#     # Bounding box for quick localization
+#     bbox = s.overlap.bbox()
+#
+#     print(f"{s.net_a} <-> {s.net_b} on {s.layer}: "
+#           f"area={area} dbu^2, bbox={bbox}")
+# ```
+#
+# To count distinct shorted net pairs (a single pair can appear on
+# multiple layers):
+#
+# ```python
+# pairs = {(s.net_a, s.net_b) for s in shorts}
+# print(f"{len(pairs)} distinct net pair(s) shorted")
+# ```
+#
+# In LVS terms, every `ShortResult` is a **short circuit error** — two
+# nets that should be electrically isolated have overlapping geometry.
+#
+# ## Building a short summary
+#
+# ```python
+# def summarize_shorts(shorts):
+#     """Build a one-line summary from detect_shorts() output."""
+#     if not shorts:
+#         return "PASS: no shorts detected"
+#     pairs = {(s.net_a, s.net_b) for s in shorts}
+#     layers = {s.layer for s in shorts}
+#     return (
+#         f"FAIL: {len(shorts)} short(s) between "
+#         f"{len(pairs)} net pair(s) on {len(layers)} layer(s)"
+#     )
+# ```
+#
+# ## Filtering by layer
+#
+# Use the `short_layers` parameter to restrict detection to specific
+# layers. This is useful when only certain metal layers carry routed
+# signals:
+#
+# ```python
+# from klayout import db as kdb
+#
+# # Only check M1 and M2
+# shorts = detect_shorts(
+#     l2n,
+#     short_layers=[kdb.LayerInfo(1, 0), kdb.LayerInfo(2, 0)],
+# )
+# ```
+#
 # ## See Also
 #
 # | Topic | Where |
 # |-------|-------|
+# | LVS verification workflow | [LVS Verification](../guides/lvs_verification.py) |
 # | L2N parsing | [L2N Parsing](l2n_parsing.py) |
 # | Open detection | [Open Detection](../guides/open_detection.py) |
 # | Extraction overview | [Overview](overview.md) |

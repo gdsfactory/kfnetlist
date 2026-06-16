@@ -58,6 +58,32 @@ nl.create_net(
 print(nl.to_json())
 ```
 
+## Connectivity Verification
+
+kfnetlist provides tools for LVS-style connectivity verification: detecting
+opens, comparing against reference netlists, and finding geometric shorts.
+
+```python
+# Check for open circuits
+opens = extracted_nl.detect_opens()
+if opens["unconnected_ports"]:
+    print(f"Unconnected: {opens['unconnected_ports']}")
+
+# Compare against schematic
+diff = extracted_nl.find_net_difference(schematic_nl)
+if diff["missing"]:
+    print(f"{len(list(diff['missing']))} nets missing from layout")
+
+# Geometric short detection (requires klayout)
+from kfnetlist.extract import detect_shorts
+shorts = detect_shorts(l2n)
+for s in shorts:
+    print(f"Short: {s.net_a} <-> {s.net_b} on {s.layer}")
+```
+
+For a complete walkthrough, see the
+[LVS Verification Guide](https://gdsfactory.github.io/kfnetlist/guides/lvs_verification/).
+
 ## Key Features
 
 - **Rust core** — Netlist, Net, and port types are implemented in Rust for
@@ -72,6 +98,8 @@ print(nl.to_json())
   instances into the parent, reconnecting touching nets
 - **Port checking** — `PortCheck` bitmask and `check_connection()` for
   geometric port-pair comparison (requires klayout)
+- **Connectivity verification** — `detect_opens()`, `find_net_difference()`,
+  and `detect_shorts()` for LVS-style verification workflows
 - **Netlist extraction** — `kfnetlist.extract` subpackage extracts hierarchical
   netlists from kfactory/klayout cells (requires klayout)
 
