@@ -80,3 +80,8 @@ src = "Cargo.toml"
 
 [[tool.tbump.file]]
 src = "src/kfnetlist/__init__.py"
+
+[dependency-groups]
+dev = [
+    "pre-commit>=4.6.0",
+]
