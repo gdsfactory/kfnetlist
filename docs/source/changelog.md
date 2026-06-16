@@ -1,5 +1,18 @@
 # Changelog
 
+## 0.2.0
+
+- **`find_net_difference()`** (renamed from `find_open_nets`) — compares
+  two netlists by symmetric difference on their sorted nets, returning
+  `{"missing": [Net, ...], "extra": [Net, ...]}` instead of the previous
+  flat list. The new structure distinguishes nets absent from the layout
+  (missing) vs. unexpected nets (extra).
+- **`normalize()` replaces `lvs_equivalent()`** — the method name was
+  changed to better reflect its purpose: fold equivalent ports into
+  canonical names and merge nets sharing a canonical reference. The API
+  and behaviour are unchanged.
+- **Python 3.14 support** — classifier and CI testing added.
+
 ## 0.1.5
 
 - **L2N parsing** — `parse_l2n()` and `l2n_to_json()` convert a klayout

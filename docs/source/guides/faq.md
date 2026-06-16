@@ -76,3 +76,54 @@ excluded purposes are flattened into the parent netlist. This keeps the
 extracted netlist focused on the functional components that matter for
 connectivity verification. See the [Instance Flattening](instance_flattening.py)
 guide.
+
+## Verification
+
+### What LVS checks does kfnetlist support?
+
+kfnetlist supports three categories of connectivity verification:
+
+| Check | Method | Requires klayout? |
+|-------|--------|-------------------|
+| Open detection | `Netlist.detect_opens()` | No |
+| Net comparison | `Netlist.find_net_difference(reference)` | No |
+| Geometric short detection | `detect_shorts(l2n)` | Yes |
+
+These can be combined into a complete verification flow. See the
+[LVS Verification Guide](lvs_verification.py) for a walkthrough.
+
+### How do I interpret a ShortResult?
+
+A `ShortResult` has four fields:
+
+- `net_a` / `net_b` — the names of the two nets that overlap
+- `layer` — the layer where the overlap occurs
+- `overlap` — a klayout `Region` containing the overlapping polygons
+
+You can get the overlap area with `s.overlap.area()` and the bounding box
+with `s.overlap.bbox()`. The overlap region can be visualized in klayout's
+layout viewer.
+
+### What is the difference between topological and geometric shorts?
+
+A **topological short** occurs when two named nets share the same port
+member — i.e., the same port appears in two different nets. kfnetlist does
+not currently detect topological shorts (this requires named nets, which
+are on the roadmap).
+
+A **geometric short** occurs when polygons belonging to different nets
+overlap on the same layer. `detect_shorts(l2n)` detects geometric shorts
+using klayout's boolean Region intersection.
+
+### What does "singleton net" mean in open detection?
+
+A singleton net is a net with exactly one member. This means a port
+reference exists in the netlist but is not connected to anything else —
+it is a dangling stub. While sometimes intentional (e.g., a monitoring
+tap), singleton nets often indicate accidental open circuits.
+
+### Should I call `sort()` before `find_net_difference()`?
+
+Yes. `find_net_difference()` compares nets by their sorted member content,
+but the netlist-level ordering affects which nets are compared. Always call
+`sort()` on both netlists before comparison for deterministic results.
