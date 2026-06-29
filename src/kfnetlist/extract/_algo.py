@@ -137,7 +137,41 @@ def _gather_equivalent_ports(
     return eqps_all
 
 
-def _placement_for(inst: _InstanceLike) -> Placement:
+class _DBoxLike(Protocol):
+    left: float
+    bottom: float
+    right: float
+    top: float
+
+
+class _DVectorLike(Protocol):
+    x: float
+    y: float
+
+
+class _DCplxTransLike(Protocol):
+    angle: float
+    mirror: bool
+
+    @property
+    def disp(self) -> _DVectorLike: ...
+
+
+class _InstanceShapeLike(Protocol):
+    def dbbox(self) -> _DBoxLike: ...
+
+
+class _PlaceableLike(Protocol):
+    # Only the geometry surface `_placement_for` reads, described structurally
+    # like the other `*Like` protocols so the helper never depends on concrete
+    # klayout classes (and can be exercised with plain stand-ins in tests).
+    @property
+    def instance(self) -> _InstanceShapeLike: ...
+    @property
+    def dcplx_trans(self) -> _DCplxTransLike: ...
+
+
+def _placement_for(inst: _PlaceableLike) -> Placement:
     """Build a :class:`Placement` from a placed klayout instance.
 
     Reads the origin transform (displacement, rotation, mirror) in micrometres
