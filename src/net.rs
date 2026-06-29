@@ -5,9 +5,7 @@ use pyo3::types::{PyList, PyType};
 use serde::{Deserialize, Serialize};
 
 use crate::port::{NetlistPort, PortArrayRef, PortArrayRefData, PortRef};
-use crate::{
-    cmp_to_py, from_py_any, hash64, json_parse, json_string, richcmp_result, to_py_dict,
-};
+use crate::{cmp_to_py, from_py_any, hash64, json_parse, json_string, richcmp_result, to_py_dict};
 
 /// Internal Rust enum for the three kinds of net members.
 ///

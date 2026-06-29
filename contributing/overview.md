@@ -52,6 +52,7 @@ The core data types are implemented in **Rust** (via PyO3) for performance, whil
 | `net.rs` | `Net` container (sorted member collection) and `NetMember` enum |
 | `instance.rs` | `NetlistInstance` and `NetlistArray` types |
 | `netlist.rs` | `Netlist` orchestrator: instance/port/net management, flattening, LVS equivalence, sorting |
+| `placement.rs` | Placement-aware flavor: `Placement`, `PlacedInstance` (extends `NetlistInstance`), `PlacedNetlist` (extends `Netlist`) |
 
 ### Python Modules (`src/kfnetlist/`)
 
@@ -104,6 +105,47 @@ The top-level container. Key methods:
 | `to_dict()` / `from_dict(d)` | Python dict serialization |
 | `instances` / `nets` / `ports` | Properties returning fresh snapshots |
 
+### Placement-Aware Flavor (from `_native`)
+
+A second flavor carries physical **placement** geometry alongside connectivity.
+The types subclass the plain ones (via PyO3 `#[pyclass(extends = ...)]`), so
+`isinstance(placed, Netlist)` is true and all inherited behaviour (nets, ports,
+flattening, sorting, LVS folding) works unchanged.
+
+#### `Placement(x, y, orientation, mirror, bbox)`
+A purely **geometric** value object — *where* an instance sits, not *what* it
+is:
+
+| Field | Meaning |
+|-------|---------|
+| `x`, `y` | Origin displacement, micrometres |
+| `orientation` | Rotation about the origin, degrees |
+| `mirror` | Mirror flag (klayout convention) |
+| `bbox` | Bounding box dict `{"left", "bottom", "right", "top"}`, µm |
+
+`bbox` is exposed and serialized as a plain dict, never as a class. The placed
+cell's *name* is an intrinsic instance property and lives on `PlacedInstance`,
+not here.
+
+#### `PlacedInstance(kcl, component, settings=None, array=None, name="", cell="", placement=None)`
+Subclass of `NetlistInstance` adding the placed `cell` name and a `placement`.
+Inherits all connectivity fields (`kcl`, `component`, `settings`, `array`,
+`name`). `cell` is the layout cell name — distinct from `component`, which is
+the factory name (falling back to the cell name).
+
+#### `PlacedNetlist()`
+Subclass of `Netlist` whose `instances` property returns `PlacedInstance`
+objects, with an extra `placements` map keyed by instance name.
+
+| Method | Description |
+|--------|-------------|
+| `from_netlist(netlist, placements=None, cells=None)` | Upgrade a plain `Netlist`, attaching per-instance placement geometry and cell names (entries for absent instances are dropped; instances without one get empty defaults) |
+| `create_inst(name, kcl, component, settings=None, na=1, nb=1, cell="", placement=None)` | Add an instance with optional cell name and placement (base parameter order preserved) |
+| `placements` | Property: `dict[str, Placement]` for instances that have one |
+
+Placement is **excluded from equality**, so LVS comparisons are unaffected by
+the extra geometry.
+
 ### Port Checking
 
 #### `PortCheck` (IntFlag)
@@ -114,8 +156,8 @@ Compare two duck-typed ports, returning a `PortCheck` bitmask. Uses integer tran
 
 ### Extraction (requires klayout)
 
-#### `extract(cell, *, wrap_kdb_instance, port_types, mark_port_types, ...) -> dict[str, Netlist]`
-Full hierarchical extraction: optical nets from geometry + electrical nets from klayout L2N.
+#### `extract(cell, *, wrap_kdb_instance, port_types, mark_port_types, ..., include_placement=False) -> dict[str, Netlist]`
+Full hierarchical extraction: optical nets from geometry + electrical nets from klayout L2N. With `include_placement=True`, each returned value is a `PlacedNetlist` whose instances additionally carry a `Placement` read from the layout; the default returns plain `Netlist` objects, identical to before.
 
 #### `get_optical_nets(cell, port_types, *, allow_width_mismatch) -> list[Net]`
 Extract optical nets from geometric port adjacency within a single cell.
@@ -168,6 +210,29 @@ Nets are unordered collections. The `sort()` method normalizes everything for de
 ```
 
 Instance names are dict keys (not duplicated inside the value). Net members are tagged unions (`Port`, `Ref`, `ArrayRef`). The `NetlistWire` serde struct in Rust handles this mapping.
+
+A `PlacedNetlist` uses the same shape, with each instance value extended by a `placement` block:
+
+```json
+{
+  "instances": {
+    "wg1": {
+      "kcl": "PDK",
+      "component": "straight",
+      "settings": {"width": 500},
+      "cell": "straight",
+      "placement": {
+        "x": 10.0, "y": 5.0,
+        "orientation": 90.0,
+        "mirror": false,
+        "bbox": {"left": 0.0, "bottom": 0.0, "right": 10.0, "top": 0.5}
+      }
+    }
+  },
+  "nets": [],
+  "ports": []
+}
+```
 
 ## Optional Dependencies
 

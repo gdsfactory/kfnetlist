@@ -305,6 +305,52 @@ After:   Net[o1, mmi1.o2]
 
 ---
 
+## Optional: Placement Capture (`include_placement`)
+
+**Source**: `_algo.py` (`_placement_for`, the upgrade step at the end of the per-cell loop)
+
+By default `extract()` returns connectivity-only `Netlist` objects. Passing
+`include_placement=True` makes it return `PlacedNetlist` objects instead — the
+same connectivity, with each instance additionally carrying a `Placement`
+(cell name, origin transform, bounding box).
+
+This is deliberately a **post-processing upgrade**, not a change to the
+connectivity pipeline. For each cell, the netlist is built, flattened,
+LVS-normalized, and sorted on a plain `Netlist` exactly as described above.
+Only then is it upgraded:
+
+```python
+nl.sort()
+if include_placement:
+    surviving = set(nl.instance_names())
+    placed = [inst for inst in c_.insts if inst.name in surviving]
+    placements = {inst.name: _placement_for(inst) for inst in placed}
+    cells = {inst.name: inst.cell.name for inst in placed}
+    nl = PlacedNetlist.from_netlist(nl, placements, cells)
+```
+
+Because placement is per-instance and independent of net rewriting, gathering
+it *after* flattening/normalization avoids having to keep a parallel placement
+map consistent through every mutation. Placement geometry and cell names are
+gathered only for the instances that survived flattening
+(`nl.instance_names()`).
+
+The placed `cell` name (`inst.cell.name`) is captured onto
+`PlacedInstance.cell` — distinct from the base `component` (factory name).
+`_placement_for` builds the purely geometric `Placement` from the live klayout
+instance:
+
+| `Placement` field | Source |
+|-------------------|--------|
+| `x`, `y` | `inst.dcplx_trans.disp.x` / `.disp.y` (µm) |
+| `orientation` | `inst.dcplx_trans.angle` (degrees) |
+| `mirror` | `inst.dcplx_trans.mirror` |
+| `bbox` | `inst.instance.dbbox()` → `{left, bottom, right, top}` (µm, parent-cell coordinates) |
+
+The bbox is the **transformed** bounding box in the parent cell's frame (i.e.
+where the instance actually sits after placement), not the cell's own
+untransformed extent.
+
 ## Stage 5: LVS-Equivalent Port Folding
 
 **Source**: `src/netlist.rs:329-481` (`Netlist::lvs_equivalent`)

@@ -27,7 +27,11 @@ pub(crate) struct NetlistWire {
 }
 
 /// A netlist: instances, nets, and top-level ports.
-#[pyclass(module = "kfnetlist._native")]
+///
+/// Declared `subclass` so `PlacedNetlist` (which carries per-instance placement
+/// geometry) can extend it; this adds no fields and does not change the wire
+/// format.
+#[pyclass(module = "kfnetlist._native", subclass)]
 #[derive(Default, Debug)]
 pub struct Netlist {
     /// Instance name → instance. Insertion order preserved.
@@ -37,7 +41,7 @@ pub struct Netlist {
 }
 
 impl Netlist {
-    fn deep_clone(&self) -> Self {
+    pub(crate) fn deep_clone(&self) -> Self {
         Netlist {
             instances: self
                 .instances
@@ -170,7 +174,7 @@ impl Netlist {
     }
 
     #[pyo3(signature = (name, kcl, component, settings=None, na=1, nb=1))]
-    fn create_inst(
+    pub(crate) fn create_inst(
         &mut self,
         name: String,
         kcl: String,
@@ -287,7 +291,7 @@ impl Netlist {
     /// Remove the named instances and merge any nets touching them into
     /// a single new net (per group of nets that referenced the same flattened
     /// instance), preserving every non-flattened port reference.
-    fn flatten_instances(&mut self, names: Vec<String>) -> PyResult<()> {
+    pub(crate) fn flatten_instances(&mut self, names: Vec<String>) -> PyResult<()> {
         for inst_name in names {
             self.instances.shift_remove(&inst_name);
             let mut surviving: Vec<Net> = Vec::with_capacity(self.nets.len());
@@ -340,8 +344,8 @@ impl Netlist {
             .map(|p| p.name.clone())
             .collect();
         unconnected.sort(); // Sort just to make test results deterministic.
-        // Singleton nets are often a sign of an unintentional open connection, so we report them as well.
-        // Singleton nets can also just be an electrical interconnect net
+                            // Singleton nets are often a sign of an unintentional open connection, so we report them as well.
+                            // Singleton nets can also just be an electrical interconnect net
         let singleton_list = PyList::empty(py);
         for net in &self.nets {
             if net.members.len() == 1 {
@@ -397,7 +401,6 @@ impl Netlist {
         self.nets.sort();
         self.ports.sort();
     }
-
 
     /// Return a deep copy of the netlist with normalized settings (integer-
     /// valued floats become integers) and sorted contents.

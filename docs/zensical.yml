@@ -23,6 +23,7 @@ nav:
       - LVS Verification: guides/lvs_verification.md
       - Equivalent Ports: guides/equivalent_ports.md
       - Instance Flattening: guides/instance_flattening.md
+      - Placement: guides/placement.md
       - Open Detection: guides/open_detection.md
       - FAQ: guides/faq.md
   - Reference:
