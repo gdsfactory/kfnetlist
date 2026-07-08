@@ -74,7 +74,10 @@ impl NetlistArray {
 ///
 /// `name` is set by the parent `Netlist` from the dict key on deserialization
 /// and is intentionally excluded from the JSON wire format.
-#[pyclass(module = "kfnetlist._native")]
+///
+/// Declared `subclass` so `PlacedInstance` (which adds placement geometry) can
+/// extend it; this adds no fields and does not change the wire format.
+#[pyclass(module = "kfnetlist._native", subclass)]
 #[derive(Clone, Debug)]
 pub struct NetlistInstance {
     #[pyo3(get, set)]
@@ -225,11 +228,7 @@ impl NetlistInstance {
 
     #[classmethod]
     #[pyo3(signature = (obj, name=String::new()))]
-    fn from_dict(
-        _cls: &Bound<'_, PyType>,
-        obj: &Bound<'_, PyAny>,
-        name: String,
-    ) -> PyResult<Self> {
+    fn from_dict(_cls: &Bound<'_, PyType>, obj: &Bound<'_, PyAny>, name: String) -> PyResult<Self> {
         let wire: NetlistInstanceWire = from_py_any(obj)?;
         Ok(Self::from_wire(name, wire))
     }

@@ -5,7 +5,15 @@ from __future__ import annotations
 from collections import defaultdict
 from typing import TYPE_CHECKING, Protocol
 
-from kfnetlist import Net, Netlist, NetlistPort, PortArrayRef, PortRef
+from kfnetlist import (
+    Net,
+    Netlist,
+    NetlistPort,
+    Placement,
+    PlacedNetlist,
+    PortArrayRef,
+    PortRef,
+)
 
 from ._geometry import _BaseLike, get_optical_nets
 from ._l2n import l2n_elec as _l2n_elec
@@ -129,6 +137,64 @@ def _gather_equivalent_ports(
     return eqps_all
 
 
+class _DBoxLike(Protocol):
+    left: float
+    bottom: float
+    right: float
+    top: float
+
+
+class _DVectorLike(Protocol):
+    x: float
+    y: float
+
+
+class _DCplxTransLike(Protocol):
+    angle: float
+    mirror: bool
+
+    @property
+    def disp(self) -> _DVectorLike: ...
+
+
+class _InstanceShapeLike(Protocol):
+    def dbbox(self) -> _DBoxLike: ...
+
+
+class _PlaceableLike(Protocol):
+    # Only the geometry surface `_placement_for` reads, described structurally
+    # like the other `*Like` protocols so the helper never depends on concrete
+    # klayout classes (and can be exercised with plain stand-ins in tests).
+    @property
+    def instance(self) -> _InstanceShapeLike: ...
+    @property
+    def dcplx_trans(self) -> _DCplxTransLike: ...
+
+
+def _placement_for(inst: _PlaceableLike) -> Placement:
+    """Build a :class:`Placement` from a placed klayout instance.
+
+    Reads the origin transform (displacement, rotation, mirror) in micrometres
+    plus the transformed bounding box in the parent cell's coordinates. This is
+    purely geometric; the placed cell name is captured separately onto
+    :class:`~kfnetlist.PlacedInstance`.
+    """
+    t = inst.dcplx_trans
+    bbox = inst.instance.dbbox()
+    return Placement(
+        x=t.disp.x,
+        y=t.disp.y,
+        orientation=t.angle,
+        mirror=t.mirror,
+        bbox={
+            "left": bbox.left,
+            "bottom": bbox.bottom,
+            "right": bbox.right,
+            "top": bbox.top,
+        },
+    )
+
+
 def _create_inst_entry(nl: Netlist, inst: _InstanceLike) -> None:
     cell = inst.cell
     if cell.has_factory_name():
@@ -245,6 +311,7 @@ def extract(
     ignore_unnamed: bool = False,
     exclude_purposes: list[str] | None = None,
     allow_width_mismatch: bool = False,
+    include_placement: bool = False,
 ) -> dict[str, Netlist]:
     """Extract a hierarchical netlist from a cell.
 
@@ -257,6 +324,13 @@ def extract(
     hook: it converts a raw :class:`klayout.db.Instance` into an object with
     ``.name`` matching the names used elsewhere in the cell hierarchy. The
     kfactory shim passes ``lambda i: Instance(kcl=cell.kcl, instance=i)``.
+
+    When ``include_placement`` is ``True``, each returned value is a
+    :class:`~kfnetlist.PlacedNetlist` (a :class:`~kfnetlist.Netlist` subclass)
+    whose instances additionally carry a :class:`~kfnetlist.Placement` — the
+    cell name, origin transform (x, y, orientation, mirror), and bounding box —
+    read from the layout. The default (``False``) returns plain
+    :class:`~kfnetlist.Netlist` objects, identical to before.
     """
     if equivalent_ports is None:
         equivalent_ports = _gather_equivalent_ports(cell)
@@ -307,6 +381,15 @@ def extract(
                 equivalent_ports=equivalent_ports,
                 port_mapping=port_mapping,
             )
-        netlists[c_.name] = nl
         nl.sort()
+        if include_placement:
+            # Upgrade the finished (flattened, normalized, sorted) connectivity
+            # netlist to a placement-aware one, attaching the placed cell name
+            # and placement only for the instances that survived flattening.
+            surviving = set(nl.instance_names())
+            placed = [inst for inst in c_.insts if inst.name in surviving]
+            placements = {inst.name: _placement_for(inst) for inst in placed}
+            cells = {inst.name: inst.cell.name for inst in placed}
+            nl = PlacedNetlist.from_netlist(nl, placements, cells)
+        netlists[c_.name] = nl
     return netlists

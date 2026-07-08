@@ -273,12 +273,7 @@ impl PortArrayRef {
                 let other = other.downcast::<PortArrayRef>().unwrap().borrow();
                 let other_parent = other.as_ref();
                 let self_parent = slf.as_ref();
-                let s = (
-                    &self_parent.instance,
-                    &self_parent.port,
-                    slf.ia,
-                    slf.ib,
-                );
+                let s = (&self_parent.instance, &self_parent.port, slf.ia, slf.ib);
                 let o = (
                     &other_parent.instance,
                     &other_parent.port,

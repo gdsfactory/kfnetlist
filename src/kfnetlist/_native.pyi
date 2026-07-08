@@ -93,6 +93,49 @@ class NetlistInstance:
     @classmethod
     def from_dict(cls, obj: dict[str, Any], name: str = ...) -> Self: ...
 
+class Placement:
+    x: float
+    y: float
+    orientation: float
+    mirror: bool
+    bbox: dict[str, float]
+
+    def __init__(
+        self,
+        x: float,
+        y: float,
+        orientation: float,
+        mirror: bool,
+        bbox: dict[str, float],
+    ) -> None: ...
+    def to_json(self) -> str: ...
+    @classmethod
+    def from_json(cls, data: str) -> Self: ...
+    def to_dict(self) -> dict[str, Any]: ...
+    @classmethod
+    def from_dict(cls, obj: dict[str, Any]) -> Self: ...
+
+class PlacedInstance(NetlistInstance):
+    cell: str
+    placement: Placement
+
+    def __init__(
+        self,
+        kcl: str,
+        component: str,
+        settings: dict[str, Any] | None = ...,
+        array: NetlistArray | None = ...,
+        name: str = ...,
+        cell: str = ...,
+        placement: Placement | None = ...,
+    ) -> None: ...
+    def to_json(self) -> str: ...
+    @classmethod
+    def from_json(cls, data: str, name: str = ...) -> Self: ...
+    def to_dict(self) -> dict[str, Any]: ...
+    @classmethod
+    def from_dict(cls, obj: dict[str, Any], name: str = ...) -> Self: ...
+
 NetMember = NetlistPort | PortRef | PortArrayRef
 
 class NetIter:
@@ -153,6 +196,34 @@ class Netlist:
     def to_json(self) -> str: ...
     @classmethod
     def from_json(cls, data: str) -> Self: ...
+    def to_dict(self) -> dict[str, Any]: ...
+    @classmethod
+    def from_dict(cls, obj: dict[str, Any]) -> Self: ...
+
+class PlacedNetlist(Netlist):
+    @property
+    def instances(self) -> dict[str, PlacedInstance]: ...  # type: ignore[override]
+    @property
+    def placements(self) -> dict[str, Placement]: ...
+    def __init__(self) -> None: ...
+    @classmethod
+    def from_netlist(
+        cls,
+        netlist: Netlist,
+        placements: Mapping[str, Placement] | None = ...,
+        cells: Mapping[str, str] | None = ...,
+    ) -> Self: ...
+    def create_inst(  # type: ignore[override]
+        self,
+        name: str,
+        kcl: str,
+        component: str,
+        settings: dict[str, Any] | None = ...,
+        na: int = ...,
+        nb: int = ...,
+        cell: str = ...,
+        placement: Placement | None = ...,
+    ) -> PlacedInstance: ...
     def to_dict(self) -> dict[str, Any]: ...
     @classmethod
     def from_dict(cls, obj: dict[str, Any]) -> Self: ...
