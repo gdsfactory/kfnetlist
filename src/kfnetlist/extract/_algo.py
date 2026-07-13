@@ -15,7 +15,7 @@ from kfnetlist import (
     PortRef,
 )
 
-from ._geometry import _BaseLike, get_optical_nets
+from ._geometry import _BaseLike, _CrossSectionWrapperLike, get_optical_nets
 from ._l2n import l2n_elec as _l2n_elec
 from ._settings import serialize_setting
 
@@ -40,20 +40,28 @@ class _LibraryLike(Protocol):
 class _PortLike(Protocol):
     name: str
     port_type: str
-    layer_info: kdb.LayerInfo
     trans: kdb.Trans
-    base: _BaseLike
+
+    @property
+    def layer_info(self) -> kdb.LayerInfo: ...
+    @property
+    def base(self) -> _BaseLike: ...
+    @property
+    def cross_section(self) -> _CrossSectionWrapperLike: ...
 
 
 class _CellLike(Protocol):
     name: str
-    factory_name: str
-    virtual: bool
-    lvs_equivalent_ports: list[list[str]] | None
 
     # Declared as read-only properties (rather than class attributes) so that
     # implementations are free to expose narrower concrete types: protocol
     # attributes are invariant, properties are covariant on read.
+    @property
+    def virtual(self) -> bool: ...
+    @property
+    def lvs_equivalent_ports(self) -> list[list[str]] | None: ...
+    @property
+    def factory_name(self) -> str: ...
     @property
     def settings(self) -> _SettingsLike: ...
     @property
@@ -74,11 +82,12 @@ class _InstanceLike(Protocol):
     name: str
     na: int
     nb: int
-    instance: kdb.Instance
     dcplx_trans: kdb.DCplxTrans
     purpose: str | None
 
     # Read-only for the same covariance reason as `_CellLike.settings`.
+    @property
+    def instance(self) -> kdb.Instance: ...
     @property
     def cell(self) -> _CellLike: ...
     @property
@@ -88,13 +97,17 @@ class _InstanceLike(Protocol):
 
 class _KCLLike(Protocol):
     name: str
-    dbu: float
     layout: kdb.Layout
-    connectivity: Sequence[Sequence[kdb.LayerInfo]]
-    factories: Mapping[str, _FactoryLike]
-    virtual_factories: Mapping[str, _FactoryLike]
 
-    def __getitem__(self, key: int | str) -> _CellLike: ...
+    @property
+    def dbu(self) -> float: ...
+    @property
+    def connectivity(self) -> Sequence[Sequence[kdb.LayerInfo]]: ...
+    @property
+    def factories(self) -> Mapping[str, _FactoryLike]: ...
+    @property
+    def virtual_factories(self) -> Mapping[str, _FactoryLike]: ...
+    def __getitem__(self, key: int | str, /) -> _CellLike: ...
 
 
 class _RootCellLike(_CellLike, Protocol):

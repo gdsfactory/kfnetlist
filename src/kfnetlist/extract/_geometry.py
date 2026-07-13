@@ -25,10 +25,11 @@ class _BaseLike(Protocol):
 
     trans: kdb.Trans | None
     dcplx_trans: kdb.DCplxTrans | None
-    cross_section: _CrossSectionLike
     port_type: str
     name: str
-    kcl: _KCLLike
+
+    @property
+    def kcl(self) -> _KCLLike: ...
 
     def transformed(
         self,
@@ -37,18 +38,28 @@ class _BaseLike(Protocol):
     ) -> _BaseLike: ...
 
 
+class _CrossSectionWrapperLike(Protocol):
+    @property
+    def base(self) -> _CrossSectionLike: ...
+
+
 class _PortLike(Protocol):
-    base: _BaseLike
     name: str
     port_type: str
+
+    @property
+    def base(self) -> _BaseLike: ...
+    @property
+    def cross_section(self) -> _CrossSectionWrapperLike: ...
 
 
 class _InstanceLike(Protocol):
     name: str
     na: int
     nb: int
-    instance: kdb.Instance
 
+    @property
+    def instance(self) -> kdb.Instance: ...
     @property
     def ports(self) -> Iterable[_PortLike]: ...
 
@@ -61,16 +72,43 @@ class _CellLike(Protocol):
 
 
 @dataclass(frozen=True, slots=True)
-class _TransformedPort:
-    """Lightweight ``PortLike`` carrying an externally transformed base."""
+class _ResolvedPort:
+    """A port resolved to its (possibly transformed) geometry + cross section.
+
+    ``base`` carries the transform/layout geometry; ``cross_section`` is the
+    non-optional cross section read from the port wrapper via
+    ``port.cross_section.base``. Satisfies ``port_check.PortLike``.
+    """
 
     base: _BaseLike
+    cross_section: _CrossSectionLike
     name: str
     port_type: str
 
+    @property
+    def trans(self) -> kdb.Trans | None:
+        return self.base.trans
 
-def _layer_key(base: _BaseLike) -> str:
-    li = base.cross_section.main_layer
+    @property
+    def dcplx_trans(self) -> kdb.DCplxTrans | None:
+        return self.base.dcplx_trans
+
+    @property
+    def kcl(self) -> _KCLLike:
+        return self.base.kcl
+
+
+def _resolve(port: _PortLike, base: _BaseLike) -> _ResolvedPort:
+    return _ResolvedPort(
+        base=base,
+        cross_section=port.cross_section.base,
+        name=port.name,
+        port_type=port.port_type,
+    )
+
+
+def _layer_key(port: _ResolvedPort) -> str:
+    li = port.cross_section.main_layer
     return f"{li.layer}_{li.datatype}"
 
 
@@ -114,12 +152,12 @@ def get_optical_nets(
     """
     from klayout import db as kdb
 
-    cell_ports: dict[tuple[int, int], dict[str, list[tuple[int, _PortLike]]]] = {}
+    cell_ports: dict[tuple[int, int], dict[str, list[tuple[int, _ResolvedPort]]]] = {}
     inst_ports: dict[
         tuple[int, int],
         dict[
             str,
-            list[tuple[int, int, int, int, _InstanceLike, _PortLike]],
+            list[tuple[int, int, int, int, _InstanceLike, _ResolvedPort]],
         ],
     ] = {}
 
@@ -136,9 +174,10 @@ def get_optical_nets(
                 "Netlist extraction is not possible with colliding port names."
                 f" Duplicate name: {port.name}"
             )
-        h = _snapped_disp(port.base)
-        layer = _layer_key(port.base)
-        cell_ports.setdefault(h, {}).setdefault(layer, []).append((i, port))
+        rp = _resolve(port, port.base)
+        h = _snapped_disp(rp.base)
+        layer = _layer_key(rp)
+        cell_ports.setdefault(h, {}).setdefault(layer, []).append((i, rp))
         if port.name:
             portnames.add(port.name)
 
@@ -150,23 +189,21 @@ def get_optical_nets(
                     for j, port in enumerate(inst.ports):
                         if port.port_type not in port_types:
                             continue
-                        tbase = port.base.transformed(st)
-                        h = _snapped_disp(tbase)
-                        layer = _layer_key(tbase)
-                        tport = _TransformedPort(
-                            base=tbase, name=port.name, port_type=port.port_type
-                        )
+                        rp = _resolve(port, port.base.transformed(st))
+                        h = _snapped_disp(rp.base)
+                        layer = _layer_key(rp)
                         inst_ports.setdefault(h, {}).setdefault(layer, []).append(
-                            (i, j, ia, ib, inst, tport)
+                            (i, j, ia, ib, inst, rp)
                         )
         else:
             for j, port in enumerate(inst.ports):
                 if port.port_type not in port_types:
                     continue
-                h = _snapped_disp(port.base)
-                layer = _layer_key(port.base)
+                rp = _resolve(port, port.base)
+                h = _snapped_disp(rp.base)
+                layer = _layer_key(rp)
                 inst_ports.setdefault(h, {}).setdefault(layer, []).append(
-                    (i, j, 0, 0, inst, port)
+                    (i, j, 0, 0, inst, rp)
                 )
 
     base_check = PortCheck.position + PortCheck.layer + PortCheck.port_type
@@ -181,7 +218,9 @@ def get_optical_nets(
                 layer, []
             ) + cell_ports.get((h[0], h[1] + 1), {}).get(layer, [])
             hx, hy = h
-            ports_near: list[tuple[int, int, int, int, _InstanceLike, _PortLike]] = []
+            ports_near: list[
+                tuple[int, int, int, int, _InstanceLike, _ResolvedPort]
+            ] = []
             for x in (hx - 1, hx, hx + 1):
                 for y in (hy - 1, hy, hy + 1):
                     ports_near.extend(inst_ports.get((x, y), {}).get(layer, []))
@@ -189,7 +228,7 @@ def get_optical_nets(
             for n, (_, cellport) in enumerate(cellports):
                 for _, cellport2 in chain(cellports[n + 1 :], additional_cellports):
                     if (
-                        check_connection(cellport.base, cellport2.base) & check_opposite
+                        check_connection(cellport, cellport2) & check_opposite
                     ) == check_opposite:
                         nets.append(
                             Net(
@@ -204,8 +243,7 @@ def get_optical_nets(
 
                 for _, _, ia2, ib2, inst2, port2 in ports_near:
                     if (
-                        check_connection(cellport.base, port2.base, snapped=True)
-                        & check_same
+                        check_connection(cellport, port2, snapped=True) & check_same
                     ) == check_same:
                         nets.append(
                             Net(
@@ -228,7 +266,7 @@ def get_optical_nets(
                     ports[n + 1 :], additional_ports
                 ):
                     if (
-                        check_connection(port.base, port2.base) & check_opposite
+                        check_connection(port, port2) & check_opposite
                     ) == check_opposite:
                         nets.append(
                             Net(

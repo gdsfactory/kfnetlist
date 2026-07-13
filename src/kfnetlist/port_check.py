@@ -24,12 +24,15 @@ class PortCheck(IntFlag):
 
 
 class _CrossSectionLike(Protocol):
-    main_layer: kdb.LayerInfo
-    width: int
+    @property
+    def width(self) -> int: ...
+    @property
+    def main_layer(self) -> kdb.LayerInfo: ...
 
 
 class _KCLLike(Protocol):
-    dbu: float
+    @property
+    def dbu(self) -> float: ...
 
 
 class PortLike(Protocol):

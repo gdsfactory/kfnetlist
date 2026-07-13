@@ -13,14 +13,17 @@ if TYPE_CHECKING:
 class _PortLike(Protocol):
     name: str
     port_type: str
-    layer_info: kdb.LayerInfo
     trans: kdb.Trans
+
+    @property
+    def layer_info(self) -> kdb.LayerInfo: ...
 
 
 class _CellLike(Protocol):
     name: str
-    factory_name: str
 
+    @property
+    def factory_name(self) -> str: ...
     @property
     def ports(self) -> Iterable[_PortLike]: ...
     def has_factory_name(self) -> bool: ...
@@ -29,9 +32,10 @@ class _CellLike(Protocol):
 
 class _KCLLike(Protocol):
     layout: kdb.Layout
-    connectivity: Sequence[Sequence[kdb.LayerInfo]]
 
-    def __getitem__(self, key: int) -> _CellLike: ...
+    @property
+    def connectivity(self) -> Sequence[Sequence[kdb.LayerInfo]]: ...
+    def __getitem__(self, key: int, /) -> _CellLike: ...
 
 
 class _RootCellLike(_CellLike, Protocol):
