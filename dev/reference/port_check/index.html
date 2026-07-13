@@ -1657,10 +1657,7 @@
 
               <details class="mkdocstrings-source">
                 <summary>Source code in <code>src/kfnetlist/port_check.py</code></summary>
-                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">35</span>
-<span class="normal">36</span>
-<span class="normal">37</span>
-<span class="normal">38</span>
+                <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal">38</span>
 <span class="normal">39</span>
 <span class="normal">40</span>
 <span class="normal">41</span>
@@ -1672,7 +1669,10 @@
 <span class="normal">47</span>
 <span class="normal">48</span>
 <span class="normal">49</span>
-<span class="normal">50</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">PortLike</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
+<span class="normal">50</span>
+<span class="normal">51</span>
+<span class="normal">52</span>
+<span class="normal">53</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">PortLike</span><span class="p">(</span><span class="n">Protocol</span><span class="p">):</span>
 <span class="w">    </span><span class="sd">&quot;&quot;&quot;Duck-typed shape consumed by :func:`check_connection`.</span>
 
 <span class="sd">    Exactly one of ``trans`` / ``dcplx_trans`` must be set.</span>
@@ -1741,10 +1741,7 @@ supplied tolerances. <code>cross_section</code> implies <code>layer</code> and <
 
             <details class="mkdocstrings-source">
               <summary>Source code in <code>src/kfnetlist/port_check.py</code></summary>
-              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 71</span>
-<span class="normal"> 72</span>
-<span class="normal"> 73</span>
-<span class="normal"> 74</span>
+              <div class="highlight"><table class="highlighttable"><tr><td class="linenos"><div class="linenodiv"><pre><span></span><span class="normal"> 74</span>
 <span class="normal"> 75</span>
 <span class="normal"> 76</span>
 <span class="normal"> 77</span>
@@ -1788,7 +1785,10 @@ supplied tolerances. <code>cross_section</code> implies <code>layer</code> and <
 <span class="normal">115</span>
 <span class="normal">116</span>
 <span class="normal">117</span>
-<span class="normal">118</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">check_connection</span><span class="p">(</span>
+<span class="normal">118</span>
+<span class="normal">119</span>
+<span class="normal">120</span>
+<span class="normal">121</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">def</span><span class="w"> </span><span class="nf">check_connection</span><span class="p">(</span>
     <span class="n">p1</span><span class="p">:</span> <span class="n">PortLike</span><span class="p">,</span>
     <span class="n">p2</span><span class="p">:</span> <span class="n">PortLike</span><span class="p">,</span>
     <span class="o">*</span><span class="p">,</span>
