@@ -10,11 +10,9 @@ use crate::{
 /// Cell-level port of a netlist (top-level pin).
 #[pyclass(module = "kfnetlist._native")]
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct NetlistPort {
-    #[pyo3(get, set)]
-    pub name: String,
-}
+#[serde(transparent)]
+pub struct NetlistPort(pub kfnetlist_core::NetlistPort);
+crate::core_wrapper!(NetlistPort, kfnetlist_core::NetlistPort);
 
 /// Reference to a port on an instance.
 ///
@@ -22,13 +20,9 @@ pub struct NetlistPort {
 /// for both plain and array references.
 #[pyclass(module = "kfnetlist._native", subclass)]
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PortRef {
-    #[pyo3(get, set)]
-    pub instance: String,
-    #[pyo3(get, set)]
-    pub port: String,
-}
+#[serde(transparent)]
+pub struct PortRef(pub kfnetlist_core::PortRef);
+crate::core_wrapper!(PortRef, kfnetlist_core::PortRef);
 
 /// Reference to a port on an array instance.
 ///
@@ -43,21 +37,16 @@ pub struct PortArrayRef {
     pub ib: i64,
 }
 
-/// Plain serializable view of a `PortArrayRef` — used by `NetMember` and
-/// the JSON/dict round-trips, since the PyO3 child struct only stores the
-/// indices.
-#[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct PortArrayRefData {
-    pub instance: String,
-    pub port: String,
-    pub ia: i64,
-    pub ib: i64,
+pub(crate) use kfnetlist_core::PortArrayRef as PortArrayRefData;
+
+pub(crate) trait PortArrayRefPython: Sized {
+    fn from_py(par: &Bound<'_, PortArrayRef>) -> Self;
+    fn into_py(self, py: Python<'_>) -> PyResult<Py<PortArrayRef>>;
 }
 
-impl PortArrayRefData {
+impl PortArrayRefPython for PortArrayRefData {
     /// Read all four fields from a Python `PortArrayRef` (parent + child).
-    pub fn from_py(par: &Bound<'_, PortArrayRef>) -> Self {
+    fn from_py(par: &Bound<'_, PortArrayRef>) -> Self {
         let child = par.borrow();
         let parent = child.as_ref();
         Self {
@@ -69,11 +58,11 @@ impl PortArrayRefData {
     }
 
     /// Construct a fresh Python `PortArrayRef` carrying these fields.
-    pub fn into_py(self, py: Python<'_>) -> PyResult<Py<PortArrayRef>> {
-        let init = PyClassInitializer::from(PortRef {
+    fn into_py(self, py: Python<'_>) -> PyResult<Py<PortArrayRef>> {
+        let init = PyClassInitializer::from(PortRef(kfnetlist_core::PortRef {
             instance: self.instance,
             port: self.port,
-        })
+        }))
         .add_subclass(PortArrayRef {
             ia: self.ia,
             ib: self.ib,
@@ -102,10 +91,18 @@ fn kind_of(obj: &Bound<'_, PyAny>) -> Option<u8> {
 
 #[pymethods]
 impl NetlistPort {
+    #[getter]
+    fn name(&self) -> String {
+        self.0.name.clone()
+    }
+    #[setter]
+    fn set_name(&mut self, value: String) {
+        self.0.name = value;
+    }
     #[new]
     #[pyo3(signature = (name))]
     fn new(name: String) -> Self {
-        Self { name }
+        Self(kfnetlist_core::NetlistPort { name })
     }
 
     fn __hash__(&self) -> u64 {
@@ -162,10 +159,26 @@ impl NetlistPort {
 
 #[pymethods]
 impl PortRef {
+    #[getter]
+    fn instance(&self) -> String {
+        self.0.instance.clone()
+    }
+    #[setter]
+    fn set_instance(&mut self, value: String) {
+        self.0.instance = value;
+    }
+    #[getter]
+    fn port(&self) -> String {
+        self.0.port.clone()
+    }
+    #[setter]
+    fn set_port(&mut self, value: String) {
+        self.0.port = value;
+    }
     #[new]
     #[pyo3(signature = (instance, port))]
     fn new(instance: String, port: String) -> Self {
-        Self { instance, port }
+        Self(kfnetlist_core::PortRef { instance, port })
     }
 
     /// Alias for `port`, preserving the historical `.name` accessor from
@@ -249,7 +262,8 @@ impl PortArrayRef {
     #[new]
     #[pyo3(signature = (instance, port, ia, ib))]
     fn new(instance: String, port: String, ia: i64, ib: i64) -> PyClassInitializer<Self> {
-        PyClassInitializer::from(PortRef { instance, port }).add_subclass(Self { ia, ib })
+        PyClassInitializer::from(PortRef(kfnetlist_core::PortRef { instance, port }))
+            .add_subclass(Self { ia, ib })
     }
 
     fn __hash__(slf: PyRef<'_, Self>) -> u64 {

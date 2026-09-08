@@ -4,7 +4,7 @@
 
 kfnetlist is a standalone, high-performance netlist schema for circuit connectivity manipulation. It provides a decoupled, lightweight data model for representing and manipulating circuit netlists without requiring the full [kfactory](https://github.com/gdsfactory/kfactory)/klayout stack.
 
-The core data types are implemented in **Rust** (via PyO3) for performance, while the extraction logic and port checking remain in Python for flexibility and interoperability with klayout.
+The core data types and algorithms live in the Python-independent **Rust** crate `kfnetlist-core`. The separate `kfnetlist-python` crate exposes the Python API via PyO3. Extraction logic and port checking remain in Python for interoperability with klayout.
 
 ## Key Features
 
@@ -43,16 +43,17 @@ The core data types are implemented in **Rust** (via PyO3) for performance, whil
               └─────────────────┘
 ```
 
-### Rust Modules (`src/*.rs`)
+### Rust workspace
 
-| Module | Purpose |
-|--------|---------|
-| `lib.rs` | PyO3 module bootstrap, shared helpers (hashing, comparison, serde wrappers) |
-| `port.rs` | `NetlistPort`, `PortRef`, `PortArrayRef` types with ordering, hashing, serialization |
-| `net.rs` | `Net` container (sorted member collection) and `NetMember` enum |
-| `instance.rs` | `NetlistInstance` and `NetlistArray` types |
-| `netlist.rs` | `Netlist` orchestrator: instance/port/net management, flattening, LVS equivalence, sorting |
-| `placement.rs` | Placement-aware flavor: `Placement`, `PlacedInstance` (extends `NetlistInstance`), `PlacedNetlist` (extends `Netlist`) |
+| Crate | Responsibility |
+|-------|----------------|
+| `crates/kfnetlist-core` | Native connectivity and placement values, serde wire formats, validation, normalization, flattening, open detection, and net differences |
+| `crates/kfnetlist-python` | PyO3 classes and inheritance, mutable Python properties, collection snapshots, iterators, repr/comparison, Pydantic integration, and exception conversion |
+
+Both crates have `port`, `net`, `instance`, `netlist`, and `placement` modules.
+Core values contain no Python objects; binding classes own core values. The
+binding crate's `lib.rs` registers the `kfnetlist._native` module. See
+[the Rust API guide](rust-core.md) for the native public API and testing commands.
 
 ### Python Modules (`src/kfnetlist/`)
 
@@ -75,7 +76,7 @@ The core data types are implemented in **Rust** (via PyO3) for performance, whil
 A top-level (cell-level) port. Hashable, orderable, serializable.
 
 #### `PortRef(instance: str, port: str)`
-A reference to a port on a named instance. Has a derived `name` property (`"instance,port"`). Supports `as_python_str()` for code generation.
+A reference to a port on a named instance. Has a `name` property aliasing `port`. Supports `as_python_str()` for code generation.
 
 #### `PortArrayRef(instance: str, port: str, ia: int, ib: int)`
 Extends `PortRef` with array index coordinates. When `ia=1, ib=1`, automatically collapsed to a plain `PortRef` inside `create_net()`.
@@ -100,7 +101,7 @@ The top-level container. Key methods:
 | `add_net(net)` | Add a pre-constructed `Net` |
 | `flatten_instances(names)` | Remove instances, merge their nets |
 | `sort()` | Normalize ordering of instances, nets, ports |
-| `lvs_equivalent(cell_name, equivalent_ports, ...)` | Return a new netlist with equivalent ports collapsed |
+| `normalize(cell_name=None, equivalent_ports=None, ...)` | Return a new netlist with equivalent ports collapsed |
 | `to_json()` / `from_json(s)` | JSON serialization |
 | `to_dict()` / `from_dict(d)` | Python dict serialization |
 | `instances` / `nets` / `ports` | Properties returning fresh snapshots |
@@ -201,15 +202,15 @@ Nets are unordered collections. The `sort()` method normalizes everything for de
   },
   "nets": [
     [
-      {"Port": "in"},
-      {"Ref": {"instance": "wg1", "port": "o1"}}
+      {"name": "in"},
+      {"instance": "wg1", "port": "o1"}
     ]
   ],
-  "ports": ["in", "out"]
+  "ports": [{"name": "in"}, {"name": "out"}]
 }
 ```
 
-Instance names are dict keys (not duplicated inside the value). Net members are tagged unions (`Port`, `Ref`, `ArrayRef`). The `NetlistWire` serde struct in Rust handles this mapping.
+Instance names are dict keys (not duplicated inside the value). Net members are untagged objects distinguished by their fields. The `NetlistWire` serde struct in Rust handles this mapping.
 
 A `PlacedNetlist` uses the same shape, with each instance value extended by a `placement` block:
 

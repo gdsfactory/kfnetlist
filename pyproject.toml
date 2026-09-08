@@ -38,6 +38,7 @@ docs = [
 ]
 
 [tool.maturin]
+manifest-path = "crates/kfnetlist-python/Cargo.toml"
 python-source = "src"
 module-name = "kfnetlist._native"
 features = ["pyo3/extension-module"]

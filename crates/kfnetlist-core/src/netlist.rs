@@ -1,23 +1,15 @@
-use std::collections::{HashMap, HashSet};
-
-use pyo3::basic::CompareOp;
-use pyo3::exceptions::{PyKeyError, PyValueError};
-use pyo3::prelude::*;
-use pyo3::types::{PyDict, PyList, PyType};
-use serde::{Deserialize, Serialize};
-
 use crate::instance::{NetlistArray, NetlistInstance, NetlistInstanceWire};
 use crate::net::{Net, NetMember};
-use crate::port::{NetlistPort, PortArrayRef, PortArrayRefData, PortRef};
-use crate::{
-    cmp_to_py, from_py_any, json_parse, json_string, normalize_value, richcmp_result, to_py_dict,
-};
+use crate::port::{NetlistPort, PortRef};
+use crate::{normalize_value, Error, Result};
+use serde::{Deserialize, Serialize};
+use std::collections::{HashMap, HashSet};
 
 /// Wire format used by serde for `Netlist`. Mirrors the JSON shape but
 /// stores instances by name without redundant `name` fields.
-#[derive(Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub(crate) struct NetlistWire {
+pub struct NetlistWire {
     #[serde(default)]
     pub instances: indexmap::IndexMap<String, NetlistInstanceWire>,
     #[serde(default)]
@@ -28,11 +20,9 @@ pub(crate) struct NetlistWire {
 
 /// A netlist: instances, nets, and top-level ports.
 ///
-/// Declared `subclass` so `PlacedNetlist` (which carries per-instance placement
-/// geometry) can extend it; this adds no fields and does not change the wire
-/// format.
-#[pyclass(module = "kfnetlist._native", subclass)]
-#[derive(Default, Debug)]
+/// Instances preserve insertion order. Placement is layered on by `PlacedNetlist`.
+#[derive(Clone, Default, Debug, Serialize, Deserialize)]
+#[serde(from = "NetlistWire", into = "NetlistWire")]
 pub struct Netlist {
     /// Instance name → instance. Insertion order preserved.
     pub instances: indexmap::IndexMap<String, NetlistInstance>,
@@ -41,19 +31,7 @@ pub struct Netlist {
 }
 
 impl Netlist {
-    pub(crate) fn deep_clone(&self) -> Self {
-        Netlist {
-            instances: self
-                .instances
-                .iter()
-                .map(|(k, v)| (k.clone(), v.clone()))
-                .collect(),
-            nets: self.nets.clone(),
-            ports: self.ports.clone(),
-        }
-    }
-
-    fn to_wire(&self) -> NetlistWire {
+    pub fn to_wire(&self) -> NetlistWire {
         NetlistWire {
             instances: self
                 .instances
@@ -65,7 +43,7 @@ impl Netlist {
         }
     }
 
-    fn from_wire(wire: NetlistWire) -> Self {
+    pub fn from_wire(wire: NetlistWire) -> Self {
         Netlist {
             instances: wire
                 .instances
@@ -110,89 +88,42 @@ impl Netlist {
     }
 }
 
-#[pymethods]
 impl Netlist {
-    #[new]
-    fn new() -> Self {
-        Netlist::default()
-    }
-
-    // ---- Properties returning fresh snapshots ----
-
-    /// Fresh dict of {name: NetlistInstance}. Mutating this dict does not
-    /// affect the netlist; mutating the contained NetlistInstance does.
-    #[getter]
-    fn instances<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let dict = PyDict::new(py);
-        for (name, inst) in &self.instances {
-            dict.set_item(name, Py::new(py, inst.clone())?)?;
-        }
-        Ok(dict)
-    }
-
-    /// Fresh list of nets. Mutating this list does not affect the netlist.
-    #[getter]
-    fn nets<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
-        let list = PyList::empty(py);
-        for net in &self.nets {
-            list.append(Py::new(py, net.clone())?)?;
-        }
-        Ok(list)
-    }
-
-    /// Fresh list of top-level ports.
-    #[getter]
-    fn ports<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyList>> {
-        let list = PyList::empty(py);
-        for p in &self.ports {
-            list.append(Py::new(py, p.clone())?)?;
-        }
-        Ok(list)
-    }
-
-    fn instance_names(&self) -> Vec<String> {
+    pub fn instance_names(&self) -> Vec<String> {
         self.instances.keys().cloned().collect()
     }
 
-    fn has_instance(&self, name: &str) -> bool {
+    pub fn has_instance(&self, name: &str) -> bool {
         self.instances.contains_key(name)
     }
 
-    fn get_instance(&self, name: &str) -> PyResult<NetlistInstance> {
+    pub fn get_instance(&self, name: &str) -> Result<NetlistInstance> {
         self.instances
             .get(name)
             .cloned()
-            .ok_or_else(|| PyKeyError::new_err(name.to_string()))
+            .ok_or_else(|| Error::MissingInstance(name.to_string()))
     }
 
-    // ---- Mutation ----
-
-    fn create_port(&mut self, name: String) -> NetlistPort {
+    pub fn create_port(&mut self, name: String) -> NetlistPort {
         let p = NetlistPort { name };
         self.ports.push(p.clone());
         p
     }
 
-    #[pyo3(signature = (name, kcl, component, settings=None, na=1, nb=1))]
-    pub(crate) fn create_inst(
+    /// Create or replace an instance. A zero dimension disables array metadata;
+    /// otherwise both dimensions must be positive. Returns an owned snapshot.
+    pub fn create_inst(
         &mut self,
         name: String,
         kcl: String,
         component: String,
-        settings: Option<&Bound<'_, PyAny>>,
+        settings: serde_json::Value,
         na: i64,
         nb: i64,
-    ) -> PyResult<NetlistInstance> {
-        let settings_value = match settings {
-            Some(obj) if !obj.is_none() => from_py_any::<serde_json::Value>(obj)?,
-            _ => serde_json::Value::Object(Default::default()),
-        };
+    ) -> Result<NetlistInstance> {
         let array = if na != 0 && nb != 0 {
             if na < 1 || nb < 1 {
-                return Err(PyValueError::new_err(format!(
-                    "An instance array must have at least one instance in the array. \
-                     na={na} and nb={nb} must be >= 1"
-                )));
+                return Err(Error::InvalidArrayDimensions { na, nb });
             }
             Some(NetlistArray { na, nb })
         } else {
@@ -201,7 +132,7 @@ impl Netlist {
         let inst = NetlistInstance {
             kcl,
             component,
-            settings: settings_value,
+            settings,
             array,
             name: name.clone(),
         };
@@ -209,89 +140,72 @@ impl Netlist {
         Ok(inst)
     }
 
-    #[pyo3(signature = (*ports))]
-    fn create_net(&mut self, ports: &Bound<'_, PyAny>) -> PyResult<()> {
+    /// Validate and add a net atomically. Array reference (1, 1) becomes a plain
+    /// reference; other indices retain the historical upper-bound-only check.
+    pub fn create_net(&mut self, ports: impl IntoIterator<Item = NetMember>) -> Result<()> {
         let mut members: Vec<NetMember> = Vec::new();
-        let iter = ports.try_iter()?;
-        for item in iter {
-            let item = item?;
-            // PortArrayRef must be checked before PortRef because it
-            // inherits from it.
-            if let Ok(b) = item.downcast::<PortArrayRef>() {
-                let par = PortArrayRefData::from_py(b);
-                let inst = self.instances.get(&par.instance).ok_or_else(|| {
-                    PyValueError::new_err(format!("Unknown instance {}", par.instance))
-                })?;
-                if par.ia == 1 && par.ib == 1 {
-                    members.push(NetMember::Ref(PortRef {
-                        instance: par.instance,
-                        port: par.port,
-                    }));
-                    continue;
+        for member in ports {
+            match member {
+                NetMember::ArrayRef(par) => {
+                    let inst = self
+                        .instances
+                        .get(&par.instance)
+                        .ok_or_else(|| Error::UnknownInstance(par.instance.clone()))?;
+                    if par.ia == 1 && par.ib == 1 {
+                        members.push(NetMember::Ref(PortRef {
+                            instance: par.instance,
+                            port: par.port,
+                        }));
+                        continue;
+                    }
+                    let array = inst
+                        .array
+                        .as_ref()
+                        .ok_or_else(|| Error::NotArrayInstance(par.clone()))?;
+                    if par.ia > array.na {
+                        return Err(Error::ArrayIndexOutOfBounds {
+                            instance: par.instance.clone(),
+                            direction: crate::ArrayDirection::A,
+                            size: array.na,
+                            index: par.ia,
+                        });
+                    }
+                    if par.ib > array.nb {
+                        return Err(Error::ArrayIndexOutOfBounds {
+                            instance: par.instance.clone(),
+                            direction: crate::ArrayDirection::B,
+                            size: array.nb,
+                            index: par.ib,
+                        });
+                    }
+                    members.push(NetMember::ArrayRef(par));
                 }
-                let array = inst.array.as_ref().ok_or_else(|| {
-                    PyValueError::new_err(format!(
-                        "Instance {} is not an array instance. \
-                         But an array portref was requested {:?}",
-                        par.instance, par
-                    ))
-                })?;
-                if par.ia > array.na {
-                    return Err(PyValueError::new_err(format!(
-                        "Instance {} has only {} elements in `na` direction",
-                        par.instance, array.na
-                    )));
+                NetMember::Ref(pr) => {
+                    if !self.instances.contains_key(&pr.instance) {
+                        return Err(Error::UnknownInstance(pr.instance.clone()));
+                    }
+                    members.push(NetMember::Ref(pr));
                 }
-                if par.ib > array.nb {
-                    return Err(PyValueError::new_err(format!(
-                        "Instance {} has only {} elements in `nb` direction",
-                        par.instance, array.nb
-                    )));
+                NetMember::Port(np) => {
+                    if !self.ports.iter().any(|p| p.name == np.name) {
+                        return Err(Error::UndefinedPort(np.name.clone()));
+                    }
+                    members.push(NetMember::Port(NetlistPort { name: np.name }));
                 }
-                members.push(NetMember::ArrayRef(par));
-            } else if let Ok(b) = item.downcast::<PortRef>() {
-                let pr = b.borrow().clone();
-                if !self.instances.contains_key(&pr.instance) {
-                    return Err(PyValueError::new_err(format!(
-                        "Unknown instance {}",
-                        pr.instance
-                    )));
-                }
-                members.push(NetMember::Ref(pr));
-            } else if let Ok(b) = item.downcast::<NetlistPort>() {
-                let np = b.borrow().clone();
-                if !self.ports.iter().any(|p| p.name == np.name) {
-                    return Err(PyValueError::new_err(format!(
-                        "Undefined netlist port {}",
-                        np.name
-                    )));
-                }
-                members.push(NetMember::Port(NetlistPort { name: np.name }));
-            } else {
-                return Err(PyValueError::new_err(
-                    "create_net expects NetlistPort, PortRef, or PortArrayRef",
-                ));
             }
         }
         self.nets.push(Net::from_members(members));
         Ok(())
     }
 
-    /// Re-create a net using the members of an existing one.
-    fn add_net(&mut self, net: &Net) -> PyResult<()> {
-        Python::with_gil(|py| {
-            let list = PyList::empty(py);
-            for m in &net.members {
-                list.append(m.clone().into_py_obj(py)?)?;
-            }
-            self.create_net(list.as_any())
-        })
+    /// Validate and add a copy of an existing net.
+    pub fn add_net(&mut self, net: &Net) -> Result<()> {
+        self.create_net(net.members.clone())
     }
-
     /// Remove the named instances and merge any nets touching them into
     /// a single new net (per group of nets that referenced the same flattened
     /// instance), preserving every non-flattened port reference.
-    pub(crate) fn flatten_instances(&mut self, names: Vec<String>) -> PyResult<()> {
+    pub fn flatten_instances(&mut self, names: Vec<String>) -> Result<()> {
         for inst_name in names {
             self.instances.shift_remove(&inst_name);
             let mut surviving: Vec<Net> = Vec::with_capacity(self.nets.len());
@@ -323,77 +237,56 @@ impl Netlist {
         Ok(())
     }
 
-    /// Detect open (unconnected) elements in this netlist.
-    ///
-    /// Returns a dict with:
-    /// - ``unconnected_ports``: top-level port names not appearing in any net
-    /// - ``singleton_nets``: nets with only a single member (dangling stubs)
-    fn detect_opens<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let mut ports_in_nets: HashSet<String> = HashSet::new();
-        for net in &self.nets {
-            for m in &net.members {
-                if let NetMember::Port(p) = m {
-                    ports_in_nets.insert(p.name.clone());
-                }
-            }
-        }
-        let mut unconnected: Vec<String> = self
+    /// Report unconnected top-level ports and singleton nets.
+    pub fn detect_opens(&self) -> Opens {
+        let connected: HashSet<&str> = self
+            .nets
+            .iter()
+            .flat_map(|n| &n.members)
+            .filter_map(|m| match m {
+                NetMember::Port(p) => Some(p.name.as_str()),
+                _ => None,
+            })
+            .collect();
+        let mut unconnected_ports: Vec<String> = self
             .ports
             .iter()
-            .filter(|p| !ports_in_nets.contains(&p.name))
+            .filter(|p| !connected.contains(p.name.as_str()))
             .map(|p| p.name.clone())
             .collect();
-        unconnected.sort(); // Sort just to make test results deterministic.
-                            // Singleton nets are often a sign of an unintentional open connection, so we report them as well.
-                            // Singleton nets can also just be an electrical interconnect net
-        let singleton_list = PyList::empty(py);
-        for net in &self.nets {
-            if net.members.len() == 1 {
-                singleton_list.append(Py::new(py, net.clone())?)?;
-            }
+        unconnected_ports.sort();
+        Opens {
+            unconnected_ports,
+            singleton_nets: self
+                .nets
+                .iter()
+                .filter(|n| n.members.len() == 1)
+                .cloned()
+                .collect(),
         }
-
-        let dict = PyDict::new(py);
-        dict.set_item("unconnected_ports", unconnected)?;
-        dict.set_item("singleton_nets", singleton_list)?;
-        Ok(dict)
     }
-
-    /// Return a dict with ``missing`` and ``extra`` net lists.
-    ///
-    /// * **missing** – nets in *reference* but not in ``self``
-    /// * **extra** – nets in ``self`` but not in *reference*
-    fn find_net_difference<'py>(
-        &self,
-        py: Python<'py>,
-        reference: &Netlist,
-    ) -> PyResult<Bound<'py, PyDict>> {
+    /// Compare net membership, retaining source order and duplicate unmatched nets.
+    pub fn find_net_difference(&self, reference: &Self) -> NetDifference {
         let own: HashSet<&Net> = self.nets.iter().collect();
-        let ref_set: HashSet<&Net> = reference.nets.iter().collect();
-
-        let missing = PyList::empty(py);
-        for net in &reference.nets {
-            if !own.contains(net) {
-                missing.append(Py::new(py, net.clone())?)?;
-            }
+        let other: HashSet<&Net> = reference.nets.iter().collect();
+        NetDifference {
+            missing: reference
+                .nets
+                .iter()
+                .filter(|n| !own.contains(n))
+                .cloned()
+                .collect(),
+            extra: self
+                .nets
+                .iter()
+                .filter(|n| !other.contains(n))
+                .cloned()
+                .collect(),
         }
-
-        let extra = PyList::empty(py);
-        for net in &self.nets {
-            if !ref_set.contains(net) {
-                extra.append(Py::new(py, net.clone())?)?;
-            }
-        }
-
-        let dict = PyDict::new(py);
-        dict.set_item("missing", missing)?;
-        dict.set_item("extra", extra)?;
-        Ok(dict)
     }
-
     /// Sort instances by name, ports by name, members within each net,
     /// and the nets list itself.
-    fn sort(&mut self) {
+    pub fn sort(&mut self) {
         self.instances.sort_keys();
         for net in &mut self.nets {
             net.sort_in_place();
@@ -408,21 +301,17 @@ impl Netlist {
     /// When `cell_name` and `equivalent_ports` are given, equivalent ports
     /// are also collapsed to a single canonical port name and nets that share
     /// a canonical reference are merged.
-    #[pyo3(signature = (cell_name=None, equivalent_ports=None, port_mapping=None))]
-    fn normalize(
+    pub fn normalize(
         &self,
-        py: Python<'_>,
         cell_name: Option<String>,
-        equivalent_ports: Option<&Bound<'_, PyAny>>,
-        port_mapping: Option<&Bound<'_, PyAny>>,
-    ) -> PyResult<Self> {
-        let _ = py;
-        let mut nl = self.deep_clone();
+        equivalent_ports: Option<EquivalentPorts>,
+        port_mapping: Option<PortMapping>,
+    ) -> Result<Self> {
+        let mut nl = self.clone();
 
-        if let (Some(cell_name), Some(eq_ports_obj)) = (cell_name, equivalent_ports) {
-            let equivalent_ports: HashMap<String, Vec<Vec<String>>> = from_py_any(eq_ports_obj)?;
+        if let (Some(cell_name), Some(equivalent_ports)) = (cell_name, equivalent_ports) {
             let mut port_mapping: HashMap<String, HashMap<String, String>> = match port_mapping {
-                Some(obj) if !obj.is_none() => from_py_any(obj)?,
+                Some(mapping) => mapping,
                 _ => {
                     let mut m: HashMap<String, HashMap<String, String>> = HashMap::new();
                     for (cell, lists) in &equivalent_ports {
@@ -526,10 +415,7 @@ impl Netlist {
                                 Some(canon) => match port_index_by_name.get(canon) {
                                     Some(np) => NetMember::Port(np.clone()),
                                     None => {
-                                        return Err(PyValueError::new_err(format!(
-                                            "normalize: canonical port {canon:?} not present \
-                                             in netlist ports"
-                                        )));
+                                        return Err(Error::MissingCanonicalPort(canon.clone()));
                                     }
                                 },
                                 None => NetMember::Port(p.clone()),
@@ -556,64 +442,10 @@ impl Netlist {
         }
 
         nl.normalize_settings();
-        nl.instances.sort_keys();
-        for net in &mut nl.nets {
-            net.sort_in_place();
-        }
-        nl.nets.sort();
-        nl.ports.sort();
+        nl.sort();
         Ok(nl)
     }
-
-    fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<PyObject> {
-        let py = other.py();
-        let Ok(other) = other.downcast::<Netlist>() else {
-            return Ok(py.NotImplemented());
-        };
-        let other = other.borrow();
-        let eq = self.equals(&other);
-        Ok(richcmp_result(py, Some(cmp_to_py(op, false, eq))))
-    }
-
-    fn __repr__(&self) -> String {
-        format!(
-            "Netlist(instances={}, nets={}, ports={})",
-            self.instances.len(),
-            self.nets.len(),
-            self.ports.len()
-        )
-    }
-
-    #[classmethod]
-    fn __get_pydantic_core_schema__(
-        cls: &Bound<'_, PyType>,
-        _source_type: &Bound<'_, PyAny>,
-        _handler: &Bound<'_, PyAny>,
-    ) -> PyResult<PyObject> {
-        crate::pydantic_core_schema(cls)
-    }
-
-    fn to_json(&self) -> PyResult<String> {
-        json_string(&self.to_wire())
-    }
-
-    #[classmethod]
-    fn from_json(_cls: &Bound<'_, PyType>, data: &str) -> PyResult<Self> {
-        let wire: NetlistWire = json_parse(data)?;
-        Ok(Netlist::from_wire(wire))
-    }
-
-    fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        to_py_dict(py, &self.to_wire())
-    }
-
-    #[classmethod]
-    fn from_dict(_cls: &Bound<'_, PyType>, obj: &Bound<'_, PyAny>) -> PyResult<Self> {
-        let wire: NetlistWire = from_py_any(obj)?;
-        Ok(Netlist::from_wire(wire))
-    }
 }
-
 fn nl_component_lookup(
     instances: &indexmap::IndexMap<String, NetlistInstance>,
     name: &str,
@@ -674,5 +506,35 @@ impl UnionFind {
                 self.rank[ra] += 1;
             }
         }
+    }
+}
+
+/// Equivalent port groups keyed by component name; first port is canonical.
+pub type EquivalentPorts = HashMap<String, Vec<Vec<String>>>;
+/// Explicit canonical port names keyed by component and original port name.
+pub type PortMapping = HashMap<String, HashMap<String, String>>;
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct Opens {
+    pub unconnected_ports: Vec<String>,
+    pub singleton_nets: Vec<Net>,
+}
+#[derive(Clone, Debug, PartialEq, Eq, Serialize, Deserialize)]
+pub struct NetDifference {
+    pub missing: Vec<Net>,
+    pub extra: Vec<Net>,
+}
+impl PartialEq for Netlist {
+    fn eq(&self, other: &Self) -> bool {
+        self.equals(other)
+    }
+}
+impl From<NetlistWire> for Netlist {
+    fn from(wire: NetlistWire) -> Self {
+        Self::from_wire(wire)
+    }
+}
+impl From<Netlist> for NetlistWire {
+    fn from(value: Netlist) -> Self {
+        value.to_wire()
     }
 }
