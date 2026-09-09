@@ -8,13 +8,13 @@
       
       
       
-        <link rel="canonical" href="https://gdsfactory.github.io/dev/guides/placement/">
+        <link rel="canonical" href="https://gdsfactory.github.io/dev/guides/hierarchical_flattening/">
       
       
-        <link rel="prev" href="../instance_removal/">
+        <link rel="prev" href="../equivalent_ports/">
       
       
-        <link rel="next" href="../open_detection/">
+        <link rel="next" href="../instance_removal/">
       
       
         
@@ -25,7 +25,7 @@
     
     
       
-        <title>Placement-Aware Netlists - kfnetlist</title>
+        <title>Hierarchical Flattening - kfnetlist</title>
       
     
     
@@ -81,7 +81,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#placement-aware-netlists" class="md-skip">
+        <a href="#hierarchical-flattening" class="md-skip">
           Skip to content
         </a>
       
@@ -121,7 +121,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Placement-Aware Netlists
+              Hierarchical Flattening
             
           </span>
         </div>
@@ -984,10 +984,36 @@
                 
   
   
+    
   
   
-    <li class="md-nav__item">
-      <a href="../hierarchical_flattening/" class="md-nav__link">
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Hierarchical Flattening
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
         
   
   
@@ -1002,6 +1028,115 @@
   
 
       </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#finding-the-netlist-of-an-instance" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Finding the netlist of an instance
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#a-two-level-hierarchy" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        A two-level hierarchy
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flattening-one-netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Flattening one netlist
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#choosing-what-to-inline" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Choosing what to inline
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#flattening-a-whole-hierarchy" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Flattening a whole hierarchy
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#straight-from-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Straight from extraction
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#edge-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Edge cases
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        See Also
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
     </li>
   
 
@@ -1038,36 +1173,10 @@
                 
   
   
-    
   
   
-  
-    <li class="md-nav__item md-nav__item--active">
-      
-      
-      
-      
-        
-      
-      
-        <label class="md-nav__link md-nav__link--active" for="__toc">
-          
-  
-  
-  <span class="md-ellipsis">
-    
-  
-  Placement
-
-    
-  </span>
-  
-  
-
-          <span class="md-nav__icon md-icon"></span>
-        </label>
-      
-      <a href="././" class="md-nav__link md-nav__link--active">
+    <li class="md-nav__item">
+      <a href="../placement/" class="md-nav__link">
         
   
   
@@ -1082,82 +1191,6 @@
   
 
       </a>
-      
-        
-
-
-<nav class="md-nav md-nav--secondary" aria-label="On this page">
-  
-  
-  
-    
-  
-  
-    <label class="md-nav__title" for="__toc">
-      <span class="md-nav__icon md-icon"></span>
-      On this page
-    </label>
-    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
-      
-        <li class="md-nav__item">
-  <a href="#building-a-placed-netlist-directly" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Building a placed netlist directly
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#inspecting-placement" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Inspecting placement
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#serialization" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Serialization
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#upgrading-an-existing-netlist" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        Upgrading an existing netlist
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-        <li class="md-nav__item">
-  <a href="#from-extraction" class="md-nav__link">
-    <span class="md-ellipsis">
-      <span class="md-typeset">
-        From extraction
-      </span>
-    </span>
-  </a>
-  
-</li>
-      
-    </ul>
-  
-</nav>
-      
     </li>
   
 
@@ -1484,10 +1517,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#building-a-placed-netlist-directly" class="md-nav__link">
+  <a href="#finding-the-netlist-of-an-instance" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Building a placed netlist directly
+        Finding the netlist of an instance
       </span>
     </span>
   </a>
@@ -1495,10 +1528,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#inspecting-placement" class="md-nav__link">
+  <a href="#a-two-level-hierarchy" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Inspecting placement
+        A two-level hierarchy
       </span>
     </span>
   </a>
@@ -1506,10 +1539,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#serialization" class="md-nav__link">
+  <a href="#flattening-one-netlist" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Serialization
+        Flattening one netlist
       </span>
     </span>
   </a>
@@ -1517,10 +1550,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#upgrading-an-existing-netlist" class="md-nav__link">
+  <a href="#choosing-what-to-inline" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Upgrading an existing netlist
+        Choosing what to inline
       </span>
     </span>
   </a>
@@ -1528,10 +1561,43 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#from-extraction" class="md-nav__link">
+  <a href="#flattening-a-whole-hierarchy" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        From extraction
+        Flattening a whole hierarchy
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#straight-from-extraction" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Straight from extraction
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#edge-cases" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Edge cases
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#see-also" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        See Also
       </span>
     </span>
   </a>
@@ -1559,200 +1625,226 @@
   
 
 
-<p><a class="md-button" href="../placement/placement.ipynb"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7z"/></svg></span> Download notebook (.ipynb)</a></p>
-<h1 id="placement-aware-netlists">Placement-Aware Netlists</h1>
-<p>A plain <a href="../../concepts/netlist_model/"><code>Netlist</code></a> captures <strong>connectivity</strong>:
-instances, nets, and ports. Some workflows — simulation setup, floorplanning,
-visualization — also need to know <strong>where</strong> each instance physically sits in
-the layout.</p>
-<p><code>PlacedNetlist</code> is a second flavor for exactly that. It is a subclass of
-<code>Netlist</code> (so all connectivity behaviour is inherited unchanged) whose
-instances are <code>PlacedInstance</code> objects. Each <code>PlacedInstance</code> adds:</p>
-<ul>
-<li><strong><code>cell</code></strong> — the placed cell's name (distinct from <code>component</code>, which is the
-  factory name);</li>
-<li><strong><code>placement</code></strong> — a purely geometric <code>Placement</code>: origin <code>x</code>/<code>y</code>,
-  <code>orientation</code>, <code>mirror</code>, and <code>bbox</code>.</li>
-</ul>
-<p><code>Placement</code> describes <em>where</em> an instance is; the <code>cell</code> name (what it <em>is</em>)
-lives on the instance, not inside the placement.</p>
-<div class="highlight"><pre><span></span><code><span class="kn">import</span><span class="w"> </span><span class="nn">json</span>
-
-<span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
-    <span class="n">Netlist</span><span class="p">,</span>
-    <span class="n">NetlistPort</span><span class="p">,</span>
-    <span class="n">Placement</span><span class="p">,</span>
-    <span class="n">PlacedInstance</span><span class="p">,</span>
-    <span class="n">PlacedNetlist</span><span class="p">,</span>
-    <span class="n">PortRef</span><span class="p">,</span>
-<span class="p">)</span>
+<p><a class="md-button" href="../hierarchical_flattening/hierarchical_flattening.ipynb"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7z"/></svg></span> Download notebook (.ipynb)</a></p>
+<h1 id="hierarchical-flattening">Hierarchical Flattening</h1>
+<p><code>Netlist.flatten()</code> replaces an instance by the contents of its <strong>own cell's
+netlist</strong>: an <code>mzi</code> instance becomes the mmis, straights and bends it is made
+of, and the parent's nets are rewired so every connection that landed on a
+port of the instance now lands on whatever that port is wired to inside the
+cell.</p>
+<p>This is what you want when a subcircuit should be dissolved into its parts —
+a containerized subcircuit, say — while a cell that has its own compact model
+stays intact. It is the opposite of
+<a href="../instance_removal/"><code>remove_instances()</code></a>, which <em>deletes</em> an instance and
+merges the nets it touched.</p>
+<h2 id="finding-the-netlist-of-an-instance">Finding the netlist of an instance</h2>
+<p>Flattening needs to know which netlist belongs to each instance. Extraction
+returns a <code>{cell name: netlist}</code> mapping, but a plain <code>NetlistInstance</code> only
+records <code>component</code> — the <em>factory</em> name, which is not necessarily the cell
+name. So one of these has to supply the link:</p>
+<table>
+<thead>
+<tr>
+<th>Source</th>
+<th>How</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>PlacedInstance.cell</code></td>
+<td>automatic — <code>extract(include_placement=True)</code> fills it in</td>
+</tr>
+<tr>
+<td><code>instance_cell_map</code></td>
+<td><code>{instance name: cell name}</code> for the netlist being flattened</td>
+</tr>
+<tr>
+<td><code>sub_instance_cell_maps</code></td>
+<td><code>{cell name: {instance name: cell name}}</code> for the levels below</td>
+</tr>
+</tbody>
+</table>
+<p>Instances whose cell cannot be resolved are left alone (pass
+<code>warn_skipped=True</code> to hear about them).</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist</span><span class="w"> </span><span class="kn">import</span> <span class="n">Netlist</span><span class="p">,</span> <span class="n">PortRef</span><span class="p">,</span> <span class="n">flatten_netlists</span>
 </code></pre></div>
-<h2 id="building-a-placed-netlist-directly">Building a placed netlist directly</h2>
-<p><code>PlacedNetlist.create_inst()</code> mirrors <code>Netlist.create_inst()</code> with two extra
-trailing arguments: the placed <code>cell</code> name and a <code>placement</code>. The bounding
-box is a plain dict in klayout <code>left/bottom/right/top</code> convention (µm).</p>
-<div class="highlight"><pre><span></span><code><span class="n">pnl</span> <span class="o">=</span> <span class="n">PlacedNetlist</span><span class="p">()</span>
+<h2 id="a-two-level-hierarchy">A two-level hierarchy</h2>
+<p><code>chain</code> is a cell containing two straights in series; <code>top</code> places one
+<code>chain</code> next to a <code>straight</code>.</p>
+<div class="highlight"><pre><span></span><code><span class="n">straight</span> <span class="o">=</span> <span class="n">Netlist</span><span class="p">()</span>  <span class="c1"># a primitive: ports, no instances of its own</span>
+<span class="n">straight</span><span class="o">.</span><span class="n">create_port</span><span class="p">(</span><span class="s2">&quot;o1&quot;</span><span class="p">)</span>
+<span class="n">straight</span><span class="o">.</span><span class="n">create_port</span><span class="p">(</span><span class="s2">&quot;o2&quot;</span><span class="p">)</span>
 
-<span class="n">pnl</span><span class="o">.</span><span class="n">create_inst</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;wg1&quot;</span><span class="p">,</span>
-    <span class="n">kcl</span><span class="o">=</span><span class="s2">&quot;PDK&quot;</span><span class="p">,</span>
-    <span class="n">component</span><span class="o">=</span><span class="s2">&quot;straight_factory&quot;</span><span class="p">,</span>  <span class="c1"># factory / parametric-cell name</span>
-    <span class="n">settings</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;width&quot;</span><span class="p">:</span> <span class="mf">0.5</span><span class="p">},</span>
-    <span class="n">cell</span><span class="o">=</span><span class="s2">&quot;straight&quot;</span><span class="p">,</span>  <span class="c1"># the actual layout cell name</span>
-    <span class="n">placement</span><span class="o">=</span><span class="n">Placement</span><span class="p">(</span>
-        <span class="n">x</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
-        <span class="n">y</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
-        <span class="n">orientation</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
-        <span class="n">mirror</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">bbox</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;left&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;bottom&quot;</span><span class="p">:</span> <span class="o">-</span><span class="mf">0.25</span><span class="p">,</span> <span class="s2">&quot;right&quot;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span> <span class="s2">&quot;top&quot;</span><span class="p">:</span> <span class="mf">0.25</span><span class="p">},</span>
+<span class="n">chain</span> <span class="o">=</span> <span class="n">Netlist</span><span class="p">()</span>
+<span class="n">chain</span><span class="o">.</span><span class="n">create_inst</span><span class="p">(</span><span class="s2">&quot;wg1&quot;</span><span class="p">,</span> <span class="n">kcl</span><span class="o">=</span><span class="s2">&quot;PDK&quot;</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="s2">&quot;straight&quot;</span><span class="p">)</span>
+<span class="n">chain</span><span class="o">.</span><span class="n">create_inst</span><span class="p">(</span><span class="s2">&quot;wg2&quot;</span><span class="p">,</span> <span class="n">kcl</span><span class="o">=</span><span class="s2">&quot;PDK&quot;</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="s2">&quot;straight&quot;</span><span class="p">)</span>
+<span class="n">chain_o1</span> <span class="o">=</span> <span class="n">chain</span><span class="o">.</span><span class="n">create_port</span><span class="p">(</span><span class="s2">&quot;o1&quot;</span><span class="p">)</span>
+<span class="n">chain_o2</span> <span class="o">=</span> <span class="n">chain</span><span class="o">.</span><span class="n">create_port</span><span class="p">(</span><span class="s2">&quot;o2&quot;</span><span class="p">)</span>
+<span class="n">chain</span><span class="o">.</span><span class="n">create_net</span><span class="p">(</span><span class="n">chain_o1</span><span class="p">,</span> <span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">&quot;wg1&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">&quot;o1&quot;</span><span class="p">))</span>
+<span class="n">chain</span><span class="o">.</span><span class="n">create_net</span><span class="p">(</span><span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">&quot;wg1&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">&quot;o2&quot;</span><span class="p">),</span> <span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">&quot;wg2&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">&quot;o1&quot;</span><span class="p">))</span>
+<span class="n">chain</span><span class="o">.</span><span class="n">create_net</span><span class="p">(</span><span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">&quot;wg2&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">&quot;o2&quot;</span><span class="p">),</span> <span class="n">chain_o2</span><span class="p">)</span>
+
+<span class="n">top</span> <span class="o">=</span> <span class="n">Netlist</span><span class="p">()</span>
+<span class="n">top</span><span class="o">.</span><span class="n">create_inst</span><span class="p">(</span><span class="s2">&quot;sub1&quot;</span><span class="p">,</span> <span class="n">kcl</span><span class="o">=</span><span class="s2">&quot;PDK&quot;</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="s2">&quot;chain&quot;</span><span class="p">)</span>
+<span class="n">top</span><span class="o">.</span><span class="n">create_inst</span><span class="p">(</span><span class="s2">&quot;s1&quot;</span><span class="p">,</span> <span class="n">kcl</span><span class="o">=</span><span class="s2">&quot;PDK&quot;</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="s2">&quot;straight&quot;</span><span class="p">)</span>
+<span class="n">top_in</span> <span class="o">=</span> <span class="n">top</span><span class="o">.</span><span class="n">create_port</span><span class="p">(</span><span class="s2">&quot;in&quot;</span><span class="p">)</span>
+<span class="n">top</span><span class="o">.</span><span class="n">create_net</span><span class="p">(</span><span class="n">top_in</span><span class="p">,</span> <span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">&quot;sub1&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">&quot;o1&quot;</span><span class="p">))</span>
+<span class="n">top</span><span class="o">.</span><span class="n">create_net</span><span class="p">(</span><span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">&quot;sub1&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">&quot;o2&quot;</span><span class="p">),</span> <span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">&quot;s1&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">&quot;o1&quot;</span><span class="p">))</span>
+
+<span class="n">netlists</span> <span class="o">=</span> <span class="p">{</span><span class="s2">&quot;straight&quot;</span><span class="p">:</span> <span class="n">straight</span><span class="p">,</span> <span class="s2">&quot;chain&quot;</span><span class="p">:</span> <span class="n">chain</span><span class="p">,</span> <span class="s2">&quot;top&quot;</span><span class="p">:</span> <span class="n">top</span><span class="p">}</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">show</span><span class="p">(</span><span class="n">name</span><span class="p">:</span> <span class="nb">str</span><span class="p">,</span> <span class="n">nl</span><span class="p">:</span> <span class="n">Netlist</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: instances=</span><span class="si">{</span><span class="n">nl</span><span class="o">.</span><span class="n">instance_names</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">net</span> <span class="ow">in</span> <span class="n">nl</span><span class="o">.</span><span class="n">nets</span><span class="p">:</span>
+        <span class="n">members</span> <span class="o">=</span> <span class="p">[</span>
+            <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">m</span><span class="o">.</span><span class="n">instance</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">m</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">PortRef</span><span class="p">)</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">m</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span>
+            <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">net</span>
+        <span class="p">]</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    </span><span class="si">{</span><span class="s1">&#39; — &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">members</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
+
+
+<span class="n">show</span><span class="p">(</span><span class="s2">&quot;top&quot;</span><span class="p">,</span> <span class="n">top</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>top: instances=[&#39;sub1&#39;, &#39;s1&#39;]
+    &lt;in&gt; — sub1.o1
+    s1.o1 — sub1.o2
+</code></pre></div>
+<h2 id="flattening-one-netlist">Flattening one netlist</h2>
+<p>The inlined instances are renamed <code>"{instance}.{inner instance}"</code>, so
+<code>wg1</code> inside <code>sub1</code> becomes <code>sub1.wg1</code>. The top-level port <code>in</code>, which used
+to reach <code>sub1.o1</code>, now reaches <code>sub1.wg1.o1</code> directly.</p>
+<div class="highlight"><pre><span></span><code><span class="n">flat</span> <span class="o">=</span> <span class="n">top</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span>
+    <span class="n">netlists</span><span class="p">,</span>
+    <span class="n">instance_cell_map</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;sub1&quot;</span><span class="p">:</span> <span class="s2">&quot;chain&quot;</span><span class="p">,</span> <span class="s2">&quot;s1&quot;</span><span class="p">:</span> <span class="s2">&quot;straight&quot;</span><span class="p">},</span>
+    <span class="n">sub_instance_cell_maps</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;chain&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;wg1&quot;</span><span class="p">:</span> <span class="s2">&quot;straight&quot;</span><span class="p">,</span> <span class="s2">&quot;wg2&quot;</span><span class="p">:</span> <span class="s2">&quot;straight&quot;</span><span class="p">}},</span>
+<span class="p">)</span>
+<span class="n">show</span><span class="p">(</span><span class="s2">&quot;top (flattened)&quot;</span><span class="p">,</span> <span class="n">flat</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>top (flattened): instances=[&#39;s1&#39;, &#39;sub1.wg1&#39;, &#39;sub1.wg2&#39;]
+    &lt;in&gt; — sub1.wg1.o1
+    s1.o1 — sub1.wg2.o2
+    sub1.wg1.o2 — sub1.wg2.o1
+</code></pre></div>
+<p><code>s1</code> survived: <code>straight</code> is a primitive, and a cell with no instances of its
+own is skipped — inlining it would delete the instance and its connectivity
+with nothing to put in its place.</p>
+<h2 id="choosing-what-to-inline">Choosing what to inline</h2>
+<p><code>cells</code> restricts inlining to the named cells, <code>exclude</code> protects cells from
+it. Use <code>exclude</code> for the cells that have their own model:</p>
+<div class="highlight"><pre><span></span><code><span class="n">show</span><span class="p">(</span>
+    <span class="s2">&quot;top (chain kept intact)&quot;</span><span class="p">,</span>
+    <span class="n">top</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span>
+        <span class="n">netlists</span><span class="p">,</span>
+        <span class="n">instance_cell_map</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;sub1&quot;</span><span class="p">:</span> <span class="s2">&quot;chain&quot;</span><span class="p">,</span> <span class="s2">&quot;s1&quot;</span><span class="p">:</span> <span class="s2">&quot;straight&quot;</span><span class="p">},</span>
+        <span class="n">exclude</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;chain&quot;</span><span class="p">],</span>
     <span class="p">),</span>
 <span class="p">)</span>
-
-<span class="n">pnl</span><span class="o">.</span><span class="n">create_inst</span><span class="p">(</span>
-    <span class="n">name</span><span class="o">=</span><span class="s2">&quot;bend1&quot;</span><span class="p">,</span>
-    <span class="n">kcl</span><span class="o">=</span><span class="s2">&quot;PDK&quot;</span><span class="p">,</span>
-    <span class="n">component</span><span class="o">=</span><span class="s2">&quot;bend_euler&quot;</span><span class="p">,</span>
-    <span class="n">cell</span><span class="o">=</span><span class="s2">&quot;bend_euler&quot;</span><span class="p">,</span>
-    <span class="n">placement</span><span class="o">=</span><span class="n">Placement</span><span class="p">(</span>
-        <span class="n">x</span><span class="o">=</span><span class="mf">10.0</span><span class="p">,</span>
-        <span class="n">y</span><span class="o">=</span><span class="mf">0.0</span><span class="p">,</span>
-        <span class="n">orientation</span><span class="o">=</span><span class="mf">90.0</span><span class="p">,</span>
-        <span class="n">mirror</span><span class="o">=</span><span class="kc">False</span><span class="p">,</span>
-        <span class="n">bbox</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;left&quot;</span><span class="p">:</span> <span class="mf">10.0</span><span class="p">,</span> <span class="s2">&quot;bottom&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;right&quot;</span><span class="p">:</span> <span class="mf">15.0</span><span class="p">,</span> <span class="s2">&quot;top&quot;</span><span class="p">:</span> <span class="mf">5.0</span><span class="p">},</span>
-    <span class="p">),</span>
-<span class="p">)</span>
-
-<span class="c1"># Connectivity works exactly as on a plain Netlist.</span>
-<span class="n">pnl</span><span class="o">.</span><span class="n">create_port</span><span class="p">(</span><span class="s2">&quot;o1&quot;</span><span class="p">)</span>
-<span class="n">pnl</span><span class="o">.</span><span class="n">create_net</span><span class="p">(</span><span class="n">NetlistPort</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;o1&quot;</span><span class="p">),</span> <span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">&quot;wg1&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">&quot;o1&quot;</span><span class="p">))</span>
-<span class="n">pnl</span><span class="o">.</span><span class="n">create_net</span><span class="p">(</span><span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">&quot;wg1&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">&quot;o2&quot;</span><span class="p">),</span> <span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">&quot;bend1&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">&quot;o1&quot;</span><span class="p">))</span>
-<span class="n">pnl</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
 </code></pre></div>
-<p>A <code>PlacedNetlist</code> <em>is</em> a <code>Netlist</code>, so connectivity tooling keeps working:</p>
-<div class="highlight"><pre><span></span><code><span class="nb">print</span><span class="p">(</span><span class="s2">&quot;isinstance(pnl, Netlist):&quot;</span><span class="p">,</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">pnl</span><span class="p">,</span> <span class="n">Netlist</span><span class="p">))</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;instance names:&quot;</span><span class="p">,</span> <span class="n">pnl</span><span class="o">.</span><span class="n">instance_names</span><span class="p">())</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;nets:&quot;</span><span class="p">)</span>
-<span class="k">for</span> <span class="n">net</span> <span class="ow">in</span> <span class="n">pnl</span><span class="o">.</span><span class="n">nets</span><span class="p">:</span>
-    <span class="n">members</span> <span class="o">=</span> <span class="p">[</span>
-        <span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">m</span><span class="o">.</span><span class="n">instance</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">m</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">&quot;</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">PortRef</span><span class="p">)</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">&quot;&lt;</span><span class="si">{</span><span class="n">m</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">&gt;&quot;</span>
-        <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">net</span>
-    <span class="p">]</span>
-    <span class="nb">print</span><span class="p">(</span><span class="s2">&quot;  -&quot;</span><span class="p">,</span> <span class="s2">&quot; — &quot;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">members</span><span class="p">))</span>
+<div class="highlight"><pre><span></span><code>top (chain kept intact): instances=[&#39;s1&#39;, &#39;sub1&#39;]
+    &lt;in&gt; — sub1.o1
+    s1.o1 — sub1.o2
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>isinstance(pnl, Netlist): True
-instance names: [&#39;bend1&#39;, &#39;wg1&#39;]
-nets:
-  - &lt;o1&gt; — wg1.o1
-  - bend1.o1 — wg1.o2
-</code></pre></div>
-<h2 id="inspecting-placement">Inspecting placement</h2>
-<p><code>instances</code> returns <code>PlacedInstance</code> objects (cell + placement); <code>placements</code>
-is a convenience map of just the geometry, keyed by instance name.</p>
-<div class="highlight"><pre><span></span><code><span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">inst</span> <span class="ow">in</span> <span class="n">pnl</span><span class="o">.</span><span class="n">instances</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
-    <span class="n">p</span> <span class="o">=</span> <span class="n">inst</span><span class="o">.</span><span class="n">placement</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;</span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: cell=</span><span class="si">{</span><span class="n">inst</span><span class="o">.</span><span class="n">cell</span><span class="si">!r}</span><span class="s2"> component=</span><span class="si">{</span><span class="n">inst</span><span class="o">.</span><span class="n">component</span><span class="si">!r}</span><span class="s2">&quot;</span><span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span>
-        <span class="sa">f</span><span class="s2">&quot;    origin=(</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">x</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">y</span><span class="si">}</span><span class="s2">) µm, orientation=</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">orientation</span><span class="si">}</span><span class="s2">°, mirror=</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">mirror</span><span class="si">}</span><span class="s2">&quot;</span>
-    <span class="p">)</span>
-    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;    bbox=</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">bbox</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
-</code></pre></div>
-<div class="highlight"><pre><span></span><code>bend1: cell=&#39;bend_euler&#39; component=&#39;bend_euler&#39;
-    origin=(10.0, 0.0) µm, orientation=90.0°, mirror=False
-    bbox={&#39;left&#39;: 10.0, &#39;bottom&#39;: 0.0, &#39;right&#39;: 15.0, &#39;top&#39;: 5.0}
-wg1: cell=&#39;straight&#39; component=&#39;straight_factory&#39;
-    origin=(0.0, 0.0) µm, orientation=0.0°, mirror=False
-    bbox={&#39;left&#39;: 0.0, &#39;bottom&#39;: -0.25, &#39;right&#39;: 10.0, &#39;top&#39;: 0.25}
-</code></pre></div>
-<h2 id="serialization">Serialization</h2>
-<p><code>PlacedNetlist</code> round-trips through JSON and dicts like every other type. The
-<code>cell</code> sits alongside the connectivity fields, and <code>placement</code> is a nested
-block per instance.</p>
-<div class="highlight"><pre><span></span><code><span class="n">d</span> <span class="o">=</span> <span class="n">pnl</span><span class="o">.</span><span class="n">to_dict</span><span class="p">()</span>
-<span class="nb">print</span><span class="p">(</span><span class="n">json</span><span class="o">.</span><span class="n">dumps</span><span class="p">(</span><span class="n">d</span><span class="p">[</span><span class="s2">&quot;instances&quot;</span><span class="p">][</span><span class="s2">&quot;bend1&quot;</span><span class="p">],</span> <span class="n">indent</span><span class="o">=</span><span class="mi">2</span><span class="p">))</span>
-</code></pre></div>
-<div class="highlight"><pre><span></span><code>{
-  &quot;kcl&quot;: &quot;PDK&quot;,
-  &quot;component&quot;: &quot;bend_euler&quot;,
-  &quot;settings&quot;: {},
-  &quot;array&quot;: {
-    &quot;na&quot;: 1,
-    &quot;nb&quot;: 1
-  },
-  &quot;cell&quot;: &quot;bend_euler&quot;,
-  &quot;placement&quot;: {
-    &quot;x&quot;: 10.0,
-    &quot;y&quot;: 0.0,
-    &quot;orientation&quot;: 90.0,
-    &quot;mirror&quot;: false,
-    &quot;bbox&quot;: {
-      &quot;left&quot;: 10.0,
-      &quot;bottom&quot;: 0.0,
-      &quot;right&quot;: 15.0,
-      &quot;top&quot;: 5.0
-    }
-  }
-}
-</code></pre></div>
-<div class="highlight"><pre><span></span><code><span class="n">restored</span> <span class="o">=</span> <span class="n">PlacedNetlist</span><span class="o">.</span><span class="n">from_json</span><span class="p">(</span><span class="n">pnl</span><span class="o">.</span><span class="n">to_json</span><span class="p">())</span>
-<span class="k">assert</span> <span class="n">restored</span><span class="o">.</span><span class="n">instances</span><span class="p">[</span><span class="s2">&quot;bend1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">placement</span> <span class="o">==</span> <span class="n">pnl</span><span class="o">.</span><span class="n">instances</span><span class="p">[</span><span class="s2">&quot;bend1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">placement</span>
-<span class="k">assert</span> <span class="n">restored</span><span class="o">.</span><span class="n">instances</span><span class="p">[</span><span class="s2">&quot;bend1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">cell</span> <span class="o">==</span> <span class="s2">&quot;bend_euler&quot;</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;round-trip OK&quot;</span><span class="p">)</span>
-</code></pre></div>
-<div class="highlight"><pre><span></span><code>round-trip OK
-</code></pre></div>
-<h2 id="upgrading-an-existing-netlist">Upgrading an existing netlist</h2>
-<p>If you already have a plain <code>Netlist</code> (e.g. from another tool), attach
-placement with <code>from_netlist()</code>. It takes the netlist plus two name-keyed
-maps — <code>placements</code> and <code>cells</code> — and keeps only entries for instances that
-actually exist. Instances without an entry get empty defaults.</p>
-<div class="highlight"><pre><span></span><code><span class="n">nl</span> <span class="o">=</span> <span class="n">Netlist</span><span class="p">()</span>
-<span class="n">nl</span><span class="o">.</span><span class="n">create_inst</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;mmi1&quot;</span><span class="p">,</span> <span class="n">kcl</span><span class="o">=</span><span class="s2">&quot;PDK&quot;</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="s2">&quot;mmi1x2&quot;</span><span class="p">)</span>
-<span class="n">nl</span><span class="o">.</span><span class="n">create_port</span><span class="p">(</span><span class="s2">&quot;in&quot;</span><span class="p">)</span>
-<span class="n">nl</span><span class="o">.</span><span class="n">create_net</span><span class="p">(</span><span class="n">NetlistPort</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">&quot;in&quot;</span><span class="p">),</span> <span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">&quot;mmi1&quot;</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">&quot;o1&quot;</span><span class="p">))</span>
-
-<span class="n">placed</span> <span class="o">=</span> <span class="n">PlacedNetlist</span><span class="o">.</span><span class="n">from_netlist</span><span class="p">(</span>
-    <span class="n">nl</span><span class="p">,</span>
-    <span class="n">placements</span><span class="o">=</span><span class="p">{</span>
-        <span class="s2">&quot;mmi1&quot;</span><span class="p">:</span> <span class="n">Placement</span><span class="p">(</span>
-            <span class="n">x</span><span class="o">=</span><span class="mf">2.0</span><span class="p">,</span>
-            <span class="n">y</span><span class="o">=</span><span class="mf">1.0</span><span class="p">,</span>
-            <span class="n">orientation</span><span class="o">=</span><span class="mf">180.0</span><span class="p">,</span>
-            <span class="n">mirror</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-            <span class="n">bbox</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;left&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;bottom&quot;</span><span class="p">:</span> <span class="mf">0.0</span><span class="p">,</span> <span class="s2">&quot;right&quot;</span><span class="p">:</span> <span class="mf">6.0</span><span class="p">,</span> <span class="s2">&quot;top&quot;</span><span class="p">:</span> <span class="mf">2.0</span><span class="p">},</span>
-        <span class="p">)</span>
+<h2 id="flattening-a-whole-hierarchy">Flattening a whole hierarchy</h2>
+<p><code>flatten_netlists()</code> applies the same operation to every entry of the
+mapping — the shape <code>extract()</code> returns. Each netlist is flattened against
+the <em>original</em> mapping, so the result does not depend on iteration order, and
+the cells that were inlined keep their own entry.</p>
+<div class="highlight"><pre><span></span><code><span class="n">flat_all</span> <span class="o">=</span> <span class="n">flatten_netlists</span><span class="p">(</span>
+    <span class="n">netlists</span><span class="p">,</span>
+    <span class="n">instance_cell_maps</span><span class="o">=</span><span class="p">{</span>
+        <span class="s2">&quot;top&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;sub1&quot;</span><span class="p">:</span> <span class="s2">&quot;chain&quot;</span><span class="p">,</span> <span class="s2">&quot;s1&quot;</span><span class="p">:</span> <span class="s2">&quot;straight&quot;</span><span class="p">},</span>
+        <span class="s2">&quot;chain&quot;</span><span class="p">:</span> <span class="p">{</span><span class="s2">&quot;wg1&quot;</span><span class="p">:</span> <span class="s2">&quot;straight&quot;</span><span class="p">,</span> <span class="s2">&quot;wg2&quot;</span><span class="p">:</span> <span class="s2">&quot;straight&quot;</span><span class="p">},</span>
     <span class="p">},</span>
-    <span class="n">cells</span><span class="o">=</span><span class="p">{</span><span class="s2">&quot;mmi1&quot;</span><span class="p">:</span> <span class="s2">&quot;mmi1x2&quot;</span><span class="p">},</span>
 <span class="p">)</span>
-
-<span class="n">mmi</span> <span class="o">=</span> <span class="n">placed</span><span class="o">.</span><span class="n">instances</span><span class="p">[</span><span class="s2">&quot;mmi1&quot;</span><span class="p">]</span>
-<span class="k">assert</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">mmi</span><span class="p">,</span> <span class="n">PlacedInstance</span><span class="p">)</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;cell:&quot;</span><span class="p">,</span> <span class="n">mmi</span><span class="o">.</span><span class="n">cell</span><span class="p">,</span> <span class="s2">&quot;| placement:&quot;</span><span class="p">,</span> <span class="n">mmi</span><span class="o">.</span><span class="n">placement</span><span class="p">)</span>
-<span class="c1"># Connectivity carried over unchanged.</span>
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;nets preserved:&quot;</span><span class="p">,</span> <span class="p">[</span><span class="nb">list</span><span class="p">(</span><span class="n">n</span><span class="p">)</span> <span class="o">==</span> <span class="nb">list</span><span class="p">(</span><span class="n">o</span><span class="p">)</span> <span class="k">for</span> <span class="n">n</span><span class="p">,</span> <span class="n">o</span> <span class="ow">in</span> <span class="nb">zip</span><span class="p">(</span><span class="n">placed</span><span class="o">.</span><span class="n">nets</span><span class="p">,</span> <span class="n">nl</span><span class="o">.</span><span class="n">nets</span><span class="p">)])</span>
+<span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">nl</span> <span class="ow">in</span> <span class="n">flat_all</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+    <span class="n">show</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">nl</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>cell: mmi1x2 | placement: Placement(x=2, y=1, orientation=180, mirror=true)
-nets preserved: [True]
+<div class="highlight"><pre><span></span><code>straight: instances=[]
+chain: instances=[&#39;wg1&#39;, &#39;wg2&#39;]
+    &lt;o1&gt; — wg1.o1
+    &lt;o2&gt; — wg2.o2
+    wg1.o2 — wg2.o1
+top: instances=[&#39;s1&#39;, &#39;sub1.wg1&#39;, &#39;sub1.wg2&#39;]
+    &lt;in&gt; — sub1.wg1.o1
+    s1.o1 — sub1.wg2.o2
+    sub1.wg1.o2 — sub1.wg2.o1
 </code></pre></div>
-<h2 id="from-extraction">From extraction</h2>
-<p>When extracting from a layout, pass <code>include_placement=True</code> to <code>extract()</code>.
-Each returned value is then a <code>PlacedNetlist</code> instead of a <code>Netlist</code>, with the
-placed cell name and placement read from the layout for every surviving
-instance:</p>
+<h2 id="straight-from-extraction">Straight from extraction</h2>
+<p><code>extract()</code> knows every cell name already, so no maps are needed:</p>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist.extract</span><span class="w"> </span><span class="kn">import</span> <span class="n">extract</span>
 
-<span class="n">netlists</span> <span class="o">=</span> <span class="n">extract</span><span class="p">(</span>
-    <span class="n">cell</span><span class="p">,</span>
-    <span class="n">wrap_kdb_instance</span><span class="o">=</span><span class="k">lambda</span> <span class="n">i</span><span class="p">:</span> <span class="n">Instance</span><span class="p">(</span><span class="n">kcl</span><span class="o">=</span><span class="n">cell</span><span class="o">.</span><span class="n">kcl</span><span class="p">,</span> <span class="n">instance</span><span class="o">=</span><span class="n">i</span><span class="p">),</span>
-    <span class="n">include_placement</span><span class="o">=</span><span class="kc">True</span><span class="p">,</span>
-<span class="p">)</span>
-<span class="n">placed</span> <span class="o">=</span> <span class="n">netlists</span><span class="p">[</span><span class="n">cell</span><span class="o">.</span><span class="n">name</span><span class="p">]</span>          <span class="c1"># a PlacedNetlist</span>
-<span class="n">placed</span><span class="o">.</span><span class="n">instances</span><span class="p">[</span><span class="s2">&quot;wg1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">placement</span><span class="o">.</span><span class="n">x</span>   <span class="c1"># origin x in µm</span>
-<span class="n">placed</span><span class="o">.</span><span class="n">instances</span><span class="p">[</span><span class="s2">&quot;wg1&quot;</span><span class="p">]</span><span class="o">.</span><span class="n">cell</span>          <span class="c1"># the placed cell name</span>
+<span class="c1"># inline the whole hierarchy</span>
+<span class="n">netlists</span> <span class="o">=</span> <span class="n">extract</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">wrap_kdb_instance</span><span class="o">=...</span><span class="p">,</span> <span class="n">flatten</span><span class="o">=</span><span class="kc">True</span><span class="p">)</span>
+
+<span class="c1"># or only the containers, keeping the MZI as one instance</span>
+<span class="n">netlists</span> <span class="o">=</span> <span class="n">extract</span><span class="p">(</span><span class="n">cell</span><span class="p">,</span> <span class="n">wrap_kdb_instance</span><span class="o">=...</span><span class="p">,</span> <span class="n">flatten</span><span class="o">=</span><span class="p">[</span><span class="s2">&quot;container_a&quot;</span><span class="p">])</span>
 </code></pre></div>
-<p>The default (<code>include_placement=False</code>) returns plain <code>Netlist</code> objects,
-identical to before — placement never changes connectivity, and is excluded
-from equality so LVS comparisons are unaffected.</p>
-<p>See <a href="../../extraction/overview/">Extraction Overview</a> for the full pipeline.</p>
+<p>With <code>include_placement=True</code> the result is a <code>PlacedNetlist</code> and each
+inlined placement is composed with the placement of the instance it came
+from, so the geometry stays in the flattened cell's coordinates.</p>
+<h2 id="edge-cases">Edge cases</h2>
+<table>
+<thead>
+<tr>
+<th>Situation</th>
+<th>Behaviour</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Sub-cell has no instances (a primitive)</td>
+<td>skipped</td>
+</tr>
+<tr>
+<td>Instance's cell name unknown</td>
+<td>skipped</td>
+</tr>
+<tr>
+<td>Array instance (<code>na</code>/<code>nb</code> &gt; 1)</td>
+<td>skipped — it has no single inlined copy</td>
+</tr>
+<tr>
+<td>Inner net touching no sub-cell port</td>
+<td>stays, as a floating net</td>
+</tr>
+<tr>
+<td>Inner net touching two sub-cell ports</td>
+<td>merges both parent nets</td>
+</tr>
+<tr>
+<td>Connected port with no net inside the sub-cell</td>
+<td>raises; <code>allow_unconnected_ports=True</code> inlines anyway and drops that connection</td>
+</tr>
+<tr>
+<td>Inlined name already taken</td>
+<td>raises</td>
+</tr>
+</tbody>
+</table>
+<h2 id="see-also">See Also</h2>
+<table>
+<thead>
+<tr>
+<th>Topic</th>
+<th>Where</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>Deleting an instance instead</td>
+<td><a href="../instance_removal/">Instance Removal</a></td>
+</tr>
+<tr>
+<td>Placement-aware netlists</td>
+<td><a href="../placement/">Placement</a></td>
+</tr>
+<tr>
+<td>Extraction pipeline</td>
+<td><a href="../../extraction/overview/">Extraction: Overview</a></td>
+</tr>
+</tbody>
+</table>
 
 
 

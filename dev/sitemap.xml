@@ -43,7 +43,10 @@
         <loc>https://gdsfactory.github.io/dev/guides/equivalent_ports/</loc>
       </url>
       <url>
-        <loc>https://gdsfactory.github.io/dev/guides/instance_flattening/</loc>
+        <loc>https://gdsfactory.github.io/dev/guides/hierarchical_flattening/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/guides/instance_removal/</loc>
       </url>
       <url>
         <loc>https://gdsfactory.github.io/dev/guides/placement/</loc>

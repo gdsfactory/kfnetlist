@@ -8,10 +8,10 @@
       
       
       
-        <link rel="canonical" href="https://gdsfactory.github.io/dev/guides/instance_flattening/">
+        <link rel="canonical" href="https://gdsfactory.github.io/dev/guides/instance_removal/">
       
       
-        <link rel="prev" href="../equivalent_ports/">
+        <link rel="prev" href="../hierarchical_flattening/">
       
       
         <link rel="next" href="../placement/">
@@ -25,7 +25,7 @@
     
     
       
-        <title>Instance Flattening - kfnetlist</title>
+        <title>Instance Removal - kfnetlist</title>
       
     
     
@@ -81,7 +81,7 @@
     <div data-md-component="skip">
       
         
-        <a href="#instance-flattening" class="md-skip">
+        <a href="#instance-removal" class="md-skip">
           Skip to content
         </a>
       
@@ -121,7 +121,7 @@
         <div class="md-header__topic" data-md-component="header-topic">
           <span class="md-ellipsis">
             
-              Instance Flattening
+              Instance Removal
             
           </span>
         </div>
@@ -984,6 +984,33 @@
                 
   
   
+  
+  
+    <li class="md-nav__item">
+      <a href="../hierarchical_flattening/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Hierarchical Flattening
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
     
   
   
@@ -1003,7 +1030,7 @@
   <span class="md-ellipsis">
     
   
-  Instance Flattening
+  Instance Removal
 
     
   </span>
@@ -1020,7 +1047,7 @@
   <span class="md-ellipsis">
     
   
-  Instance Flattening
+  Instance Removal
 
     
   </span>
@@ -1046,10 +1073,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#example-flattening-a-helper-instance" class="md-nav__link">
+  <a href="#example-removing-a-helper-instance" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Example: flattening a helper instance
+        Example: removing a helper instance
       </span>
     </span>
   </a>
@@ -1057,10 +1084,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#applying-flatten_instances" class="md-nav__link">
+  <a href="#applying-remove_instances" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Applying <code>flatten_instances()</code>
+        Applying <code>remove_instances()</code>
       </span>
     </span>
   </a>
@@ -1446,10 +1473,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#example-flattening-a-helper-instance" class="md-nav__link">
+  <a href="#example-removing-a-helper-instance" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Example: flattening a helper instance
+        Example: removing a helper instance
       </span>
     </span>
   </a>
@@ -1457,10 +1484,10 @@
 </li>
       
         <li class="md-nav__item">
-  <a href="#applying-flatten_instances" class="md-nav__link">
+  <a href="#applying-remove_instances" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Applying <code>flatten_instances()</code>
+        Applying <code>remove_instances()</code>
       </span>
     </span>
   </a>
@@ -1510,17 +1537,26 @@
   
 
 
-<p><a class="md-button" href="../instance_flattening/instance_flattening.ipynb"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7z"/></svg></span> Download notebook (.ipynb)</a></p>
-<h1 id="instance-flattening">Instance Flattening</h1>
-<p><code>Netlist.flatten_instances()</code> removes named instances from the netlist and
+<p><a class="md-button" href="../instance_removal/instance_removal.ipynb"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7z"/></svg></span> Download notebook (.ipynb)</a></p>
+<h1 id="instance-removal">Instance Removal</h1>
+<p><code>Netlist.remove_instances()</code> deletes named instances from the netlist and
 merges any nets that were connected through the removed instances' ports.
 This is used during extraction to absorb unnamed or excluded instances into
 the parent cell's netlist.</p>
+<p>Nothing of the removed instance's own cell is kept. To <em>replace</em> an instance
+by the contents of its cell instead, see
+<a href="../hierarchical_flattening/">Hierarchical Flattening</a>.</p>
+<div class="admonition note">
+<p class="admonition-title">Note</p>
+<p>This method used to be called <code>flatten_instances()</code>. That name still
+works but raises a <code>DeprecationWarning</code>, because <code>Netlist.flatten()</code> now
+means hierarchical flattening.</p>
+</div>
 <div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist</span><span class="w"> </span><span class="kn">import</span> <span class="n">Netlist</span><span class="p">,</span> <span class="n">PortRef</span>
 </code></pre></div>
-<h2 id="example-flattening-a-helper-instance">Example: flattening a helper instance</h2>
+<h2 id="example-removing-a-helper-instance">Example: removing a helper instance</h2>
 <p>Consider a netlist where <code>helper</code> is an intermediate instance we want to
-flatten away.</p>
+absorb into its parent.</p>
 <div class="highlight"><pre><span></span><code><span class="n">nl</span> <span class="o">=</span> <span class="n">Netlist</span><span class="p">()</span>
 
 <span class="n">nl</span><span class="o">.</span><span class="n">create_inst</span><span class="p">(</span><span class="s2">&quot;src&quot;</span><span class="p">,</span> <span class="n">kcl</span><span class="o">=</span><span class="s2">&quot;PDK&quot;</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="s2">&quot;source&quot;</span><span class="p">)</span>
@@ -1539,7 +1575,7 @@ flatten away.</p>
 
 <span class="n">nl</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Before flattening:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;Before removal:&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Instances: </span><span class="si">{</span><span class="n">nl</span><span class="o">.</span><span class="n">instance_names</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">net</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">nl</span><span class="o">.</span><span class="n">nets</span><span class="p">):</span>
     <span class="n">members</span> <span class="o">=</span> <span class="p">[</span>
@@ -1548,18 +1584,18 @@ flatten away.</p>
     <span class="p">]</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  net[</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">]: </span><span class="si">{</span><span class="s1">&#39; — &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">members</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>Before flattening:
+<div class="highlight"><pre><span></span><code>Before removal:
   Instances: [&#39;helper&#39;, &#39;sink&#39;, &#39;src&#39;]
   net[0]: helper.in — src.out
   net[1]: helper.out — sink.in
 </code></pre></div>
-<h2 id="applying-flatten_instances">Applying <code>flatten_instances()</code></h2>
-<p>Pass a list of instance names to flatten. The instances are removed, and any
-nets that shared a port on the flattened instance are merged.</p>
-<div class="highlight"><pre><span></span><code><span class="n">nl</span><span class="o">.</span><span class="n">flatten_instances</span><span class="p">([</span><span class="s2">&quot;helper&quot;</span><span class="p">])</span>
+<h2 id="applying-remove_instances">Applying <code>remove_instances()</code></h2>
+<p>Pass a list of instance names to remove. The instances are deleted, and any
+nets that shared a port on a removed instance are merged.</p>
+<div class="highlight"><pre><span></span><code><span class="n">nl</span><span class="o">.</span><span class="n">remove_instances</span><span class="p">([</span><span class="s2">&quot;helper&quot;</span><span class="p">])</span>
 <span class="n">nl</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
 
-<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">After flattening &#39;helper&#39;:&quot;</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">(</span><span class="s2">&quot;</span><span class="se">\n</span><span class="s2">After removing &#39;helper&#39;:&quot;</span><span class="p">)</span>
 <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  Instances: </span><span class="si">{</span><span class="n">nl</span><span class="o">.</span><span class="n">instance_names</span><span class="p">()</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 <span class="k">for</span> <span class="n">i</span><span class="p">,</span> <span class="n">net</span> <span class="ow">in</span> <span class="nb">enumerate</span><span class="p">(</span><span class="n">nl</span><span class="o">.</span><span class="n">nets</span><span class="p">):</span>
     <span class="n">members</span> <span class="o">=</span> <span class="p">[</span>
@@ -1568,14 +1604,14 @@ nets that shared a port on the flattened instance are merged.</p>
     <span class="p">]</span>
     <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">&quot;  net[</span><span class="si">{</span><span class="n">i</span><span class="si">}</span><span class="s2">]: </span><span class="si">{</span><span class="s1">&#39; — &#39;</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">members</span><span class="p">)</span><span class="si">}</span><span class="s2">&quot;</span><span class="p">)</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>After flattening &#39;helper&#39;:
+<div class="highlight"><pre><span></span><code>After removing &#39;helper&#39;:
   Instances: [&#39;sink&#39;, &#39;src&#39;]
   net[0]: sink.in — src.out
 </code></pre></div>
 <p>The <code>helper</code> instance is gone, and <code>src.out</code> is now directly connected to
 <code>sink.in</code> in a single merged net.</p>
 <h2 id="when-is-this-used">When is this used?</h2>
-<p>During netlist extraction, <code>flatten_instances()</code> is called to:</p>
+<p>During netlist extraction, <code>remove_instances()</code> is called to:</p>
 <ul>
 <li><strong>Remove unnamed instances</strong> (<code>ignore_unnamed=True</code>) — instances that were
   not given explicit names during placement</li>
@@ -1583,7 +1619,7 @@ nets that shared a port on the flattened instance are merged.</p>
   whose purpose tag marks them as infrastructure (routing waveguides, etc.)
   rather than functional components</li>
 </ul>
-<p>After flattening, the netlist reflects only the named, functional instances
+<p>After removal, the netlist reflects only the named, functional instances
 and their direct connectivity.</p>
 <h2 id="see-also">See Also</h2>
 <table>
@@ -1597,6 +1633,10 @@ and their direct connectivity.</p>
 <tr>
 <td>Netlist data model</td>
 <td><a href="../../concepts/netlist_model/">Concepts: Netlist Model</a></td>
+</tr>
+<tr>
+<td>Replacing an instance by its cell</td>
+<td><a href="../hierarchical_flattening/">Hierarchical Flattening</a></td>
 </tr>
 <tr>
 <td>Extraction pipeline</td>

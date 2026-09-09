@@ -982,14 +982,41 @@
   
   
     <li class="md-nav__item">
-      <a href="../guides/instance_flattening/" class="md-nav__link">
+      <a href="../guides/hierarchical_flattening/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Instance Flattening
+  Hierarchical Flattening
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../guides/instance_removal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Instance Removal
 
     
   </span>
@@ -1346,6 +1373,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Unreleased
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#020" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1435,6 +1473,17 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
+  <a href="#unreleased" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Unreleased
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#020" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1489,6 +1538,20 @@
 
 
 <h1 id="changelog">Changelog</h1>
+<h2 id="unreleased">Unreleased</h2>
+<ul>
+<li><strong><code>Netlist.flatten()</code></strong> — hierarchical flattening: replace instances by the
+  contents of their own cell's netlist, rewiring the parent's nets through the
+  sub-cell's ports. Selectable per cell (<code>cells</code> / <code>exclude</code>), recursive by
+  default, and placement-aware on <code>PlacedNetlist</code> (each inlined placement is
+  composed with the placement of the instance it came from).
+  <code>kfnetlist.flatten_netlists()</code> applies it to a whole <code>{cell name: netlist}</code>
+  mapping, and <code>extract(..., flatten=...)</code> does it as part of extraction.</li>
+<li><strong><code>Netlist.flatten_instances()</code> renamed to <code>remove_instances()</code></strong> — the old
+  name still works but raises a <code>DeprecationWarning</code>. It never inlined
+  anything: it deletes instances and merges the nets they touched, which the
+  new <code>flatten()</code> would otherwise be confused with.</li>
+</ul>
 <h2 id="020">0.2.0</h2>
 <ul>
 <li><strong><code>find_net_difference()</code></strong> (renamed from <code>find_open_nets</code>) — compares

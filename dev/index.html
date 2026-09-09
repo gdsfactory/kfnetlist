@@ -1049,14 +1049,41 @@
   
   
     <li class="md-nav__item">
-      <a href="./guides/instance_flattening/" class="md-nav__link">
+      <a href="./guides/hierarchical_flattening/" class="md-nav__link">
         
   
   
   <span class="md-ellipsis">
     
   
-  Instance Flattening
+  Hierarchical Flattening
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="./guides/instance_removal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Instance Removal
 
     
   </span>
@@ -1515,7 +1542,8 @@
 <li><strong>Full serialization</strong> — <code>to_json()</code> / <code>from_json()</code> and <code>to_dict()</code> / <code>from_dict()</code> on every type</li>
 <li><strong>Pydantic v2 support</strong> — all types implement <code>__get_pydantic_core_schema__</code></li>
 <li><strong>Equivalent ports</strong> — fold electrically-equivalent ports into canonical names for netlist comparison</li>
-<li><strong>Instance flattening</strong> — merge sub-cell instances into the parent, reconnecting touching nets</li>
+<li><strong>Hierarchical flattening</strong> — replace instances by the contents of their own cell's netlist, rewiring nets across the two levels</li>
+<li><strong>Instance removal</strong> — delete sub-cell instances, merging the nets they touched</li>
 <li><strong>Port checking</strong> — <code>PortCheck</code> bitmask and <code>check_connection()</code> for geometric port-pair comparison</li>
 <li><strong>Netlist extraction</strong> — extract hierarchical netlists from kfactory/klayout cells</li>
 <li><strong>L2N parsing</strong> — convert klayout <code>LayoutToNetlist</code> results to JSON-serializable dicts</li>
