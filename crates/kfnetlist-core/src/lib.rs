@@ -2,12 +2,14 @@
 //! Serde representations match the kfnetlist JSON format. Instance names are
 //! restored from their parent map keys when deserializing netlists.
 mod error;
+pub mod flatten;
 pub mod instance;
 pub mod net;
 pub mod netlist;
 pub mod placement;
 pub mod port;
 pub use error::{ArrayDirection, Error, Result};
+pub use flatten::{compose_placement, flatten_netlist, FlattenOptions, FlattenOutput, NetlistData};
 pub use instance::{NetlistArray, NetlistInstance};
 pub use net::{Net, NetMember};
 pub use netlist::{EquivalentPorts, NetDifference, Netlist, Opens, PortMapping};

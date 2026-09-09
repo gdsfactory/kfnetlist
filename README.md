@@ -94,8 +94,11 @@ For a complete walkthrough, see the
 - **Pydantic v2 support** — all types implement `__get_pydantic_core_schema__`
 - **Equivalent ports** — `Netlist.normalize()` folds electrically-equivalent
   ports into canonical names for netlist comparison
-- **Instance flattening** — `Netlist.flatten_instances()` merges sub-cell
-  instances into the parent, reconnecting touching nets
+- **Hierarchical flattening** — `Netlist.flatten()` replaces instances by the
+  contents of their own cell's netlist (and `flatten_netlists()` does it for a
+  whole `{cell name: netlist}` mapping), rewiring nets across both levels
+- **Instance removal** — `Netlist.remove_instances()` deletes sub-cell
+  instances, merging the nets they touched
 - **Port checking** — `PortCheck` bitmask and `check_connection()` for
   geometric port-pair comparison (requires klayout)
 - **Connectivity verification** — `detect_opens()`, `find_net_difference()`,

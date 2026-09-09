@@ -69,13 +69,21 @@ Ports that are electrically the same (e.g. two pins on the same metal pad).
 comparison works correctly. See the [Equivalent Ports](equivalent_ports.py)
 guide.
 
-### Why are some instances flattened during extraction?
+### Why are some instances removed during extraction?
 
 Unnamed instances (auto-generated routing, helper cells) and instances with
-excluded purposes are flattened into the parent netlist. This keeps the
+excluded purposes are absorbed into the parent netlist. This keeps the
 extracted netlist focused on the functional components that matter for
-connectivity verification. See the [Instance Flattening](instance_flattening.py)
+connectivity verification. See the [Instance Removal](instance_removal.py)
 guide.
+
+### What is the difference between `remove_instances()` and `flatten()`?
+
+`remove_instances()` **deletes** an instance and merges the nets it touched —
+nothing of its cell is kept. `flatten()` **replaces** an instance by the
+contents of its own cell's netlist, so an MZI becomes the mmis, straights and
+bends it is made of. See [Hierarchical
+Flattening](hierarchical_flattening.py).
 
 ## Verification
 

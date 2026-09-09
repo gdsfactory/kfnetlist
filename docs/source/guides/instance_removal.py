@@ -13,21 +13,30 @@
 # ---
 
 # %% [markdown]
-# # Instance Flattening
+# # Instance Removal
 #
-# `Netlist.flatten_instances()` removes named instances from the netlist and
+# `Netlist.remove_instances()` deletes named instances from the netlist and
 # merges any nets that were connected through the removed instances' ports.
 # This is used during extraction to absorb unnamed or excluded instances into
 # the parent cell's netlist.
+#
+# Nothing of the removed instance's own cell is kept. To *replace* an instance
+# by the contents of its cell instead, see
+# [Hierarchical Flattening](hierarchical_flattening.py).
+#
+# !!! note
+#     This method used to be called `flatten_instances()`. That name still
+#     works but raises a `DeprecationWarning`, because `Netlist.flatten()` now
+#     means hierarchical flattening.
 
 # %%
 from kfnetlist import Netlist, PortRef
 
 # %% [markdown]
-# ## Example: flattening a helper instance
+# ## Example: removing a helper instance
 #
 # Consider a netlist where `helper` is an intermediate instance we want to
-# flatten away.
+# absorb into its parent.
 
 # %%
 nl = Netlist()
@@ -48,7 +57,7 @@ nl.create_net(
 
 nl.sort()
 
-print("Before flattening:")
+print("Before removal:")
 print(f"  Instances: {nl.instance_names()}")
 for i, net in enumerate(nl.nets):
     members = [
@@ -58,16 +67,16 @@ for i, net in enumerate(nl.nets):
     print(f"  net[{i}]: {' — '.join(members)}")
 
 # %% [markdown]
-# ## Applying `flatten_instances()`
+# ## Applying `remove_instances()`
 #
-# Pass a list of instance names to flatten. The instances are removed, and any
-# nets that shared a port on the flattened instance are merged.
+# Pass a list of instance names to remove. The instances are deleted, and any
+# nets that shared a port on a removed instance are merged.
 
 # %%
-nl.flatten_instances(["helper"])
+nl.remove_instances(["helper"])
 nl.sort()
 
-print("\nAfter flattening 'helper':")
+print("\nAfter removing 'helper':")
 print(f"  Instances: {nl.instance_names()}")
 for i, net in enumerate(nl.nets):
     members = [
@@ -82,7 +91,7 @@ for i, net in enumerate(nl.nets):
 #
 # ## When is this used?
 #
-# During netlist extraction, `flatten_instances()` is called to:
+# During netlist extraction, `remove_instances()` is called to:
 #
 # - **Remove unnamed instances** (`ignore_unnamed=True`) — instances that were
 #   not given explicit names during placement
@@ -90,7 +99,7 @@ for i, net in enumerate(nl.nets):
 #   whose purpose tag marks them as infrastructure (routing waveguides, etc.)
 #   rather than functional components
 #
-# After flattening, the netlist reflects only the named, functional instances
+# After removal, the netlist reflects only the named, functional instances
 # and their direct connectivity.
 #
 # ## See Also
@@ -98,4 +107,5 @@ for i, net in enumerate(nl.nets):
 # | Topic | Where |
 # |-------|-------|
 # | Netlist data model | [Concepts: Netlist Model](../concepts/netlist_model.py) |
+# | Replacing an instance by its cell | [Hierarchical Flattening](hierarchical_flattening.py) |
 # | Extraction pipeline | [Extraction: Overview](../extraction/overview.md) |

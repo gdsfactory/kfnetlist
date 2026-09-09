@@ -13,6 +13,7 @@ from kfnetlist import (
     PlacedNetlist,
     PortArrayRef,
     PortRef,
+    flatten_netlists,
 )
 
 from ._geometry import _BaseLike, _CrossSectionWrapperLike, get_optical_nets
@@ -306,7 +307,7 @@ def _build_cell_netlist(
         inst_names |= {
             inst.name for inst in cell.insts if inst.purpose in exclude_purposes
         }
-    nl.flatten_instances(list(inst_names))
+    nl.remove_instances(list(inst_names))
     for inst_name in inst_names:
         nl.instances.pop(inst_name, None)
     nl.sort()
@@ -325,6 +326,7 @@ def extract(
     exclude_purposes: list[str] | None = None,
     allow_width_mismatch: bool = False,
     include_placement: bool = False,
+    flatten: bool | Sequence[str] = False,
 ) -> dict[str, Netlist]:
     """Extract a hierarchical netlist from a cell.
 
@@ -344,6 +346,16 @@ def extract(
     cell name, origin transform (x, y, orientation, mirror), and bounding box —
     read from the layout. The default (``False``) returns plain
     :class:`~kfnetlist.Netlist` objects, identical to before.
+
+    ``flatten`` inlines instances into their parent: each returned netlist has
+    the selected instances replaced by the contents of their own cell's netlist
+    (renamed ``"{instance}.{inner instance}"``), with the nets of both levels
+    merged through the sub-cell's ports. Pass ``True`` to inline the whole
+    hierarchy, or a sequence of cell names to inline only those — so a
+    containerized subcircuit can be dissolved while an MZI that has its own
+    model stays intact. Works with or without ``include_placement``; with it,
+    each inlined placement is composed with the placement of the instance it
+    came from.
     """
     if equivalent_ports is None:
         equivalent_ports = _gather_equivalent_ports(cell)
@@ -364,6 +376,10 @@ def extract(
     )
 
     netlists: dict[str, Netlist] = {}
+    # Per cell, `instance name -> placed cell name`. `Netlist` instances only
+    # carry the factory name, so this is what lets `flatten()` find the netlist
+    # belonging to an instance regardless of the flavor.
+    instance_cell_maps: dict[str, dict[str, str]] = {}
 
     # NOTE: this pass mirrors a redundant remap loop in the original
     # ProtoTKCell.netlist body; preserved for behavioural parity.
@@ -405,4 +421,12 @@ def extract(
             cells = {inst.name: inst.cell.name for inst in placed}
             nl = PlacedNetlist.from_netlist(nl, placements, cells)
         netlists[c_.name] = nl
+        instance_cell_maps[c_.name] = {inst.name: inst.cell.name for inst in c_.insts}
+
+    if flatten:
+        netlists = flatten_netlists(
+            netlists,
+            None if isinstance(flatten, bool) else list(flatten),
+            instance_cell_maps=instance_cell_maps,
+        )
     return netlists

@@ -271,7 +271,7 @@ impl PlacedInstance {
 #[pyclass(module = "kfnetlist._native", extends = Netlist)]
 #[derive(Default)]
 pub struct PlacedNetlist {
-    pub extras: IndexMap<String, PlacedExtra>,
+    pub(crate) extras: IndexMap<String, PlacedExtra>,
 }
 
 impl PlacedNetlist {
@@ -394,10 +394,89 @@ impl PlacedNetlist {
         Py::new(py, placed_inst_init(placed.instance.into(), placed.extra))
     }
 
-    /// Remove the named instances (delegating to the base) and drop their
-    /// placement extras so the two layers stay consistent.
-    fn flatten_instances(slf: PyRefMut<'_, Self>, names: Vec<String>) -> PyResult<()> {
-        Self::with_core(slf, |core| core.flatten_instances(names)).map_err(crate::core_error)
+    /// Remove the named instances and their physical attributes.
+    fn remove_instances(slf: PyRefMut<'_, Self>, names: Vec<String>) -> PyResult<()> {
+        Self::with_core(slf, |core| core.remove_instances(names)).map_err(crate::core_error)
+    }
+
+    /// Deprecated alias for [`PlacedNetlist::remove_instances`].
+    #[pyo3(name = "flatten_instances")]
+    fn flatten_instances_deprecated(
+        slf: PyRefMut<'_, Self>,
+        py: Python<'_>,
+        names: Vec<String>,
+    ) -> PyResult<()> {
+        crate::warn_deprecated(
+            py,
+            "PlacedNetlist.flatten_instances() is deprecated, use remove_instances() \
+             instead (PlacedNetlist.flatten() now inlines an instance's own netlist)",
+        )?;
+        Self::remove_instances(slf, names)
+    }
+
+    /// Replace instances by the contents of their own cell's netlist, composing
+    /// each inlined instance's placement with the placement of the instance it
+    /// came from (so the geometry stays in this cell's coordinates).
+    ///
+    /// Same arguments as [`Netlist::flatten`]; `instance_cell_map`/`sub_instance_cell_maps` are
+    /// optional here because `PlacedInstance.cell` already names the cell.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (
+        netlists,
+        cells=None,
+        *,
+        exclude=None,
+        instance_cell_map=None,
+        sub_instance_cell_maps=None,
+        recursive=true,
+        allow_unconnected_ports=false,
+        warn_skipped=false,
+        separator=".".to_string(),
+    ))]
+    fn flatten(
+        slf: PyRef<'_, Self>,
+        py: Python<'_>,
+        netlists: &Bound<'_, PyAny>,
+        cells: Option<Vec<String>>,
+        exclude: Option<Vec<String>>,
+        instance_cell_map: Option<HashMap<String, String>>,
+        sub_instance_cell_maps: Option<HashMap<String, HashMap<String, String>>>,
+        recursive: bool,
+        allow_unconnected_ports: bool,
+        warn_skipped: bool,
+        separator: String,
+    ) -> PyResult<Py<Self>> {
+        let subs = crate::flatten::read_netlists(netlists)?;
+        let options = kfnetlist_core::FlattenOptions::new(
+            cells,
+            exclude,
+            recursive,
+            allow_unconnected_ports,
+            warn_skipped,
+            separator,
+        );
+        let base_ref: &Netlist = slf.as_ref();
+        let base = kfnetlist_core::NetlistData {
+            instances: base_ref.instances.clone(),
+            nets: base_ref.nets.clone(),
+            ports: base_ref.ports.clone(),
+            extras: slf.extras.clone(),
+        };
+        let output = kfnetlist_core::flatten_netlist(
+            base,
+            &instance_cell_map.unwrap_or_default(),
+            &subs,
+            &sub_instance_cell_maps.unwrap_or_default(),
+            &options,
+        )
+        .map_err(crate::core_error)?;
+        crate::flatten::emit_warnings(py, output.warnings)?;
+        let flat = Netlist(kfnetlist_core::Netlist {
+            instances: output.data.instances,
+            nets: output.data.nets,
+            ports: output.data.ports,
+        });
+        Py::new(py, Self::init_from(flat, output.data.extras))
     }
 
     fn __repr__(slf: PyRef<'_, Self>) -> String {

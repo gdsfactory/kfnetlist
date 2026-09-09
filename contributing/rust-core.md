@@ -24,10 +24,13 @@ The core exports `Netlist`, `Net`, `NetMember`, `NetlistPort`, `PortRef`,
   Both results own their contents and preserve the Python API's ordering rules.
 - `normalize` returns a new sorted netlist, normalizes integer-valued settings,
   and optionally folds equivalent ports using the `EquivalentPorts` and
-  `PortMapping` map types. `sort` and `flatten_instances` mutate in place.
+  `PortMapping` map types. `sort` and `remove_instances` mutate in place.
+- Hierarchical inlining is available without Python through `flatten_netlist`,
+  `NetlistData`, and `FlattenOptions`. The result contains flattened data plus
+  any requested non-fatal skipped-instance diagnostics.
 - `PlacedInstance` composes `instance: NetlistInstance` and `extra: PlacedExtra`.
   `PlacedNetlist` composes `netlist: Netlist` and an `extras` map. Its `create_inst`,
-  `get_instance`, and `flatten_instances` methods keep connectivity and placement
+  `get_instance`, and `remove_instances` methods keep connectivity and placement
   together. `PlacedNetlist::new` drops extras for unknown instance names.
 - `Error` distinguishes invalid dimensions, missing instances and ports, array
   bounds, missing canonical ports, and JSON failures. Callers can match its
@@ -77,8 +80,9 @@ Inherited `PlacedNetlist.normalize()` continues to return a plain `Netlist`.
 Existing array behavior is retained: a zero instance dimension disables array
 metadata; otherwise dimensions must be positive. `(1, 1)` array references
 collapse to plain references; other reference indices have upper-bound checks.
-`flatten_instances` removes named instances and merges their touching nets; it
-does not recursively expand child netlists.
+`remove_instances` removes named instances and merges their touching nets.
+`flatten_instances` remains a deprecated Rust and Python alias; hierarchical
+`flatten` replaces instances with the contents of their child netlists.
 
 ## Development
 

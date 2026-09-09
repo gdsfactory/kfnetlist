@@ -198,7 +198,7 @@ def test_from_netlist_drops_entries_for_absent_instance() -> None:
     assert set(pnl.placements) == {"wg1"}
 
 
-def test_flatten_instances_drops_placement() -> None:
+def test_remove_instances_drops_placement() -> None:
     pnl = PlacedNetlist()
     pnl.create_inst(name="a", kcl="p", component="c", cell="a", placement=_placement())
     pnl.create_inst(
@@ -212,10 +212,27 @@ def test_flatten_instances_drops_placement() -> None:
         PortRef(instance="flat", port="o2"), PortRef(instance="b", port="o1")
     )
 
-    pnl.flatten_instances(["flat"])
+    pnl.remove_instances(["flat"])
     assert not pnl.has_instance("flat")
     assert "flat" not in pnl.placements
     assert set(pnl.placements) == {"a", "b"}
+
+
+def test_placed_flatten_instances_is_a_deprecated_alias() -> None:
+    pnl = PlacedNetlist()
+    pnl.create_inst(name="a", kcl="p", component="c", cell="a", placement=_placement())
+    pnl.create_inst(
+        name="flat", kcl="p", component="c", cell="flat", placement=_placement()
+    )
+    pnl.create_net(
+        PortRef(instance="a", port="o1"), PortRef(instance="flat", port="o1")
+    )
+
+    with pytest.deprecated_call():
+        pnl.flatten_instances(["flat"])
+    # The alias must go through the override, so the extras stay in sync.
+    assert not pnl.has_instance("flat")
+    assert set(pnl.placements) == {"a"}
 
 
 # --- backward compatibility ------------------------------------------------

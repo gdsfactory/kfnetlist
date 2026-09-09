@@ -1,6 +1,6 @@
 """Type stubs for the Rust-backed ``kfnetlist._native`` module."""
 
-from collections.abc import Callable, Mapping
+from collections.abc import Callable, Mapping, Sequence
 from typing import Any, Self
 
 class NetlistPort:
@@ -185,7 +185,22 @@ class Netlist:
     def add_net(self, net: Net) -> None: ...
     def detect_opens(self) -> dict[str, Any]: ...
     def find_net_difference(self, reference: Netlist) -> dict[str, list[Net]]: ...
-    def flatten_instances(self, names: list[str]) -> None: ...
+    def remove_instances(self, names: list[str]) -> None: ...
+    def flatten_instances(self, names: list[str]) -> None:
+        """Deprecated alias for ``remove_instances``."""
+    def flatten(
+        self,
+        netlists: Mapping[str, Netlist],
+        cells: Sequence[str] | None = ...,
+        *,
+        exclude: Sequence[str] | None = ...,
+        instance_cell_map: Mapping[str, str] | None = ...,
+        sub_instance_cell_maps: Mapping[str, Mapping[str, str]] | None = ...,
+        recursive: bool = ...,
+        allow_unconnected_ports: bool = ...,
+        warn_skipped: bool = ...,
+        separator: str = ...,
+    ) -> Netlist: ...
     def normalize(
         self,
         cell_name: str | None = ...,
@@ -224,6 +239,20 @@ class PlacedNetlist(Netlist):
         cell: str = ...,
         placement: Placement | None = ...,
     ) -> PlacedInstance: ...
+    # Same parameters as the base, narrower (covariant) return type.
+    def flatten(
+        self,
+        netlists: Mapping[str, Netlist],
+        cells: Sequence[str] | None = ...,
+        *,
+        exclude: Sequence[str] | None = ...,
+        instance_cell_map: Mapping[str, str] | None = ...,
+        sub_instance_cell_maps: Mapping[str, Mapping[str, str]] | None = ...,
+        recursive: bool = ...,
+        allow_unconnected_ports: bool = ...,
+        warn_skipped: bool = ...,
+        separator: str = ...,
+    ) -> PlacedNetlist: ...
     def to_dict(self) -> dict[str, Any]: ...
     @classmethod
     def from_dict(cls, obj: dict[str, Any]) -> Self: ...

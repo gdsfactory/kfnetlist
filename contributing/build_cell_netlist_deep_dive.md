@@ -262,7 +262,7 @@ if exclude_purposes:
     inst_names |= {
         inst.name for inst in cell.insts if inst.purpose in exclude_purposes
     }
-nl.flatten_instances(list(inst_names))
+nl.remove_instances(list(inst_names))
 for inst_name in inst_names:
     nl.instances.pop(inst_name, None)
 nl.sort()
@@ -280,7 +280,12 @@ Two criteria select instances for removal:
 
 #### 5.2 Flattening Mechanics
 
-`nl.flatten_instances(list(inst_names))` (Rust: `netlist.rs:282-311`) works by:
+`nl.remove_instances(list(inst_names))` (Rust: `netlist.rs`) works by:
+
+> This method was called `flatten_instances()` until `Netlist.flatten()`
+> was added for *hierarchical* flattening (replacing an instance by the
+> contents of its cell). The old name is a deprecated alias. What happens
+> here is deletion, not inlining.
 
 1. **Removing** each named instance from the `IndexMap`
 2. **Partitioning** nets into:
@@ -302,7 +307,7 @@ After:   Net[o1, mmi1.o2]
 
 #### 5.3 Cleanup
 
-After flattening, `nl.instances.pop(inst_name, None)` removes any remaining instance entries. This handles edge cases where `flatten_instances` might not fully remove all traces.
+After flattening, `nl.instances.pop(inst_name, None)` removes any remaining instance entries. This handles edge cases where `remove_instances` might not fully remove all traces.
 
 Finally, `nl.sort()` normalizes the netlist for deterministic serialization:
 - Instance names sorted lexicographically
@@ -401,8 +406,8 @@ The `break` after a successful match prevents duplicate references.
 
 ### Flattening After Net Creation
 
-Flattening happens **after** all nets are created, not during. This means the instance must exist in the netlist when nets reference it (validated by `create_net`), and is only removed afterward. The Rust `flatten_instances` method handles the net surgery.
+Flattening happens **after** all nets are created, not during. This means the instance must exist in the netlist when nets reference it (validated by `create_net`), and is only removed afterward. The Rust `remove_instances` method handles the net surgery.
 
 ### Double Cleanup
 
-The code calls both `nl.flatten_instances(list(inst_names))` and then `nl.instances.pop(inst_name, None)`. The `flatten_instances` call handles net merging and removes the instance, while the `pop` call is a safety net ensuring the instance is definitely removed from the `instances` dict even if `flatten_instances` didn't process it (e.g., if the instance had no touching nets).
+The code calls both `nl.remove_instances(list(inst_names))` and then `nl.instances.pop(inst_name, None)`. The `remove_instances` call handles net merging and removes the instance, while the `pop` call is a safety net ensuring the instance is definitely removed from the `instances` dict even if `remove_instances` didn't process it (e.g., if the instance had no touching nets).

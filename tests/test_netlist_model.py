@@ -199,7 +199,7 @@ def test_netlist_sort_orders_instances_nets_ports() -> None:
     assert [p.name for p in nl.ports] == ["p1", "p2"]
 
 
-def test_netlist_flatten_instances() -> None:
+def _netlist_with_removable_instance() -> Netlist:
     nl = Netlist()
     nl.create_inst("a", kcl="p", component="c", settings={})
     nl.create_inst("b", kcl="p", component="c", settings={})
@@ -212,7 +212,12 @@ def test_netlist_flatten_instances() -> None:
         PortRef(instance="flat", port="o2"),
         PortRef(instance="b", port="o1"),
     )
-    nl.flatten_instances(["flat"])
+    return nl
+
+
+def test_netlist_remove_instances() -> None:
+    nl = _netlist_with_removable_instance()
+    nl.remove_instances(["flat"])
     assert not nl.has_instance("flat")
     flat_refs = [
         port
@@ -221,3 +226,17 @@ def test_netlist_flatten_instances() -> None:
         if isinstance(port, PortRef) and port.instance == "flat"
     ]
     assert flat_refs == []
+
+
+def test_flatten_instances_is_a_deprecated_alias() -> None:
+    nl = _netlist_with_removable_instance()
+    with pytest.deprecated_call():
+        nl.flatten_instances(["flat"])
+    assert not nl.has_instance("flat")
+    assert nl == _remove_instances_reference()
+
+
+def _remove_instances_reference() -> Netlist:
+    nl = _netlist_with_removable_instance()
+    nl.remove_instances(["flat"])
+    return nl

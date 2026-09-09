@@ -1,5 +1,6 @@
 """Standalone netlist schema decoupled from kfactory's release cadence."""
 
+from ._flatten import flatten_netlists
 from ._native import (
     Net,
     Netlist,
@@ -29,4 +30,5 @@ __all__ = [
     "PortCheck",
     "PortRef",
     "check_connection",
+    "flatten_netlists",
 ]

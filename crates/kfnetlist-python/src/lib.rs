@@ -27,6 +27,7 @@ macro_rules! core_wrapper {
 }
 pub(crate) use core_wrapper;
 
+mod flatten;
 mod instance;
 mod net;
 mod netlist;
@@ -51,6 +52,22 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<Placement>()?;
     m.add_class::<PlacedInstance>()?;
     m.add_class::<PlacedNetlist>()?;
+    Ok(())
+}
+
+/// Emit a Python `UserWarning`.
+pub(crate) fn warn(py: Python<'_>, message: &str) -> PyResult<()> {
+    let warnings = py.import("warnings")?;
+    let category = py.get_type::<pyo3::exceptions::PyUserWarning>();
+    warnings.call_method1("warn", (message, category, 2))?;
+    Ok(())
+}
+
+/// Emit a Python `DeprecationWarning`.
+pub(crate) fn warn_deprecated(py: Python<'_>, message: &str) -> PyResult<()> {
+    let warnings = py.import("warnings")?;
+    let category = py.get_type::<pyo3::exceptions::PyDeprecationWarning>();
+    warnings.call_method1("warn", (message, category, 2))?;
     Ok(())
 }
 

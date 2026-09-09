@@ -1,8 +1,10 @@
 use kfnetlist_core::{
-    from_json, to_json, ArrayDirection, Error, Net, NetMember, Netlist, NetlistInstance,
-    NetlistPort, PlacedExtra, PlacedInstance, PlacedNetlist, Placement, PortArrayRef, PortRef,
+    flatten_netlist, from_json, to_json, ArrayDirection, Error, FlattenOptions, Net, NetMember,
+    Netlist, NetlistData, NetlistInstance, NetlistPort, PlacedExtra, PlacedInstance, PlacedNetlist,
+    Placement, PortArrayRef, PortRef,
 };
 use serde_json::json;
+use std::collections::HashMap;
 
 fn reference(instance: &str, port: &str) -> NetMember {
     NetMember::Ref(PortRef {
@@ -273,7 +275,7 @@ fn placed_netlist_round_trip_and_flatten_preserve_surviving_geometry() {
         Err(Error::InvalidArrayDimensions { .. })
     ));
     assert_eq!(nl, loaded);
-    nl.flatten_instances(vec!["flat".into()]).unwrap();
+    nl.remove_instances(vec!["flat".into()]).unwrap();
     assert_eq!(
         nl.netlist.nets,
         vec![Net::from_members(vec![
@@ -284,6 +286,46 @@ fn placed_netlist_round_trip_and_flatten_preserve_surviving_geometry() {
     assert!(!nl.extras.contains_key("flat"));
     assert_eq!(nl.get_instance("a").unwrap().extra.placement.x, 1.0);
     assert_eq!(nl.get_instance("b").unwrap().extra.placement.x, 3.0);
+}
+
+#[test]
+fn hierarchical_flattening_is_available_without_python() {
+    let mut child = Netlist::default();
+    child
+        .create_inst("inner".into(), "pdk".into(), "leaf".into(), json!({}), 1, 1)
+        .unwrap();
+    let input = child.create_port("input".into());
+    child
+        .create_net([NetMember::Port(input), reference("inner", "input")])
+        .unwrap();
+
+    let mut top = Netlist::default();
+    top.create_inst("sub".into(), "pdk".into(), "child".into(), json!({}), 1, 1)
+        .unwrap();
+    let input = top.create_port("input".into());
+    top.create_net([NetMember::Port(input), reference("sub", "input")])
+        .unwrap();
+
+    let output = flatten_netlist(
+        top.into(),
+        &HashMap::from([("sub".into(), "child".into())]),
+        &HashMap::from([("child".into(), NetlistData::from(child))]),
+        &HashMap::new(),
+        &FlattenOptions::new(None, None, true, false, false, ".".into()),
+    )
+    .unwrap();
+
+    assert!(output.data.instances.contains_key("sub.inner"));
+    assert!(!output.data.instances.contains_key("sub"));
+    assert_eq!(
+        output.data.nets,
+        vec![Net::from_members(vec![
+            NetMember::Port(NetlistPort {
+                name: "input".into()
+            }),
+            reference("sub.inner", "input"),
+        ])]
+    );
 }
 
 #[test]

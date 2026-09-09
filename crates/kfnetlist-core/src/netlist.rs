@@ -203,9 +203,13 @@ impl Netlist {
         self.create_net(net.members.clone())
     }
     /// Remove the named instances and merge any nets touching them into
-    /// a single new net (per group of nets that referenced the same flattened
-    /// instance), preserving every non-flattened port reference.
-    pub fn flatten_instances(&mut self, names: Vec<String>) -> Result<()> {
+    /// a single new net (per group of nets that referenced the same removed
+    /// instance), preserving every surviving port reference.
+    ///
+    /// This *deletes* an instance: nothing of the cell it referenced is kept.
+    /// To replace an instance by the contents of its cell instead, use the
+    /// hierarchical flattening API in [`crate::flatten`].
+    pub fn remove_instances(&mut self, names: Vec<String>) -> Result<()> {
         for inst_name in names {
             self.instances.shift_remove(&inst_name);
             let mut surviving: Vec<Net> = Vec::with_capacity(self.nets.len());
@@ -235,6 +239,12 @@ impl Netlist {
             self.nets.push(Net::from_members(merged));
         }
         Ok(())
+    }
+
+    /// Backwards-compatible alias for [`Netlist::remove_instances`].
+    #[deprecated(note = "use remove_instances; flatten now means hierarchical inlining")]
+    pub fn flatten_instances(&mut self, names: Vec<String>) -> Result<()> {
+        self.remove_instances(names)
     }
 
     /// Report unconnected top-level ports and singleton nets.
@@ -471,20 +481,20 @@ enum CanonicalKey {
 }
 
 /// Classic union-find with path compression and union-by-rank.
-struct UnionFind {
+pub(crate) struct UnionFind {
     parent: Vec<usize>,
     rank: Vec<u8>,
 }
 
 impl UnionFind {
-    fn new(n: usize) -> Self {
+    pub(crate) fn new(n: usize) -> Self {
         Self {
             parent: (0..n).collect(),
             rank: vec![0; n],
         }
     }
 
-    fn find(&mut self, mut x: usize) -> usize {
+    pub(crate) fn find(&mut self, mut x: usize) -> usize {
         while self.parent[x] != x {
             self.parent[x] = self.parent[self.parent[x]];
             x = self.parent[x];
@@ -492,7 +502,7 @@ impl UnionFind {
         x
     }
 
-    fn union(&mut self, a: usize, b: usize) {
+    pub(crate) fn union(&mut self, a: usize, b: usize) {
         let ra = self.find(a);
         let rb = self.find(b);
         if ra == rb {

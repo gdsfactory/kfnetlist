@@ -156,12 +156,16 @@ impl PlacedNetlist {
         extras.retain(|name, _| netlist.instances.contains_key(name));
         Self { netlist, extras }
     }
-    pub fn flatten_instances(&mut self, names: Vec<String>) -> crate::Result<()> {
-        self.netlist.flatten_instances(names.clone())?;
+    pub fn remove_instances(&mut self, names: Vec<String>) -> crate::Result<()> {
+        self.netlist.remove_instances(names.clone())?;
         for name in names {
             self.extras.shift_remove(&name);
         }
         Ok(())
+    }
+    #[deprecated(note = "use remove_instances; flatten now means hierarchical inlining")]
+    pub fn flatten_instances(&mut self, names: Vec<String>) -> crate::Result<()> {
+        self.remove_instances(names)
     }
     pub fn to_wire(&self) -> PlacedNetlistWire {
         PlacedNetlistWire::from_parts(&self.netlist, &self.extras)

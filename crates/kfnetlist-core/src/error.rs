@@ -21,6 +21,16 @@ pub enum Error {
     },
     MissingCanonicalPort(String),
     MissingInstance(String),
+    FlattenInstanceCollision {
+        instance: String,
+        new_name: String,
+    },
+    FlattenUnconnectedPort {
+        instance: String,
+        port: String,
+        cell: String,
+    },
+    RecursiveFlattenLimit(usize),
     Serialize(serde_json::Error),
     Deserialize(serde_json::Error),
 }
@@ -50,6 +60,22 @@ impl fmt::Display for Error {
             Self::MissingCanonicalPort(name) => write!(f,
                 "normalize: canonical port {name:?} not present in netlist ports"),
             Self::MissingInstance(name) => f.write_str(name),
+            Self::FlattenInstanceCollision { instance, new_name } => write!(
+                f,
+                "flatten: inlining instance {instance:?} would create instance {new_name:?}, which already exists"
+            ),
+            Self::FlattenUnconnectedPort {
+                instance,
+                port,
+                cell,
+            } => write!(
+                f,
+                "flatten: instance {instance:?} is connected on port {port:?}, but that port is not part of any net inside cell {cell:?} — inlining would drop the connection. Pass allow_unconnected_ports=True to inline anyway."
+            ),
+            Self::RecursiveFlattenLimit(limit) => write!(
+                f,
+                "flatten: still inlining after {limit} passes — `netlists` describes a cell that contains itself"
+            ),
             Self::Serialize(error) => write!(f, "serialize: {error}"),
             Self::Deserialize(error) => write!(f, "deserialize: {error}"),
         }

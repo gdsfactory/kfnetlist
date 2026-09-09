@@ -9,6 +9,7 @@ use pyo3::basic::CompareOp;
 use pyo3::exceptions::PyValueError;
 use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyList, PyType};
+use std::collections::HashMap;
 
 /// A netlist: instances, nets, and top-level ports.
 ///
@@ -126,11 +127,72 @@ impl Netlist {
         self.0.add_net(&net.0).map_err(core_error)
     }
 
-    /// Remove the named instances and merge any nets touching them into
-    /// a single new net (per group of nets that referenced the same flattened
-    /// instance), preserving every non-flattened port reference.
-    pub(crate) fn flatten_instances(&mut self, names: Vec<String>) -> PyResult<()> {
-        self.0.flatten_instances(names).map_err(core_error)
+    /// Delete named instances and merge the nets they touched.
+    pub(crate) fn remove_instances(&mut self, names: Vec<String>) -> PyResult<()> {
+        self.0.remove_instances(names).map_err(core_error)
+    }
+
+    /// Deprecated alias for [`Netlist::remove_instances`].
+    #[pyo3(name = "flatten_instances")]
+    fn flatten_instances_deprecated(&mut self, py: Python<'_>, names: Vec<String>) -> PyResult<()> {
+        crate::warn_deprecated(
+            py,
+            "Netlist.flatten_instances() is deprecated, use remove_instances() instead \
+             (Netlist.flatten() now inlines an instance's own netlist)",
+        )?;
+        self.remove_instances(names)
+    }
+
+    /// Replace instances by the contents of their own cell's netlist.
+    #[allow(clippy::too_many_arguments)]
+    #[pyo3(signature = (
+        netlists,
+        cells=None,
+        *,
+        exclude=None,
+        instance_cell_map=None,
+        sub_instance_cell_maps=None,
+        recursive=true,
+        allow_unconnected_ports=false,
+        warn_skipped=false,
+        separator=".".to_string(),
+    ))]
+    fn flatten(
+        &self,
+        py: Python<'_>,
+        netlists: &Bound<'_, PyAny>,
+        cells: Option<Vec<String>>,
+        exclude: Option<Vec<String>>,
+        instance_cell_map: Option<HashMap<String, String>>,
+        sub_instance_cell_maps: Option<HashMap<String, HashMap<String, String>>>,
+        recursive: bool,
+        allow_unconnected_ports: bool,
+        warn_skipped: bool,
+        separator: String,
+    ) -> PyResult<Self> {
+        let subs = crate::flatten::read_netlists(netlists)?;
+        let options = kfnetlist_core::FlattenOptions::new(
+            cells,
+            exclude,
+            recursive,
+            allow_unconnected_ports,
+            warn_skipped,
+            separator,
+        );
+        let output = kfnetlist_core::flatten_netlist(
+            self.0.clone().into(),
+            &instance_cell_map.unwrap_or_default(),
+            &subs,
+            &sub_instance_cell_maps.unwrap_or_default(),
+            &options,
+        )
+        .map_err(core_error)?;
+        crate::flatten::emit_warnings(py, output.warnings)?;
+        Ok(Self(kfnetlist_core::Netlist {
+            instances: output.data.instances,
+            nets: output.data.nets,
+            ports: output.data.ports,
+        }))
     }
 
     /// Detect open (unconnected) elements in this netlist.

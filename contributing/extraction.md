@@ -274,25 +274,31 @@ The klayout L2N circuit for this cell (from Stage 2) is walked to extract electr
 
 A net is only created if it has 2 or more members.
 
-### 4.5 Instance Flattening
+### 4.5 Instance Removal
 
-After nets are built, certain instances are removed ("flattened"):
+After nets are built, certain instances are deleted:
 
 - **Unnamed instances** (if `ignore_unnamed=True`): instances without user-assigned names
 - **Excluded purposes**: instances whose `purpose` string matches `exclude_purposes`
 
-Flattening (`netlist.rs:282-311`) works by:
+`Netlist::remove_instances` (`netlist.rs`) works by:
 
 1. Removing the instance from the netlist's instance map
 2. Partitioning nets into:
-   - **Surviving**: nets that don't reference the flattened instance (kept as-is)
+   - **Surviving**: nets that don't reference the removed instance (kept as-is)
    - **Touching**: nets that reference it -- their non-instance members are collected and merged into one new net
 
 ```
 Before:  Net[o1, buffer1.i]  Net[buffer1.o, mmi1.o2]
-         (buffer1 is flattened)
+         (buffer1 is removed)
 After:   Net[o1, mmi1.o2]
 ```
+
+Note this *deletes* the instance: nothing of the cell it referenced enters the
+parent netlist. Replacing an instance by its cell's contents is a separate,
+opt-in operation (`flatten`, below). The method was called
+`flatten_instances()` before that existed; the old name is a deprecated
+alias.
 
 ### 4.6 Sorting
 
@@ -315,7 +321,7 @@ same connectivity, with each instance additionally carrying a `Placement`
 (cell name, origin transform, bounding box).
 
 This is deliberately a **post-processing upgrade**, not a change to the
-connectivity pipeline. For each cell, the netlist is built, flattened,
+connectivity pipeline. For each cell, the netlist is built, pruned,
 LVS-normalized, and sorted on a plain `Netlist` exactly as described above.
 Only then is it upgraded:
 
@@ -330,9 +336,9 @@ if include_placement:
 ```
 
 Because placement is per-instance and independent of net rewriting, gathering
-it *after* flattening/normalization avoids having to keep a parallel placement
-map consistent through every mutation. Placement geometry and cell names are
-gathered only for the instances that survived flattening
+it *after* instance removal/normalization avoids having to keep a parallel
+placement map consistent through every mutation. Placement geometry and cell
+names are gathered only for the instances that survived removal
 (`nl.instance_names()`).
 
 The placed `cell` name (`inst.cell.name`) is captured onto
@@ -350,6 +356,51 @@ instance:
 The bbox is the **transformed** bounding box in the parent cell's frame (i.e.
 where the instance actually sits after placement), not the cell's own
 untransformed extent.
+
+---
+
+## Optional: Hierarchical Flattening (`flatten`)
+
+**Source**: `src/flatten.rs`, driven from `_flatten.py` (`flatten_netlists`)
+and the tail of `_algo.py`
+
+Also a post-processing step, run after every cell's netlist exists. Passing
+`flatten=True` inlines the whole hierarchy; passing a sequence of cell names
+inlines only those, so a containerized subcircuit can be dissolved while a cell
+with its own compact model stays a single instance.
+
+Each instance is looked up in the `{cell name: netlist}` result by cell name and
+replaced by the sub-cell's instances, renamed `"{instance}.{inner instance}"`.
+Nets are re-derived by dropping the parent members that referenced the inlined
+instance and the inner members that referenced a sub-cell port, then **merging**
+the nets that held them (union-find, keyed by `(instance, port)`) — which is
+what re-connects the two levels:
+
+```
+Parent:  Net[in, sub1.o1]              Sub-cell:  Net[<o1>, wg1.o1]
+                                                  Net[wg1.o2, wg2.o1]
+After:   Net[in, sub1.wg1.o1]  Net[sub1.wg1.o2, sub1.wg2.o1]
+```
+
+Resolving an instance to its cell needs the cell name, which a plain
+`NetlistInstance` does not carry (`component` is the *factory* name). Extraction
+therefore records `{instance name: cell name}` per cell
+(`instance_cell_maps`) while it
+walks the hierarchy and hands that to `flatten()`, so the flag works with or
+without `include_placement`. Outside extraction, `PlacedInstance.cell` supplies
+the same link for free.
+
+Instances are left alone when their cell has no instances of its own (a
+primitive), their cell name is unknown, or they are array instances (`na`/`nb`
+> 1, which has no single inlined copy). A connected port with no net inside the
+sub-cell raises rather than silently dropping the connection, unless
+`allow_unconnected_ports=True`.
+
+On `PlacedNetlist`, each inlined placement is composed with the placement of the
+instance it came from (`compose_placement`): `angle = ap ± ac` (minus when the
+parent mirrors, since `M·R(a) = R(-a)·M`), `mirror = mp XOR mc`, and the bbox is
+the child box pushed through the parent transform. Multiples of 90° use an exact
+sin/cos table so coordinates stay clean.
 
 ## Stage 5: LVS-Equivalent Port Folding
 
@@ -446,7 +497,7 @@ Array instances (regular grids of the same cell) are handled specially:
    reads: cell.ports              reads: cell.insts
    reads: inst.ports              reads: cell.ports
    uses: check_connection()       merges: optical nets + L2N nets
-   output: list[Net]              calls: flatten_instances()
+   output: list[Net]              calls: remove_instances()
             |                     calls: sort()
             +--------> input ---->output: Netlist
                                           |

@@ -225,14 +225,14 @@ This produces native Python dicts/lists instead of JSON strings.
 ## 4. Instance Flattening
 
 ```python
-nl.flatten_instances(["buffer1"])
+nl.remove_instances(["buffer1"])
 ```
 
 **Call stack:**
 
 ```
-Python: nl.flatten_instances(["buffer1"])
-  └─ Rust: Netlist::flatten_instances(names)       # netlist.rs:282
+Python: nl.remove_instances(["buffer1"])
+  └─ Rust: Netlist::remove_instances(names)       # netlist.rs:282
        └─ For each inst_name in names:
             ├─ self.instances.shift_remove(&inst_name)   # remove from IndexMap
             ├─ Partition nets into:
@@ -501,7 +501,7 @@ extract()  ───────────────────────
   │       - ports (from cell.ports)          │
   │       - optical nets (from geometry)     │
   │       - electrical nets (from L2N)       │
-  │     calls flatten_instances()            │
+  │     calls remove_instances()            │
   │                                          │
   └─→ nl.lvs_equivalent()                   │
         rewrites port names                  │
@@ -553,7 +553,7 @@ _settings.py ─→ klayout only (no kfnetlist imports)
 
 ### Understanding Snapshot Properties
 
-The `instances`, `nets`, and `ports` properties on `Netlist` return **fresh copies** each time they're accessed. Mutating the returned dict/list does not affect the netlist. To modify the netlist, use the mutation methods (`create_inst`, `create_net`, `create_port`, `flatten_instances`, etc.).
+The `instances`, `nets`, and `ports` properties on `Netlist` return **fresh copies** each time they're accessed. Mutating the returned dict/list does not affect the netlist. To modify the netlist, use the mutation methods (`create_inst`, `create_net`, `create_port`, `remove_instances`, etc.).
 
 ```python
 # This does NOT modify the netlist:

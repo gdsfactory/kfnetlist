@@ -1,5 +1,19 @@
 # Changelog
 
+## Unreleased
+
+- **`Netlist.flatten()`** — hierarchical flattening: replace instances by the
+  contents of their own cell's netlist, rewiring the parent's nets through the
+  sub-cell's ports. Selectable per cell (`cells` / `exclude`), recursive by
+  default, and placement-aware on `PlacedNetlist` (each inlined placement is
+  composed with the placement of the instance it came from).
+  `kfnetlist.flatten_netlists()` applies it to a whole `{cell name: netlist}`
+  mapping, and `extract(..., flatten=...)` does it as part of extraction.
+- **`Netlist.flatten_instances()` renamed to `remove_instances()`** — the old
+  name still works but raises a `DeprecationWarning`. It never inlined
+  anything: it deletes instances and merges the nets they touched, which the
+  new `flatten()` would otherwise be confused with.
+
 ## 0.2.0
 
 - **`find_net_difference()`** (renamed from `find_open_nets`) — compares

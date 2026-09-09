@@ -12,7 +12,8 @@ The core data types and algorithms live in the Python-independent **Rust** crate
 - **Hierarchical netlists**: instances, nets, top-level ports, and array instances
 - **Full serialization**: JSON and Python dict round-trips on every type
 - **LVS-equivalent port folding**: collapse equivalent ports (e.g. multi-pad cells) into canonical names with automatic net merging
-- **Instance flattening**: remove intermediate instances and re-merge their nets
+- **Hierarchical flattening**: replace instances by the contents of their own cell's netlist, rewiring nets across both levels
+- **Instance removal**: delete intermediate instances and re-merge their nets
 - **Port connection checking**: bitmask-based pairwise port comparison (direction, width, layer, position)
 - **Layout extraction** (optional, requires klayout): extract optical and electrical netlists from layout cells
 - **Pydantic v2 compatibility**: all types implement `__get_pydantic_core_schema__` for seamless validation
@@ -47,7 +48,7 @@ The core data types and algorithms live in the Python-independent **Rust** crate
 
 | Crate | Responsibility |
 |-------|----------------|
-| `crates/kfnetlist-core` | Native connectivity and placement values, serde wire formats, validation, normalization, flattening, open detection, and net differences |
+| `crates/kfnetlist-core` | Native connectivity and placement values, serde wire formats, validation, normalization, hierarchical flattening, instance removal, open detection, and net differences |
 | `crates/kfnetlist-python` | PyO3 classes and inheritance, mutable Python properties, collection snapshots, iterators, repr/comparison, Pydantic integration, and exception conversion |
 
 Both crates have `port`, `net`, `instance`, `netlist`, and `placement` modules.
@@ -61,6 +62,7 @@ binding crate's `lib.rs` registers the `kfnetlist._native` module. See
 |--------|---------|-------------|
 | `__init__.py` | Re-exports all public types from `_native` and `port_check` | None (beyond _native) |
 | `_native.pyi` | Type stubs for the Rust extension | None |
+| `_flatten.py` | `flatten_netlists()`: flatten a whole `{cell name: netlist}` mapping | None (beyond _native) |
 | `port_check.py` | `PortCheck` bitmask enum and `check_connection()` function | klayout (lazy import) |
 | `extract/__init__.py` | Re-exports extraction functions | klayout |
 | `extract/_algo.py` | Main extraction orchestrator (`extract()`) | `_geometry`, `_l2n`, `_settings`, kfnetlist core |
@@ -76,7 +78,7 @@ binding crate's `lib.rs` registers the `kfnetlist._native` module. See
 A top-level (cell-level) port. Hashable, orderable, serializable.
 
 #### `PortRef(instance: str, port: str)`
-A reference to a port on a named instance. Has a `name` property aliasing `port`. Supports `as_python_str()` for code generation.
+A reference to a port on a named instance. `name` is the port name alone (the instance is a separate field). Supports `as_python_str()` for code generation.
 
 #### `PortArrayRef(instance: str, port: str, ia: int, ib: int)`
 Extends `PortRef` with array index coordinates. When `ia=1, ib=1`, automatically collapsed to a plain `PortRef` inside `create_net()`.
@@ -99,7 +101,8 @@ The top-level container. Key methods:
 | `create_port(name)` | Add a top-level port |
 | `create_net(*members)` | Wire 2+ members together (validates existence) |
 | `add_net(net)` | Add a pre-constructed `Net` |
-| `flatten_instances(names)` | Remove instances, merge their nets |
+| `remove_instances(names)` | Delete instances, merging the nets they touched (`flatten_instances` is a deprecated alias) |
+| `flatten(netlists, cells=None, ...)` | Replace instances by the contents of their own cell's netlist |
 | `sort()` | Normalize ordering of instances, nets, ports |
 | `normalize(cell_name=None, equivalent_ports=None, ...)` | Return a new netlist with equivalent ports collapsed |
 | `to_json()` / `from_json(s)` | JSON serialization |
@@ -111,7 +114,7 @@ The top-level container. Key methods:
 A second flavor carries physical **placement** geometry alongside connectivity.
 The types subclass the plain ones (via PyO3 `#[pyclass(extends = ...)]`), so
 `isinstance(placed, Netlist)` is true and all inherited behaviour (nets, ports,
-flattening, sorting, LVS folding) works unchanged.
+instance removal, sorting, LVS folding) works unchanged.
 
 #### `Placement(x, y, orientation, mirror, bbox)`
 A purely **geometric** value object — *where* an instance sits, not *what* it
@@ -142,10 +145,41 @@ objects, with an extra `placements` map keyed by instance name.
 |--------|-------------|
 | `from_netlist(netlist, placements=None, cells=None)` | Upgrade a plain `Netlist`, attaching per-instance placement geometry and cell names (entries for absent instances are dropped; instances without one get empty defaults) |
 | `create_inst(name, kcl, component, settings=None, na=1, nb=1, cell="", placement=None)` | Add an instance with optional cell name and placement (base parameter order preserved) |
+| `flatten(netlists, cells=None, ...)` | As `Netlist.flatten`, but returns a `PlacedNetlist`: resolves each instance's cell from `PlacedInstance.cell` and composes each inlined placement with the placement of the instance it came from |
 | `placements` | Property: `dict[str, Placement]` for instances that have one |
 
 Placement is **excluded from equality**, so LVS comparisons are unaffected by
 the extra geometry.
+
+### Hierarchical Flattening
+
+#### `Netlist.flatten(netlists, cells=None, *, exclude=None, instance_cell_map=None, sub_instance_cell_maps=None, recursive=True, allow_unconnected_ports=False, warn_skipped=False, separator=".")`
+Replace instances by the contents of their own cell's netlist. `netlists` is a
+`{cell name: Netlist | PlacedNetlist}` mapping (what `extract()` returns); the
+inlined instances are renamed `"{instance}{separator}{inner instance}"` and the
+nets of both levels are merged through the sub-cell's ports.
+
+| Argument | Meaning |
+|----------|---------|
+| `cells` | Cell names to inline; `None` inlines everything resolvable |
+| `exclude` | Cell names never to inline (wins over `cells`) |
+| `instance_cell_map` | This netlist's `{instance name: cell name}` — a plain `NetlistInstance` does not record its cell (`component` is the factory name) |
+| `sub_instance_cell_maps` | `{cell name: {instance name: cell name}}` for the levels below, needed when `recursive=True` |
+| `recursive` | Keep inlining inside what was just inlined |
+| `allow_unconnected_ports` | Inline even when a connected port has no net inside the sub-cell (dropping that connection) instead of raising |
+| `warn_skipped` | Warn about every instance left alone |
+
+Instances are skipped when their cell has no instances of its own (a
+primitive), their cell name is unknown, or they are arrays (`na`/`nb` > 1).
+Inner nets that touch no sub-cell port stay as floating nets; an inner net
+touching two sub-cell ports merges both parent nets.
+
+#### `flatten_netlists(netlists, cells=None, *, exclude=None, instance_cell_maps=None, ...) -> dict[str, Netlist]`
+Apply `flatten()` to every entry of a `{cell name: netlist}` mapping. Each
+netlist is flattened against the original mapping, so the result is independent
+of iteration order, and inlined cells keep their own entry. There is a single
+map argument here — `instance_cell_maps` (`{cell name: {instance name: cell
+name}}`) — since every entry's own cell name is known from the mapping key.
 
 ### Port Checking
 
@@ -157,8 +191,8 @@ Compare two duck-typed ports, returning a `PortCheck` bitmask. Uses integer tran
 
 ### Extraction (requires klayout)
 
-#### `extract(cell, *, wrap_kdb_instance, port_types, mark_port_types, ..., include_placement=False) -> dict[str, Netlist]`
-Full hierarchical extraction: optical nets from geometry + electrical nets from klayout L2N. With `include_placement=True`, each returned value is a `PlacedNetlist` whose instances additionally carry a `Placement` read from the layout; the default returns plain `Netlist` objects, identical to before.
+#### `extract(cell, *, wrap_kdb_instance, port_types, mark_port_types, ..., include_placement=False, flatten=False) -> dict[str, Netlist]`
+Full hierarchical extraction: optical nets from geometry + electrical nets from klayout L2N. With `include_placement=True`, each returned value is a `PlacedNetlist` whose instances additionally carry a `Placement` read from the layout; the default returns plain `Netlist` objects, identical to before. With `flatten=True` (or a sequence of cell names) the selected instances are replaced by the contents of their own cell's netlist; extraction supplies the instance→cell mapping, so this works for either flavor.
 
 #### `get_optical_nets(cell, port_types, *, allow_width_mismatch) -> list[Net]`
 Extract optical nets from geometric port adjacency within a single cell.

@@ -67,7 +67,8 @@ It provides a fast, type-safe data model for circuit connectivity — instances,
 - **Full serialization** — `to_json()` / `from_json()` and `to_dict()` / `from_dict()` on every type
 - **Pydantic v2 support** — all types implement `__get_pydantic_core_schema__`
 - **Equivalent ports** — fold electrically-equivalent ports into canonical names for netlist comparison
-- **Instance flattening** — merge sub-cell instances into the parent, reconnecting touching nets
+- **Hierarchical flattening** — replace instances by the contents of their own cell's netlist, rewiring nets across the two levels
+- **Instance removal** — delete sub-cell instances, merging the nets they touched
 - **Port checking** — `PortCheck` bitmask and `check_connection()` for geometric port-pair comparison
 - **Netlist extraction** — extract hierarchical netlists from kfactory/klayout cells
 - **L2N parsing** — convert klayout `LayoutToNetlist` results to JSON-serializable dicts
