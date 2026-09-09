@@ -5,8 +5,8 @@
 
 It provides a fast, type-safe data model for circuit connectivity — instances,
 nets, ports, and arrays — with full JSON/dict serialization and Pydantic v2
-integration. The core types are implemented in Rust (via PyO3) for performance
-and exposed as native Python classes.
+integration. A Python-independent Rust crate owns the core types and algorithms;
+a separate PyO3 crate exposes them as native Python classes.
 
 ---
 
@@ -105,6 +105,41 @@ For a complete walkthrough, see the
   and `detect_shorts()` for LVS-style verification workflows
 - **Netlist extraction** — `kfnetlist.extract` subpackage extracts hierarchical
   netlists from kfactory/klayout cells (requires klayout)
+
+## Rust usage
+
+The Cargo workspace contains `crates/kfnetlist-core` (the Rust library) and
+`crates/kfnetlist-python` (the `kfnetlist._native` extension). Rust consumers can
+depend on the core directly, with no Python installation or PyO3 dependency:
+
+```toml
+[dependencies]
+kfnetlist-core = { path = "/path/to/kfnetlist/crates/kfnetlist-core" }
+serde_json = "1"
+```
+
+```rust
+use kfnetlist_core::{Netlist, NetMember, PortRef};
+use serde_json::json;
+
+let mut nl = Netlist::default();
+nl.create_inst("wg1".into(), "PDK".into(), "straight".into(),
+               json!({"width": 0.5}), 1, 1)?;
+let input = nl.create_port("in".into());
+nl.create_net([
+    NetMember::Port(input),
+    NetMember::Ref(PortRef { instance: "wg1".into(), port: "o1".into() }),
+])?;
+let opens = nl.detect_opens();
+let serialized = kfnetlist_core::to_json(&nl)?;
+```
+
+Run the complete example with `cargo run -p kfnetlist-core --example connectivity`.
+Run Rust tests with `cargo test -p kfnetlist-core`, and Python compatibility tests
+with `uv run --extra dev --with pydantic pytest`. Maturin uses the binding manifest configured in
+`pyproject.toml`, so source and wheel builds still run from the repository root.
+See [the Rust API guide](contributing/rust-core.md) for ownership, serialization,
+and compatibility details.
 
 ## Architecture
 

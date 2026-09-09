@@ -8,20 +8,32 @@ use crate::{cmp_to_py, from_py_any, hash64, json_parse, json_string, to_py_dict}
 /// Array dimensions for an array instance (`na` × `nb`).
 #[pyclass(module = "kfnetlist._native")]
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct NetlistArray {
-    #[pyo3(get, set)]
-    pub na: i64,
-    #[pyo3(get, set)]
-    pub nb: i64,
-}
+#[serde(transparent)]
+pub struct NetlistArray(pub kfnetlist_core::NetlistArray);
+crate::core_wrapper!(NetlistArray, kfnetlist_core::NetlistArray);
 
 #[pymethods]
 impl NetlistArray {
+    #[getter]
+    fn na(&self) -> i64 {
+        self.0.na
+    }
+    #[setter]
+    fn set_na(&mut self, value: i64) {
+        self.0.na = value;
+    }
+    #[getter]
+    fn nb(&self) -> i64 {
+        self.0.nb
+    }
+    #[setter]
+    fn set_nb(&mut self, value: i64) {
+        self.0.nb = value;
+    }
     #[new]
     #[pyo3(signature = (na, nb))]
     fn new(na: i64, nb: i64) -> Self {
-        Self { na, nb }
+        Self(kfnetlist_core::NetlistArray { na, nb })
     }
 
     fn __hash__(&self) -> u64 {
@@ -78,58 +90,45 @@ impl NetlistArray {
 /// Declared `subclass` so `PlacedInstance` (which adds placement geometry) can
 /// extend it; this adds no fields and does not change the wire format.
 #[pyclass(module = "kfnetlist._native", subclass)]
-#[derive(Clone, Debug)]
-pub struct NetlistInstance {
-    #[pyo3(get, set)]
-    pub kcl: String,
-    #[pyo3(get, set)]
-    pub component: String,
-    /// Free-form JSON-serializable settings.
-    pub settings: serde_json::Value,
-    pub array: Option<NetlistArray>,
-    #[pyo3(get, set)]
-    pub name: String,
-}
+#[derive(Clone, Debug, Serialize, Deserialize)]
+#[serde(transparent)]
+pub struct NetlistInstance(pub kfnetlist_core::NetlistInstance);
+crate::core_wrapper!(NetlistInstance, kfnetlist_core::NetlistInstance);
 
-/// Wire format used by serde to (de)serialize NetlistInstance without `name`.
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct NetlistInstanceWire {
-    pub kcl: String,
-    pub component: String,
-    #[serde(default)]
-    pub settings: serde_json::Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub array: Option<NetlistArray>,
-}
+use kfnetlist_core::instance::NetlistInstanceWire;
 
 impl NetlistInstance {
-    pub(crate) fn to_wire(&self) -> NetlistInstanceWire {
-        NetlistInstanceWire {
-            kcl: self.kcl.clone(),
-            component: self.component.clone(),
-            settings: if self.settings.is_null() {
-                serde_json::Value::Object(Default::default())
-            } else {
-                self.settings.clone()
-            },
-            array: self.array.clone(),
-        }
-    }
-
     pub(crate) fn from_wire(name: String, wire: NetlistInstanceWire) -> Self {
-        Self {
-            kcl: wire.kcl,
-            component: wire.component,
-            settings: wire.settings,
-            array: wire.array,
-            name,
-        }
+        Self(kfnetlist_core::NetlistInstance::from_wire(name, wire))
     }
 }
 
 #[pymethods]
 impl NetlistInstance {
+    #[getter]
+    fn kcl(&self) -> String {
+        self.0.kcl.clone()
+    }
+    #[setter]
+    fn set_kcl(&mut self, value: String) {
+        self.0.kcl = value;
+    }
+    #[getter]
+    fn component(&self) -> String {
+        self.0.component.clone()
+    }
+    #[setter]
+    fn set_component(&mut self, value: String) {
+        self.0.component = value;
+    }
+    #[getter]
+    fn name(&self) -> String {
+        self.0.name.clone()
+    }
+    #[setter]
+    fn set_name(&mut self, value: String) {
+        self.0.name = value;
+    }
     #[new]
     #[pyo3(signature = (kcl, component, settings=None, array=None, name=String::new()))]
     fn new(
@@ -145,13 +144,13 @@ impl NetlistInstance {
             _ => serde_json::Value::Object(Default::default()),
         };
         let _ = py;
-        Ok(Self {
+        Ok(Self(kfnetlist_core::NetlistInstance {
             kcl,
             component,
             settings,
-            array,
+            array: array.map(|value| value.0),
             name,
-        })
+        }))
     }
 
     #[getter]
@@ -167,18 +166,18 @@ impl NetlistInstance {
 
     #[getter]
     fn array(&self) -> Option<NetlistArray> {
-        self.array.clone()
+        self.0.array.clone().map(NetlistArray)
     }
 
     #[setter]
     fn set_array(&mut self, value: Option<NetlistArray>) {
-        self.array = value;
+        self.0.array = value.map(|value| value.0);
     }
 
     /// Normalize this instance's settings in place: integer-valued floats are
     /// stored as integers (`1.0` -> `1`; `1.5` is left as-is).
     fn normalize(&mut self) {
-        crate::normalize_value(&mut self.settings);
+        self.0.normalize();
     }
 
     fn __richcmp__(&self, other: &Bound<'_, PyAny>, op: CompareOp) -> PyResult<PyObject> {

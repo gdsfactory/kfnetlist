@@ -5,6 +5,28 @@ use serde::{Deserialize, Serialize};
 use std::collections::hash_map::DefaultHasher;
 use std::hash::{Hash, Hasher};
 
+macro_rules! core_wrapper {
+    ($wrapper:ident, $core:ty) => {
+        impl std::ops::Deref for $wrapper {
+            type Target = $core;
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
+        impl std::ops::DerefMut for $wrapper {
+            fn deref_mut(&mut self) -> &mut Self::Target {
+                &mut self.0
+            }
+        }
+        impl From<$core> for $wrapper {
+            fn from(value: $core) -> Self {
+                Self(value)
+            }
+        }
+    };
+}
+pub(crate) use core_wrapper;
+
 mod flatten;
 mod instance;
 mod net;
@@ -79,40 +101,18 @@ pub(crate) fn richcmp_result(py: Python<'_>, value: Option<bool>) -> PyObject {
     }
 }
 
-/// Normalize a free-form settings value in place so that integer-valued floats
-/// are stored as integers (e.g. `1.0` -> `1`, but `1.5` is left untouched).
-/// This is the lossless direction (`float -> int` only when `is_integer()`), so
-/// a value defined by the user/system matches the same value recovered by
-/// extraction once both sides are normalized. Recurses through arrays/objects.
-pub(crate) fn normalize_value(value: &mut serde_json::Value) {
-    use serde_json::Value::{Array, Number, Object};
-    match value {
-        Number(n) if n.is_f64() => {
-            if let Some(f) = n.as_f64() {
-                if f.is_finite() && f.fract() == 0.0 {
-                    if f >= i64::MIN as f64 && f <= i64::MAX as f64 {
-                        *n = serde_json::Number::from(f as i64);
-                    } else if f >= 0.0 && f <= u64::MAX as f64 {
-                        *n = serde_json::Number::from(f as u64);
-                    }
-                    // Otherwise it has no exact integer representation; leave it.
-                }
-            }
-        }
-        Array(items) => items.iter_mut().for_each(normalize_value),
-        Object(map) => map.values_mut().for_each(normalize_value),
-        _ => {}
+pub(crate) fn core_error(error: kfnetlist_core::Error) -> PyErr {
+    match error {
+        kfnetlist_core::Error::MissingInstance(name) => pyo3::exceptions::PyKeyError::new_err(name),
+        other => pyo3::exceptions::PyValueError::new_err(other.to_string()),
     }
 }
 
 pub(crate) fn json_string<T: Serialize>(value: &T) -> PyResult<String> {
-    serde_json::to_string(value)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("serialize: {e}")))
+    kfnetlist_core::to_json(value).map_err(core_error)
 }
-
 pub(crate) fn json_parse<'de, T: Deserialize<'de>>(s: &'de str) -> PyResult<T> {
-    serde_json::from_str(s)
-        .map_err(|e| pyo3::exceptions::PyValueError::new_err(format!("deserialize: {e}")))
+    kfnetlist_core::from_json(s).map_err(core_error)
 }
 
 pub(crate) fn to_py_dict<'py, T: Serialize>(

@@ -6,7 +6,11 @@ dev:
 
 # Run tests
 test python_version="3.14":
-    uv run -p {{python_version}} --with . --extra dev --isolated pytest -s
+    uv run -p {{python_version}} --with . --with pydantic --extra dev --isolated pytest -s
+
+# Test the standalone Rust core (no Python installation required)
+test-rust:
+    cargo test -p kfnetlist-core
 
 # Run linting
 lint:

@@ -19,22 +19,19 @@
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
-use indexmap::IndexMap;
-use pyo3::exceptions::{PyTypeError, PyValueError};
-use pyo3::prelude::*;
-use pyo3::types::PyDict;
-
 use crate::instance::NetlistInstance;
 use crate::net::{Net, NetMember};
-use crate::netlist::{Netlist, UnionFind};
+use crate::netlist::UnionFind;
 use crate::placement::{BBox, PlacedExtra, PlacedNetlist, Placement};
-use crate::port::{NetlistPort, PortArrayRefData, PortRef};
+use crate::port::{NetlistPort, PortArrayRef, PortRef};
+use crate::{Error, Netlist, Result};
+use indexmap::IndexMap;
 
 /// Flat view of a netlist's contents, independent of the Python flavor
 /// (`Netlist` or `PlacedNetlist`) it came from. `extras` is empty for the plain
 /// flavor.
 #[derive(Clone, Debug, Default)]
-pub(crate) struct NetlistData {
+pub struct NetlistData {
     pub instances: IndexMap<String, NetlistInstance>,
     pub nets: Vec<Net>,
     pub ports: Vec<NetlistPort>,
@@ -42,7 +39,7 @@ pub(crate) struct NetlistData {
 }
 
 /// Knobs for [`flatten_netlist`].
-pub(crate) struct Options {
+pub struct FlattenOptions {
     /// Cell names to inline; `None` means "every instance we can resolve".
     cells: Option<HashSet<String>>,
     /// Cell names never to inline (wins over `cells`).
@@ -58,9 +55,9 @@ pub(crate) struct Options {
     separator: String,
 }
 
-impl Options {
+impl FlattenOptions {
     #[allow(clippy::too_many_arguments)]
-    pub(crate) fn new(
+    pub fn new(
         cells: Option<Vec<String>>,
         exclude: Option<Vec<String>>,
         recursive: bool,
@@ -89,43 +86,32 @@ impl Options {
     }
 }
 
-/// Read a `{cell name: Netlist | PlacedNetlist}` mapping into plain data.
-pub(crate) fn read_netlists(obj: &Bound<'_, PyAny>) -> PyResult<HashMap<String, NetlistData>> {
-    let dict = obj.downcast::<PyDict>().map_err(|_| {
-        PyTypeError::new_err("netlists must be a dict of {cell name: Netlist | PlacedNetlist}")
-    })?;
-    let mut out = HashMap::with_capacity(dict.len());
-    for (key, value) in dict.iter() {
-        let name: String = key.extract().map_err(|_| {
-            PyTypeError::new_err("netlists keys must be cell names (str)".to_string())
-        })?;
-        out.insert(name, read_netlist(&value)?);
+impl From<Netlist> for NetlistData {
+    fn from(netlist: Netlist) -> Self {
+        Self {
+            instances: netlist.instances,
+            nets: netlist.nets,
+            ports: netlist.ports,
+            extras: IndexMap::new(),
+        }
     }
-    Ok(out)
 }
 
-fn read_netlist(obj: &Bound<'_, PyAny>) -> PyResult<NetlistData> {
-    // PlacedNetlist first: it is a subclass, so it also downcasts to Netlist.
-    if let Ok(placed) = obj.downcast::<PlacedNetlist>() {
-        let child = placed.borrow();
-        let base: &Netlist = child.as_ref();
-        return Ok(NetlistData {
-            instances: base.instances.clone(),
-            nets: base.nets.clone(),
-            ports: base.ports.clone(),
-            extras: child.extras.clone(),
-        });
+impl From<PlacedNetlist> for NetlistData {
+    fn from(placed: PlacedNetlist) -> Self {
+        Self {
+            instances: placed.netlist.instances,
+            nets: placed.netlist.nets,
+            ports: placed.netlist.ports,
+            extras: placed.extras,
+        }
     }
-    let plain = obj
-        .downcast::<Netlist>()
-        .map_err(|_| PyTypeError::new_err("netlists values must be Netlist or PlacedNetlist"))?
-        .borrow();
-    Ok(NetlistData {
-        instances: plain.instances.clone(),
-        nets: plain.nets.clone(),
-        ports: plain.ports.clone(),
-        extras: IndexMap::new(),
-    })
+}
+
+/// Flattened data plus non-fatal diagnostics requested by `warn_skipped`.
+pub struct FlattenOutput {
+    pub data: NetlistData,
+    pub warnings: Vec<String>,
 }
 
 /// Compose an inner instance's placement (child-cell coordinates) with the
@@ -137,7 +123,7 @@ fn read_netlist(obj: &Bound<'_, PyAny>) -> PyResult<NetlistData> {
 /// and `mirror = mp XOR mc`. The bounding box is the child's box pushed through
 /// the parent transform — exact for multiples of 90°, a conservative
 /// axis-aligned hull otherwise.
-pub(crate) fn compose_placement(parent: &Placement, child: &Placement) -> Placement {
+pub fn compose_placement(parent: &Placement, child: &Placement) -> Placement {
     // Multiples of 90° — by far the common case — are taken from an exact
     // table, since `sin(90°.to_radians())` is 1 - 6e-17 and would smear that
     // error across every inlined coordinate.
@@ -196,17 +182,19 @@ struct State {
     cell_of: HashMap<String, String>,
     /// Instances already reported through `warn_skipped`.
     warned: HashSet<String>,
+    warnings: Vec<String>,
 }
 
 impl State {
     /// Warn once per instance about instances left alone, if asked to.
-    fn report_skipped(&mut self, py: Python<'_>, opts: &Options, skipped: Vec<(String, String)>) {
+    fn report_skipped(&mut self, opts: &FlattenOptions, skipped: Vec<(String, String)>) {
         if !opts.warn_skipped {
             return;
         }
         for (name, why) in skipped {
             if self.warned.insert(name.clone()) {
-                let _ = crate::warn(py, &format!("not flattening instance {name:?}: {why}"));
+                self.warnings
+                    .push(format!("not flattening instance {name:?}: {why}"));
             }
         }
     }
@@ -216,12 +204,11 @@ impl State {
 ///
 /// Returns the new state and whether anything was inlined.
 fn expand_pass(
-    py: Python<'_>,
     mut state: State,
     subs: &HashMap<String, NetlistData>,
     sub_instance_cell_maps: &HashMap<String, HashMap<String, String>>,
-    opts: &Options,
-) -> PyResult<(State, bool)> {
+    opts: &FlattenOptions,
+) -> Result<(State, bool)> {
     // ---- 1. pick the instances to inline ----
     let mut to_expand: Vec<String> = Vec::new();
     let mut skipped: Vec<(String, String)> = Vec::new();
@@ -251,7 +238,7 @@ fn expand_pass(
         }
         to_expand.push(name.clone());
     }
-    state.report_skipped(py, opts, skipped);
+    state.report_skipped(opts, skipped);
     if to_expand.is_empty() {
         return Ok((state, false));
     }
@@ -260,6 +247,7 @@ fn expand_pass(
         data: cur,
         cell_of,
         warned,
+        warnings,
     } = state;
     let expanded: HashSet<&str> = to_expand.iter().map(String::as_str).collect();
 
@@ -292,10 +280,10 @@ fn expand_pass(
         for (inner_name, inner_inst) in &sub.instances {
             let new_name = format!("{name}{}{inner_name}", opts.separator);
             if instances.contains_key(&new_name) || surviving.contains(new_name.as_str()) {
-                return Err(PyValueError::new_err(format!(
-                    "flatten: inlining instance {name:?} would create instance \
-                     {new_name:?}, which already exists"
-                )));
+                return Err(Error::FlattenInstanceCollision {
+                    instance: name.clone(),
+                    new_name,
+                });
             }
             let mut new_inst = inner_inst.clone();
             new_inst.name = new_name.clone();
@@ -369,7 +357,7 @@ fn expand_pass(
                         instance: format!("{name}{}{}", opts.separator, r.instance),
                         port: r.port.clone(),
                     })),
-                    NetMember::ArrayRef(r) => kept.push(NetMember::ArrayRef(PortArrayRefData {
+                    NetMember::ArrayRef(r) => kept.push(NetMember::ArrayRef(PortArrayRef {
                         instance: format!("{name}{}{}", opts.separator, r.instance),
                         port: r.port.clone(),
                         ia: r.ia,
@@ -392,12 +380,11 @@ fn expand_pass(
                 continue;
             }
             let cell = &cell_of[&key.0];
-            return Err(PyValueError::new_err(format!(
-                "flatten: instance {:?} is connected on port {:?}, but that port is not \
-                 part of any net inside cell {cell:?} — inlining would drop the \
-                 connection. Pass allow_unconnected_ports=True to inline anyway.",
-                key.0, key.1
-            )));
+            return Err(Error::FlattenUnconnectedPort {
+                instance: key.0.clone(),
+                port: key.1.clone(),
+                cell: cell.clone(),
+            });
         }
     }
 
@@ -444,6 +431,7 @@ fn expand_pass(
             },
             cell_of: next_cell_of,
             warned,
+            warnings,
         },
         true,
     ))
@@ -455,14 +443,13 @@ fn expand_pass(
 const MAX_PASSES: usize = 1000;
 
 /// Flatten `base` against the `{cell name: netlist}` mapping in `subs`.
-pub(crate) fn flatten_netlist(
-    py: Python<'_>,
+pub fn flatten_netlist(
     base: NetlistData,
     instance_cell_map: &HashMap<String, String>,
     subs: &HashMap<String, NetlistData>,
     sub_instance_cell_maps: &HashMap<String, HashMap<String, String>>,
-    opts: &Options,
-) -> PyResult<NetlistData> {
+    opts: &FlattenOptions,
+) -> Result<FlattenOutput> {
     let mut cell_of: HashMap<String, String> = HashMap::new();
     for name in base.instances.keys() {
         let cell = instance_cell_map
@@ -479,15 +466,13 @@ pub(crate) fn flatten_netlist(
         data: base,
         cell_of,
         warned: HashSet::new(),
+        warnings: Vec::new(),
     };
     for pass in 0.. {
         if pass == MAX_PASSES {
-            return Err(PyValueError::new_err(format!(
-                "flatten: still inlining after {MAX_PASSES} passes — `netlists` \
-                 describes a cell that contains itself"
-            )));
+            return Err(Error::RecursiveFlattenLimit(MAX_PASSES));
         }
-        let (next, expanded) = expand_pass(py, state, subs, sub_instance_cell_maps, opts)?;
+        let (next, expanded) = expand_pass(state, subs, sub_instance_cell_maps, opts)?;
         state = next;
         if !expanded || !opts.recursive {
             break;
@@ -495,7 +480,9 @@ pub(crate) fn flatten_netlist(
     }
 
     // Deterministic output, matching the ordering `Netlist.sort()` produces.
-    let mut data = state.data;
+    let State {
+        mut data, warnings, ..
+    } = state;
     data.instances.sort_keys();
     data.extras.sort_keys();
     for net in &mut data.nets {
@@ -503,5 +490,5 @@ pub(crate) fn flatten_netlist(
     }
     data.nets.sort();
     data.ports.sort();
-    Ok(data)
+    Ok(FlattenOutput { data, warnings })
 }

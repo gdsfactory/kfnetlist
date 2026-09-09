@@ -21,20 +21,10 @@ use pyo3::types::{PyDict, PyType};
 use serde::{Deserialize, Serialize};
 
 use crate::instance::{NetlistArray, NetlistInstance};
-use crate::net::Net;
 use crate::netlist::Netlist;
-use crate::port::NetlistPort;
 use crate::{cmp_to_py, from_py_any, json_parse, json_string, richcmp_result, to_py_dict};
 
-/// Axis-aligned bounding box in micrometres, klayout `left/bottom/right/top`
-/// convention. Serialized as a plain dict, never as a Python class.
-#[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
-pub struct BBox {
-    pub left: f64,
-    pub bottom: f64,
-    pub right: f64,
-    pub top: f64,
-}
+use kfnetlist_core::placement::{merge_extras, PlacedExtra, PlacedInstanceWire, PlacedNetlistWire};
 
 /// Physical placement of an instance: origin transform and bounding box.
 ///
@@ -42,26 +32,44 @@ pub struct BBox {
 /// of the instance and lives on [`PlacedInstance::cell`], not here.
 #[pyclass(module = "kfnetlist._native")]
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub struct Placement {
-    /// Origin x displacement, micrometres.
-    #[pyo3(get, set)]
-    pub x: f64,
-    /// Origin y displacement, micrometres.
-    #[pyo3(get, set)]
-    pub y: f64,
-    /// Rotation about the origin, degrees.
-    #[pyo3(get, set)]
-    pub orientation: f64,
-    /// Mirror flag (reflection before rotation, klayout convention).
-    #[pyo3(get, set)]
-    pub mirror: bool,
-    /// Bounding box in the parent cell's coordinates, micrometres.
-    pub bbox: BBox,
-}
+#[serde(transparent)]
+pub struct Placement(pub kfnetlist_core::Placement);
+crate::core_wrapper!(Placement, kfnetlist_core::Placement);
 
 #[pymethods]
 impl Placement {
+    #[getter]
+    fn x(&self) -> f64 {
+        self.0.x
+    }
+    #[setter]
+    fn set_x(&mut self, value: f64) {
+        self.0.x = value;
+    }
+    #[getter]
+    fn y(&self) -> f64 {
+        self.0.y
+    }
+    #[setter]
+    fn set_y(&mut self, value: f64) {
+        self.0.y = value;
+    }
+    #[getter]
+    fn orientation(&self) -> f64 {
+        self.0.orientation
+    }
+    #[setter]
+    fn set_orientation(&mut self, value: f64) {
+        self.0.orientation = value;
+    }
+    #[getter]
+    fn mirror(&self) -> bool {
+        self.0.mirror
+    }
+    #[setter]
+    fn set_mirror(&mut self, value: bool) {
+        self.0.mirror = value;
+    }
     #[new]
     #[pyo3(signature = (x, y, orientation, mirror, bbox))]
     fn new(
@@ -71,13 +79,13 @@ impl Placement {
         mirror: bool,
         bbox: &Bound<'_, PyAny>,
     ) -> PyResult<Self> {
-        Ok(Self {
+        Ok(Self(kfnetlist_core::Placement {
             x,
             y,
             orientation,
             mirror,
             bbox: from_py_any(bbox)?,
-        })
+        }))
     }
 
     /// Bounding box as a dict (`{"left", "bottom", "right", "top"}`).
@@ -141,88 +149,32 @@ impl Placement {
     }
 }
 
-/// Physical attributes a `PlacedInstance` carries beyond its base
-/// `NetlistInstance`: the placed cell name and its placement geometry.
-#[derive(Clone, Debug, Default)]
-pub(crate) struct PlacedExtra {
-    pub cell: String,
-    pub placement: Placement,
-}
-
 /// Instance carrying placement geometry. Subclass of [`NetlistInstance`]: the
 /// connectivity fields (`kcl`, `component`, `settings`, `array`, `name`) live
 /// on the parent layer; the placed `cell` name and `placement` are stored here.
 #[pyclass(module = "kfnetlist._native", extends = NetlistInstance)]
 #[derive(Clone, Debug)]
-pub struct PlacedInstance {
-    /// The placed cell's name (`inst.cell.name`) — distinct from the base
-    /// `component`, which is the factory name (falling back to the cell name).
-    #[pyo3(get, set)]
-    pub cell: String,
-    pub placement: Placement,
-}
-
-/// Wire format for a placed instance: the base instance fields plus the placed
-/// cell name and placement.
-#[derive(Debug, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct PlacedInstanceWire {
-    pub kcl: String,
-    pub component: String,
-    #[serde(default)]
-    pub settings: serde_json::Value,
-    #[serde(default, skip_serializing_if = "Option::is_none")]
-    pub array: Option<NetlistArray>,
-    #[serde(default)]
-    pub cell: String,
-    pub placement: Placement,
-}
-
-impl PlacedInstanceWire {
-    fn from_parts(inst: &NetlistInstance, extra: &PlacedExtra) -> Self {
-        Self {
-            kcl: inst.kcl.clone(),
-            component: inst.component.clone(),
-            settings: if inst.settings.is_null() {
-                serde_json::Value::Object(Default::default())
-            } else {
-                inst.settings.clone()
-            },
-            array: inst.array.clone(),
-            cell: extra.cell.clone(),
-            placement: extra.placement.clone(),
-        }
-    }
-
-    fn into_instance(self, name: String) -> (NetlistInstance, PlacedExtra) {
-        let inst = NetlistInstance {
-            kcl: self.kcl,
-            component: self.component,
-            settings: self.settings,
-            array: self.array,
-            name,
-        };
-        let extra = PlacedExtra {
-            cell: self.cell,
-            placement: self.placement,
-        };
-        (inst, extra)
-    }
-}
+pub struct PlacedInstance(pub PlacedExtra);
+crate::core_wrapper!(PlacedInstance, PlacedExtra);
 
 /// Build the `(parent, child)` initializer for a `PlacedInstance`.
 fn placed_inst_init(
     inst: NetlistInstance,
     extra: PlacedExtra,
 ) -> PyClassInitializer<PlacedInstance> {
-    PyClassInitializer::from(inst).add_subclass(PlacedInstance {
-        cell: extra.cell,
-        placement: extra.placement,
-    })
+    PyClassInitializer::from(inst).add_subclass(PlacedInstance(extra))
 }
 
 #[pymethods]
 impl PlacedInstance {
+    #[getter]
+    fn cell(&self) -> String {
+        self.0.cell.clone()
+    }
+    #[setter]
+    fn set_cell(&mut self, value: String) {
+        self.0.cell = value;
+    }
     #[new]
     #[pyo3(signature = (kcl, component, settings=None, array=None, name=String::new(), cell=String::new(), placement=None))]
     fn new(
@@ -238,30 +190,30 @@ impl PlacedInstance {
             Some(obj) if !obj.is_none() => from_py_any::<serde_json::Value>(obj)?,
             _ => serde_json::Value::Object(Default::default()),
         };
-        let inst = NetlistInstance {
+        let inst = NetlistInstance(kfnetlist_core::NetlistInstance {
             kcl,
             component,
             settings,
-            array,
+            array: array.map(|value| value.0),
             name,
-        };
+        });
         Ok(placed_inst_init(
             inst,
             PlacedExtra {
                 cell,
-                placement: placement.unwrap_or_default(),
+                placement: placement.unwrap_or_default().0,
             },
         ))
     }
 
     #[getter]
     fn placement(&self) -> Placement {
-        self.placement.clone()
+        Placement(self.0.placement.clone())
     }
 
     #[setter]
     fn set_placement(&mut self, value: Placement) {
-        self.placement = value;
+        self.0.placement = value.0;
     }
 
     fn __repr__(slf: PyRef<'_, Self>) -> String {
@@ -271,7 +223,7 @@ impl PlacedInstance {
             parent.name,
             slf.cell,
             parent.component,
-            slf.placement.__repr__()
+            Placement(slf.placement.clone()).__repr__()
         )
     }
 
@@ -285,7 +237,7 @@ impl PlacedInstance {
     }
 
     fn to_json(slf: PyRef<'_, Self>) -> PyResult<String> {
-        json_string(&PlacedInstanceWire::from_parts(slf.as_ref(), &slf.extra()))
+        json_string(&PlacedInstanceWire::from_parts(slf.as_ref(), &slf.0))
     }
 
     #[classmethod]
@@ -293,14 +245,11 @@ impl PlacedInstance {
     fn from_json(cls: &Bound<'_, PyType>, data: &str, name: String) -> PyResult<Py<Self>> {
         let wire: PlacedInstanceWire = json_parse(data)?;
         let (inst, extra) = wire.into_instance(name);
-        Py::new(cls.py(), placed_inst_init(inst, extra))
+        Py::new(cls.py(), placed_inst_init(inst.into(), extra))
     }
 
     fn to_dict<'py>(slf: PyRef<'py, Self>, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
-        to_py_dict(
-            py,
-            &PlacedInstanceWire::from_parts(slf.as_ref(), &slf.extra()),
-        )
+        to_py_dict(py, &PlacedInstanceWire::from_parts(slf.as_ref(), &slf.0))
     }
 
     #[classmethod]
@@ -312,16 +261,7 @@ impl PlacedInstance {
     ) -> PyResult<Py<Self>> {
         let wire: PlacedInstanceWire = from_py_any(obj)?;
         let (inst, extra) = wire.into_instance(name);
-        Py::new(cls.py(), placed_inst_init(inst, extra))
-    }
-}
-
-impl PlacedInstance {
-    fn extra(&self) -> PlacedExtra {
-        PlacedExtra {
-            cell: self.cell.clone(),
-            placement: self.placement.clone(),
-        }
+        Py::new(cls.py(), placed_inst_init(inst.into(), extra))
     }
 }
 
@@ -334,52 +274,35 @@ pub struct PlacedNetlist {
     pub(crate) extras: IndexMap<String, PlacedExtra>,
 }
 
-/// Wire format for a placed netlist: instances merge base fields + placement.
-#[derive(Debug, Default, Serialize, Deserialize)]
-#[serde(deny_unknown_fields)]
-pub(crate) struct PlacedNetlistWire {
-    #[serde(default)]
-    pub instances: IndexMap<String, PlacedInstanceWire>,
-    #[serde(default)]
-    pub nets: Vec<Net>,
-    #[serde(default)]
-    pub ports: Vec<NetlistPort>,
-}
-
-/// Merge the optional `placements` and `cells` maps into a single per-instance
-/// `extras` map (the union of both key sets).
-fn merge_extras(
-    placements: Option<HashMap<String, Placement>>,
-    cells: Option<HashMap<String, String>>,
-) -> IndexMap<String, PlacedExtra> {
-    let placements = placements.unwrap_or_default();
-    let mut cells = cells.unwrap_or_default();
-    let mut out: IndexMap<String, PlacedExtra> = IndexMap::with_capacity(placements.len());
-    for (name, placement) in placements {
-        let cell = cells.remove(&name).unwrap_or_default();
-        out.insert(name, PlacedExtra { cell, placement });
-    }
-    for (name, cell) in cells {
-        out.insert(
-            name,
-            PlacedExtra {
-                cell,
-                placement: Placement::default(),
-            },
-        );
-    }
-    out
-}
-
 impl PlacedNetlist {
     /// Assemble a `(Netlist, PlacedNetlist)` initializer from a base netlist
     /// and an extras map, keeping only entries for instances that exist.
-    fn init_from(
-        base: Netlist,
-        mut extras: IndexMap<String, PlacedExtra>,
-    ) -> PyClassInitializer<Self> {
-        extras.retain(|name, _| base.instances.contains_key(name));
-        PyClassInitializer::from(base).add_subclass(PlacedNetlist { extras })
+    fn init_from(base: Netlist, extras: IndexMap<String, PlacedExtra>) -> PyClassInitializer<Self> {
+        let placed = kfnetlist_core::PlacedNetlist::new(base.0, extras);
+        PyClassInitializer::from(Netlist(placed.netlist)).add_subclass(PlacedNetlist {
+            extras: placed.extras,
+        })
+    }
+}
+
+impl PlacedNetlist {
+    /// Move the independently owned Python layers into the core for a domain
+    /// operation, then restore both layers even if the operation returns an error.
+    fn with_core<T>(
+        mut slf: PyRefMut<'_, Self>,
+        operation: impl FnOnce(&mut kfnetlist_core::PlacedNetlist) -> T,
+    ) -> T {
+        let extras = std::mem::take(&mut slf.extras);
+        let base: &mut Netlist = slf.as_mut();
+        let mut core = kfnetlist_core::PlacedNetlist {
+            netlist: std::mem::take(&mut base.0),
+            extras,
+        };
+        let result = operation(&mut core);
+        let base: &mut Netlist = slf.as_mut();
+        base.0 = core.netlist;
+        slf.extras = core.extras;
+        result
     }
 }
 
@@ -406,7 +329,13 @@ impl PlacedNetlist {
         let base = netlist.deep_clone();
         Py::new(
             cls.py(),
-            Self::init_from(base, merge_extras(placements, cells)),
+            Self::init_from(
+                base,
+                merge_extras(
+                    placements.map(|values| values.into_iter().map(|(k, v)| (k, v.0)).collect()),
+                    cells,
+                ),
+            ),
         )
     }
 
@@ -417,7 +346,7 @@ impl PlacedNetlist {
         let dict = PyDict::new(py);
         for (name, inst) in &base.instances {
             let extra = slf.extras.get(name).cloned().unwrap_or_default();
-            let obj = Py::new(py, placed_inst_init(inst.clone(), extra))?;
+            let obj = Py::new(py, placed_inst_init(inst.clone().into(), extra))?;
             dict.set_item(name, obj)?;
         }
         Ok(dict)
@@ -428,7 +357,7 @@ impl PlacedNetlist {
     fn placements<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let dict = PyDict::new(py);
         for (name, extra) in &self.extras {
-            dict.set_item(name, Py::new(py, extra.placement.clone())?)?;
+            dict.set_item(name, Py::new(py, Placement(extra.placement.clone()))?)?;
         }
         Ok(dict)
     }
@@ -436,10 +365,10 @@ impl PlacedNetlist {
     /// Add an instance with its placed `cell` name and `placement`. Mirrors
     /// [`Netlist::create_inst`] with trailing optional `cell`/`placement`;
     /// keeping the base parameter order makes this a substitutable override.
-    #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (name, kcl, component, settings=None, na=1, nb=1, cell=String::new(), placement=None))]
+    #[allow(clippy::too_many_arguments)] // Preserve the public Python signature.
     fn create_inst(
-        mut slf: PyRefMut<'_, Self>,
+        slf: PyRefMut<'_, Self>,
         py: Python<'_>,
         name: String,
         kcl: String,
@@ -450,29 +379,24 @@ impl PlacedNetlist {
         cell: String,
         placement: Option<Placement>,
     ) -> PyResult<Py<PlacedInstance>> {
+        let settings = match settings {
+            Some(obj) if !obj.is_none() => from_py_any::<serde_json::Value>(obj)?,
+            _ => serde_json::Value::Object(Default::default()),
+        };
         let extra = PlacedExtra {
             cell,
-            placement: placement.unwrap_or_default(),
+            placement: placement.unwrap_or_default().0,
         };
-        let inst = {
-            let base: &mut Netlist = slf.as_mut();
-            base.create_inst(name.clone(), kcl, component, settings, na, nb)?
-        };
-        slf.extras.insert(name, extra.clone());
-        Py::new(py, placed_inst_init(inst, extra))
+        let placed = Self::with_core(slf, |core| {
+            core.create_inst(name, kcl, component, settings, na, nb, extra)
+        })
+        .map_err(crate::core_error)?;
+        Py::new(py, placed_inst_init(placed.instance.into(), placed.extra))
     }
 
-    /// Remove the named instances (delegating to the base) and drop their
-    /// placement extras so the two layers stay consistent.
-    fn remove_instances(mut slf: PyRefMut<'_, Self>, names: Vec<String>) -> PyResult<()> {
-        {
-            let base: &mut Netlist = slf.as_mut();
-            base.remove_instances(names.clone())?;
-        }
-        for name in &names {
-            slf.extras.shift_remove(name);
-        }
-        Ok(())
+    /// Remove the named instances and their physical attributes.
+    fn remove_instances(slf: PyRefMut<'_, Self>, names: Vec<String>) -> PyResult<()> {
+        Self::with_core(slf, |core| core.remove_instances(names)).map_err(crate::core_error)
     }
 
     /// Deprecated alias for [`PlacedNetlist::remove_instances`].
@@ -523,7 +447,7 @@ impl PlacedNetlist {
         separator: String,
     ) -> PyResult<Py<Self>> {
         let subs = crate::flatten::read_netlists(netlists)?;
-        let opts = crate::flatten::Options::new(
+        let options = kfnetlist_core::FlattenOptions::new(
             cells,
             exclude,
             recursive,
@@ -532,26 +456,27 @@ impl PlacedNetlist {
             separator,
         );
         let base_ref: &Netlist = slf.as_ref();
-        let base = crate::flatten::NetlistData {
+        let base = kfnetlist_core::NetlistData {
             instances: base_ref.instances.clone(),
             nets: base_ref.nets.clone(),
             ports: base_ref.ports.clone(),
             extras: slf.extras.clone(),
         };
-        let out = crate::flatten::flatten_netlist(
-            py,
+        let output = kfnetlist_core::flatten_netlist(
             base,
             &instance_cell_map.unwrap_or_default(),
             &subs,
             &sub_instance_cell_maps.unwrap_or_default(),
-            &opts,
-        )?;
-        let flat = Netlist {
-            instances: out.instances,
-            nets: out.nets,
-            ports: out.ports,
-        };
-        Py::new(py, Self::init_from(flat, out.extras))
+            &options,
+        )
+        .map_err(crate::core_error)?;
+        crate::flatten::emit_warnings(py, output.warnings)?;
+        let flat = Netlist(kfnetlist_core::Netlist {
+            instances: output.data.instances,
+            nets: output.data.nets,
+            ports: output.data.ports,
+        });
+        Py::new(py, Self::init_from(flat, output.data.extras))
     }
 
     fn __repr__(slf: PyRef<'_, Self>) -> String {
@@ -594,31 +519,13 @@ impl PlacedNetlist {
     }
 }
 
-/// Serialize a placed netlist (base instances + extras) into its wire form.
+/// Convert the Python inheritance layers to the core's composed value.
 fn placed_wire(slf: &PyRef<'_, PlacedNetlist>) -> PlacedNetlistWire {
-    let base = slf.as_ref();
-    let mut instances = IndexMap::with_capacity(base.instances.len());
-    for (name, inst) in &base.instances {
-        let extra = slf.extras.get(name).cloned().unwrap_or_default();
-        instances.insert(name.clone(), PlacedInstanceWire::from_parts(inst, &extra));
-    }
-    PlacedNetlistWire {
-        instances,
-        nets: base.nets.clone(),
-        ports: base.ports.clone(),
-    }
+    PlacedNetlistWire::from_parts(&slf.as_ref().0, &slf.extras)
 }
 
 /// Rebuild a `(Netlist, PlacedNetlist)` initializer from the wire form.
 fn wire_to_init(wire: PlacedNetlistWire) -> PyClassInitializer<PlacedNetlist> {
-    let mut base = Netlist::default();
-    let mut extras = IndexMap::with_capacity(wire.instances.len());
-    for (name, iw) in wire.instances {
-        let (inst, extra) = iw.into_instance(name.clone());
-        base.instances.insert(name.clone(), inst);
-        extras.insert(name, extra);
-    }
-    base.nets = wire.nets;
-    base.ports = wire.ports;
-    PlacedNetlist::init_from(base, extras)
+    let placed = kfnetlist_core::PlacedNetlist::from_wire(wire);
+    PlacedNetlist::init_from(Netlist(placed.netlist), placed.extras)
 }

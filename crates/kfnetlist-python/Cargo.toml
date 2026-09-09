@@ -1,0 +1,20 @@
+[package]
+name = "kfnetlist-python"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+repository.workspace = true
+publish = false
+description = "Python bindings for the kfnetlist Rust core"
+
+[lib]
+name = "_native"
+crate-type = ["cdylib"]
+
+[dependencies]
+kfnetlist-core = { path = "../kfnetlist-core" }
+pyo3 = { version = "0.23", features = ["extension-module", "abi3-py312"] }
+pythonize = "0.23"
+serde.workspace = true
+serde_json.workspace = true
+indexmap.workspace = true
