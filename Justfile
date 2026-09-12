@@ -1,3 +1,28 @@
+# Schema source directory
+SCHEMA_DIR := "kfnetlist-schema"
+
+# Output directory for generated Python protobuf code
+PROTO_OUT := "src/kfnetlist/kfnetlist_schema"
+PROTO_OUT_RS := "src/kfnetlist_schema"
+
+# Compile .proto files to Python (protoc)
+compile-schema-py:
+    mkdir -p {{PROTO_OUT}}
+    protoc \
+        --proto_path={{SCHEMA_DIR}} \
+        --python_out={{PROTO_OUT}} \
+        --pyi_out={{PROTO_OUT}} \
+        {{SCHEMA_DIR}}/*.proto
+    touch {{PROTO_OUT}}/__init__.py
+
+# Compile .proto files to Rust via prost-build (invoked through maturin's build.rs)
+#compile-schema-rs:
+#    mkdir -p {{PROTO_OUT_RS}}
+#    maturin build
+
+# Compile .proto files to both Python and Rust
+compile-schema: compile-schema-py
+
 # Development setup
 dev:
     uv sync --all-extras

@@ -15,7 +15,11 @@ classifiers = [
 requires-python = ">=3.12"
 version = "0.2.2"
 authors = [{ name = "gdsfactory community", email = "contact@gdsfactory.com" }]
-dependencies = []
+dependencies = [
+    "protobuf>=7.36.1",
+    "pydantic>=2.13.5",
+    "pydantic-yaml>=1.7.0",
+]
 
 [project.optional-dependencies]
 dev = [
@@ -42,11 +46,18 @@ python-source = "src"
 module-name = "kfnetlist._native"
 features = ["pyo3/extension-module"]
 
+[tool.codespell]
+ignore-words-list = "THE, BE, WE, TO, the, be, we, to, astroid, input, output, inout, in, out, TE"
+
 [tool.ruff]
 exclude = ["docs"]
 
 [tool.ty.src]
-exclude = ["docs"]
+exclude = [
+    "docs",
+    "src/kfnetlist/kfnetlist_schema/",
+    "tests/test_schema_models.py",
+]
 
 [tool.tbump]
 
@@ -84,4 +95,6 @@ src = "src/kfnetlist/__init__.py"
 [dependency-groups]
 dev = [
     "pre-commit>=4.6.0",
+    "pylint>=4.0.8",
+    "ruff>=0.15.16",
 ]

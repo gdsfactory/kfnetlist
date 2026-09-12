@@ -1,0 +1,113 @@
+modules:
+  my_component:
+    name: myComponent
+    settings:
+        length: 3
+
+    info:
+        description: just a demo
+        polarization: TE
+        #...
+
+    instances:
+        mzi:
+            component: mzi_phase_shifter
+            settings:
+                delta_length: ${settings.length}
+                length_x: 50
+
+        pads:
+            component: pad_array
+            settings:
+                n: 2
+                port_names:
+                    - e4
+
+    placements:
+        mzi:
+            x: 0
+        pads:
+            y: 200
+            x: mzi,cc
+    ports:
+        o1: mzi,o1
+        o2: mzi,o2
+
+
+    routes:
+        electrical:
+            links:
+                mzi,etop_e1: pads,e4_0
+                mzi,etop_e2: pads,e4_1
+
+            settings:
+                layer: [31, 0]
+                width: 10
+                radius: 10
+
+  my_second_component:
+    name: myOtherComponent
+    settings:
+        length: 3
+
+    info:
+        description: just a demo
+        polarization: TE
+        #...
+
+    instances:
+        my_sub_module:  # a sub-module instantiation
+          component: my_component
+          settings:
+            length: 50.0
+
+        mzi_array:
+            component: mzi_phase_shifter
+            settings:
+                array_size: 10 # declare 10 mzis,
+                delta_length: ${settings.length}
+                length_x: 50
+
+        mzi:
+            component: mzi_phase_shifter
+            settings:
+                delta_length: ${settings.length}
+                length_x: 50
+
+        pads:
+            component: pad_array
+            settings:
+                n: 2
+                port_names:
+                    - e4
+
+    placements:
+        mzi:
+            x: 0
+        pads:
+            y: 200
+            x: mzi,cc
+        mzi_array:
+            index: 9 # index of the individual mzi within the mzi array, with an individual placement
+            y: 100
+            x: pad,e4
+
+    ports:
+        o1: mzi,o1
+        o2: mzi,o2
+        #...
+        o3: mzi_array[9],o1 # index the port of an mzi within the array individually
+
+
+    routes:
+        electrical:
+            links:
+                mzi,etop_e1: pads,e4_0
+                mzi,etop_e2: pads,e4_1
+
+            settings:
+                layer: [31, 0]
+                width: 10
+                radius: 10
+
+toplevel: my_second_component
