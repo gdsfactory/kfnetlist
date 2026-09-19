@@ -423,8 +423,12 @@ impl PlacedNetlist {
     /// each inlined instance's placement with the placement of the instance it
     /// came from (so the geometry stays in this cell's coordinates).
     ///
-    /// Same arguments as [`Netlist::flatten`]; `instance_cell_map`/`sub_instance_cell_maps` are
-    /// optional here because `PlacedInstance.cell` already names the cell.
+    /// Same arguments as [`Netlist::flatten`]. With `instance_cell_map=None`,
+    /// every instance is considered using `PlacedInstance.cell`. An explicit map
+    /// selects only its named instances and overrides their cell names; `{}`
+    /// selects nothing. Unlisted instances remain intact throughout recursion,
+    /// while descendants of selected instances inherit eligibility.
+    /// `sub_instance_cell_maps` only supplies cell-name overrides for descendants.
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (
         netlists,
@@ -469,7 +473,7 @@ impl PlacedNetlist {
         };
         let output = kfnetlist_core::flatten_netlist(
             base,
-            &instance_cell_map.unwrap_or_default(),
+            instance_cell_map.as_ref(),
             &subs,
             &sub_instance_cell_maps.unwrap_or_default(),
             &options,

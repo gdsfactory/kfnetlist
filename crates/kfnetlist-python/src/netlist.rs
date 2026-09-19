@@ -154,6 +154,15 @@ impl Netlist {
     }
 
     /// Replace instances by the contents of their own cell's netlist.
+    ///
+    /// `instance_cell_map=None` considers every instance whose cell can be resolved.
+    /// An explicit `{instance name: cell name}` map selects only those instances
+    /// and overrides their cell names; `{}` selects nothing. Unlisted instances
+    /// remain intact throughout recursive flattening. Descendants of selected
+    /// instances are eligible when `recursive=True`; `sub_instance_cell_maps`
+    /// supplies their cell names without restricting that selection.
+    /// The `cells` and `exclude` cell-name filters still apply at every level.
+    /// Returns a new netlist without modifying this netlist or the child netlists.
     #[allow(clippy::too_many_arguments)]
     #[pyo3(signature = (
         netlists,
@@ -191,7 +200,7 @@ impl Netlist {
         );
         let output = kfnetlist_core::flatten_netlist(
             self.0.clone().into(),
-            &instance_cell_map.unwrap_or_default(),
+            instance_cell_map.as_ref(),
             &subs,
             &sub_instance_cell_maps.unwrap_or_default(),
             &options,

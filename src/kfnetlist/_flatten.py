@@ -37,9 +37,13 @@ def flatten_netlists(
     child's netlist.
 
     ``instance_cell_maps`` maps a cell name to that cell's
-    ``{instance name -> cell name}``. It is only needed for plain
-    :class:`~kfnetlist.Netlist` objects, which do not record the cell an
-    instance refers to; a :class:`~kfnetlist.PlacedNetlist` already does.
+    ``{instance name -> cell name}``. For each starting netlist, an explicit
+    map selects only its listed instances; an empty map selects nothing. A
+    missing cell entry considers all its instances, resolving their cells from
+    :class:`~kfnetlist.PlacedNetlist` metadata when available. Plain
+    :class:`~kfnetlist.Netlist` objects need maps to resolve their cell names.
+    During recursive expansion, the same maps supply descendant cell names;
+    descendants inherit selection from the instance being expanded.
     """
     netlists = dict(netlists)
     maps: Mapping[str, Mapping[str, str]] = instance_cell_maps or {}
@@ -50,7 +54,7 @@ def flatten_netlists(
                 netlists,
                 cells,
                 exclude=exclude,
-                instance_cell_map=maps.get(cell_name, {}),
+                instance_cell_map=maps.get(cell_name),
                 sub_instance_cell_maps=maps,
                 recursive=recursive,
                 allow_unconnected_ports=allow_unconnected_ports,

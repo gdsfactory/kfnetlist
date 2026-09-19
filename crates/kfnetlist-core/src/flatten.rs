@@ -15,6 +15,10 @@
 //!    being flattened, `sub_instance_cell_maps` keyed by cell name for the levels below), and
 //! 2. `PlacedInstance.cell`, which extraction fills in for the placed flavor.
 //!
+//! An explicit `instance_cell_map` also selects the instances to flatten in the
+//! starting netlist. Omitted instances remain intact, even when their placed
+//! cell is known. Descendants of selected instances inherit eligibility;
+//! `sub_instance_cell_maps` only supplies cell names for those descendants.
 //! Instances whose cell cannot be resolved are left alone.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
@@ -180,6 +184,8 @@ struct State {
     data: NetlistData,
     /// Instance name -> cell name, extended as instances are inlined.
     cell_of: HashMap<String, String>,
+    /// Instances selected for flattening, including descendants of expanded ones.
+    eligible: HashSet<String>,
     /// Instances already reported through `warn_skipped`.
     warned: HashSet<String>,
     warnings: Vec<String>,
@@ -213,6 +219,9 @@ fn expand_pass(
     let mut to_expand: Vec<String> = Vec::new();
     let mut skipped: Vec<(String, String)> = Vec::new();
     for (name, inst) in &state.data.instances {
+        if !state.eligible.contains(name) {
+            continue;
+        }
         let mut skip = |why: String| skipped.push((name.clone(), why));
         let Some(cell) = state.cell_of.get(name).cloned() else {
             skip(
@@ -246,6 +255,7 @@ fn expand_pass(
     let State {
         data: cur,
         cell_of,
+        eligible,
         warned,
         warnings,
     } = state;
@@ -255,6 +265,7 @@ fn expand_pass(
     let mut instances: IndexMap<String, NetlistInstance> = IndexMap::new();
     let mut extras: IndexMap<String, PlacedExtra> = IndexMap::new();
     let mut next_cell_of: HashMap<String, String> = HashMap::new();
+    let mut next_eligible = HashSet::new();
     let surviving: HashSet<&str> = cur
         .instances
         .keys()
@@ -270,6 +281,9 @@ fn expand_pass(
             }
             if let Some(cell) = cell_of.get(name) {
                 next_cell_of.insert(name.clone(), cell.clone());
+            }
+            if eligible.contains(name) {
+                next_eligible.insert(name.clone());
             }
             continue;
         }
@@ -288,6 +302,7 @@ fn expand_pass(
             let mut new_inst = inner_inst.clone();
             new_inst.name = new_name.clone();
             instances.insert(new_name.clone(), new_inst);
+            next_eligible.insert(new_name.clone());
 
             let inner_extra = sub.extras.get(inner_name).cloned().unwrap_or_default();
             // An explicit map wins over `PlacedInstance.cell`, and either is
@@ -430,6 +445,7 @@ fn expand_pass(
                 extras,
             },
             cell_of: next_cell_of,
+            eligible: next_eligible,
             warned,
             warnings,
         },
@@ -443,17 +459,26 @@ fn expand_pass(
 const MAX_PASSES: usize = 1000;
 
 /// Flatten `base` against the `{cell name: netlist}` mapping in `subs`.
+///
+/// `None` considers all starting instances. `Some(map)` selects only the map's
+/// keys and overrides their cell names; an empty map selects nothing. Selected
+/// instances' descendants inherit eligibility when recursively flattened.
+/// `sub_instance_cell_maps` resolves descendants' cells without selecting them.
 pub fn flatten_netlist(
     base: NetlistData,
-    instance_cell_map: &HashMap<String, String>,
+    instance_cell_map: Option<&HashMap<String, String>>,
     subs: &HashMap<String, NetlistData>,
     sub_instance_cell_maps: &HashMap<String, HashMap<String, String>>,
     opts: &FlattenOptions,
 ) -> Result<FlattenOutput> {
     let mut cell_of: HashMap<String, String> = HashMap::new();
+    let mut eligible = HashSet::new();
     for name in base.instances.keys() {
+        if instance_cell_map.is_none_or(|map| map.contains_key(name)) {
+            eligible.insert(name.clone());
+        }
         let cell = instance_cell_map
-            .get(name)
+            .and_then(|map| map.get(name))
             .cloned()
             .or_else(|| base.extras.get(name).map(|e| e.cell.clone()))
             .filter(|cell| !cell.is_empty());
@@ -465,6 +490,7 @@ pub fn flatten_netlist(
     let mut state = State {
         data: base,
         cell_of,
+        eligible,
         warned: HashSet::new(),
         warnings: Vec::new(),
     };
