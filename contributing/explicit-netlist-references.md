@@ -83,7 +83,8 @@ only to preserve this interface; the Rust domain model is an enum.
 
 `RefNetlistInstance(..., ref="arm_10")` requires a reference. Existing
 `Netlist.create_inst(...)` calls still create leaves; the new keyword-only `ref`
-creates a reference. Snapshots, normalization, and JSON preserve the variant.
+creates a reference. `PlacedNetlist.create_inst` accepts the same keyword and
+keeps its placed return type. Snapshots, normalization, and JSON preserve the variant.
 `PlacedInstance` and `PlacedNetlist` retain their existing API and preserve an
 explicit reference when converting/serializing a referenced plain netlist.
 The physical `cell` name can differ from the logical document reference.

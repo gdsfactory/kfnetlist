@@ -145,6 +145,9 @@ class Placement:
     def from_dict(cls, obj: dict[str, Any]) -> Self: ...
 
 class PlacedInstance(NetlistInstance):
+    @property
+    def ref(self) -> str:
+        """Document reference; raises AttributeError for a leaf instance."""
     cell: str
     placement: Placement
 
@@ -274,6 +277,7 @@ class PlacedNetlist(Netlist):
         placement: Placement | None = ...,
         *,
         info: dict[str, Any] | None = ...,
+        ref: str | None = ...,
     ) -> PlacedInstance: ...
     # Same parameters as the base, narrower (covariant) return type.
     def flatten(

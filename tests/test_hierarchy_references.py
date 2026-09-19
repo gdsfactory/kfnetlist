@@ -3,7 +3,6 @@
 import json
 
 import pytest
-from pydantic import TypeAdapter
 
 from kfnetlist import (
     LeafNetlistInstance,
@@ -47,15 +46,15 @@ def test_legacy_and_explicit_construction():
     assert not isinstance(explicit, LeafNetlistInstance)
     assert explicit.ref == "arm_10"
     with pytest.raises(TypeError):
-        RefNetlistInstance("pdk", "make_arm")
+        RefNetlistInstance("pdk", "make_arm")  # ty: ignore[missing-argument]
     with pytest.raises(TypeError):
-        RefNetlistInstance("pdk", "make_arm", ref=None)
+        RefNetlistInstance("pdk", "make_arm", ref=None)  # ty: ignore[invalid-argument-type]
 
 
 @pytest.mark.parametrize(
     "cls", [NetlistInstance, LeafNetlistInstance, RefNetlistInstance]
 )
-def test_variant_json_dict_and_pydantic(cls):
+def test_variant_json_and_dict(cls):
     kwargs = {"ref": "arm_10"} if cls is RefNetlistInstance else {}
     instance = cls("pdk", "make_arm", name="a", info={"nested": [1]}, **kwargs)
     for method, data in [
@@ -65,9 +64,18 @@ def test_variant_json_dict_and_pydantic(cls):
         restored = method(data, name="a")
         assert type(restored) is type(instance)
         assert restored == instance
-    parsed = TypeAdapter(cls).validate_python(instance.to_dict())
+
+
+@pytest.mark.parametrize(
+    "cls", [NetlistInstance, LeafNetlistInstance, RefNetlistInstance]
+)
+def test_variant_pydantic(cls):
+    pydantic = pytest.importorskip("pydantic")
+    kwargs = {"ref": "arm_10"} if cls is RefNetlistInstance else {}
+    instance = cls("pdk", "make_arm", name="a", info={"nested": [1]}, **kwargs)
+    parsed = pydantic.TypeAdapter(cls).validate_python(instance.to_dict())
     assert type(parsed) is type(instance)
-    assert TypeAdapter(cls).dump_python(parsed) == instance.to_dict()
+    assert pydantic.TypeAdapter(cls).dump_python(parsed) == instance.to_dict()
 
 
 @pytest.mark.parametrize("value", [None, 12, True, [], {}])
@@ -193,3 +201,18 @@ def test_full_flatten_does_not_silently_return_unexpanded_references(empty_child
     assert all(
         isinstance(inst, RefNetlistInstance) for inst in retained.instances.values()
     )
+
+
+@pytest.mark.parametrize("cls", [Netlist, PlacedNetlist])
+def test_create_inst_reference_keyword_is_supported_by_both_netlist_types(cls):
+    netlist = cls()
+    leaf = netlist.create_inst("unit", "pdk", "arm")
+    assert "ref" not in leaf.to_dict()
+    created = netlist.create_inst("unit", "pdk", "arm", ref="arm_10")
+    assert created.ref == "arm_10"
+    assert netlist.instances["unit"].ref == "arm_10"
+    assert cls.from_json(netlist.to_json()).instances["unit"].ref == "arm_10"
+    before = netlist.to_dict()
+    with pytest.raises(ValueError):
+        netlist.create_inst("unit", "pdk", "arm", na=-1, ref="other")
+    assert netlist.to_dict() == before
