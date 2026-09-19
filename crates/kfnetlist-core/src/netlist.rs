@@ -75,7 +75,8 @@ impl Netlist {
             if ka != kb {
                 return false;
             }
-            if va.kcl != vb.kcl
+            if va.netlist_ref() != vb.netlist_ref()
+                || va.kcl != vb.kcl
                 || va.component != vb.component
                 || va.settings != vb.settings
                 || va.info != vb.info
@@ -145,14 +146,14 @@ impl Netlist {
         } else {
             None
         };
-        let inst = NetlistInstance {
+        let inst = NetlistInstance::Leaf(crate::LeafNetlistInstance {
             info,
             kcl,
             component,
             settings,
             array,
             name: name.clone(),
-        };
+        });
         self.instances.insert(name, inst.clone());
         Ok(inst)
     }

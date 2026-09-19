@@ -10,7 +10,8 @@ Python bindings.
 ## Native API
 
 The core exports `Netlist`, `Net`, `NetMember`, `NetlistPort`, `PortRef`,
-`PortArrayRef`, `NetlistInstance`, `NetlistArray`, `BBox`, `Placement`,
+`PortArrayRef`, `NetlistInstance`, `LeafNetlistInstance`, `RefNetlistInstance`,
+`NetlistArray`, `BBox`, `Placement`,
 `PlacedExtra`, `PlacedInstance`, and `PlacedNetlist` at the crate root.
 
 - Construct leaf values with Rust struct literals. Construct a sorted net with
@@ -20,7 +21,12 @@ The core exports `Netlist`, `Net`, `NetMember`, `NetlistPort`, `PortRef`,
 - `Netlist::create_inst` accepts JSON settings and array dimensions and returns
   an owned snapshot. `create_net` accepts an iterator of owned `NetMember` values.
   These methods validate their inputs before committing changes.
-- `NetlistInstance::info` stores JSON-compatible per-instance metadata.
+- `NetlistInstance::{Leaf, Ref}` distinguishes component leaves from explicit
+  child-netlist references. Common fields remain accessible through `Deref`.
+  `hierarchy_from_json` and `validate_hierarchy` validate document references.
+  See [the draft reference contract](explicit-netlist-references.md) for wire
+  format and compatibility details.
+- The instance `info` field stores JSON-compatible per-instance metadata.
   `create_inst_with_info` accepts metadata while `create_inst` retains the
   original signature and defaults it to an empty map.
 - `detect_opens` returns `Opens { unconnected_ports, singleton_nets }`.
@@ -49,7 +55,8 @@ with their map keys when editing maps manually.
 
 Core values implement serde traits. `kfnetlist_core::to_json` and `from_json`
 provide JSON conversion with native errors; wire types live in their respective
-modules. The JSON schema is unchanged: net members are untagged objects,
+modules. Existing leaf JSON remains supported; reference instances add a required string
+`ref`. Net members remain untagged objects,
 instance names are omitted from values and restored from parent map keys, null
 settings serialize as `{}`, and absent array metadata is omitted. Standalone
 instance deserialization leaves its name empty; the wire conversion methods

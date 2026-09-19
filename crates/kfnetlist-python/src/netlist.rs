@@ -45,7 +45,7 @@ impl Netlist {
     fn instances<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         let dict = PyDict::new(py);
         for (name, inst) in &self.instances {
-            dict.set_item(name, Py::new(py, NetlistInstance(inst.clone()))?)?;
+            dict.set_item(name, NetlistInstance(inst.clone()).into_py_variant(py)?)?;
         }
         Ok(dict)
     }
@@ -78,11 +78,11 @@ impl Netlist {
         self.instances.contains_key(name)
     }
 
-    fn get_instance(&self, name: &str) -> PyResult<NetlistInstance> {
+    fn get_instance(&self, py: Python<'_>, name: &str) -> PyResult<Py<NetlistInstance>> {
         self.0
             .get_instance(name)
-            .map(NetlistInstance)
             .map_err(core_error)
+            .and_then(|inst| NetlistInstance(inst).into_py_variant(py))
     }
 
     // ---- Mutation ----
@@ -91,10 +91,11 @@ impl Netlist {
         NetlistPort(self.0.create_port(name))
     }
 
-    #[pyo3(signature = (name, kcl, component, settings=None, na=1, nb=1, *, info=None))]
+    #[pyo3(signature = (name, kcl, component, settings=None, na=1, nb=1, *, info=None, r#ref=None))]
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn create_inst(
         &mut self,
+        py: Python<'_>,
         name: String,
         kcl: String,
         component: String,
@@ -102,12 +103,14 @@ impl Netlist {
         na: i64,
         nb: i64,
         info: Option<&Bound<'_, PyAny>>,
-    ) -> PyResult<NetlistInstance> {
+        r#ref: Option<String>,
+    ) -> PyResult<Py<NetlistInstance>> {
         let settings_value = match settings {
             Some(obj) if !obj.is_none() => from_py_any::<serde_json::Value>(obj)?,
             _ => serde_json::Value::Object(Default::default()),
         };
-        self.0
+        let mut inst = self
+            .0
             .create_inst_with_info(
                 name,
                 kcl,
@@ -117,8 +120,18 @@ impl Netlist {
                 nb,
                 info_from_py(info)?,
             )
-            .map(NetlistInstance)
-            .map_err(core_error)
+            .map_err(core_error)?;
+        if let Some(netlist_ref) = r#ref {
+            let kfnetlist_core::NetlistInstance::Leaf(instance) = inst else {
+                unreachable!()
+            };
+            inst = kfnetlist_core::NetlistInstance::Ref(kfnetlist_core::RefNetlistInstance {
+                instance,
+                netlist_ref,
+            });
+            self.0.instances.insert(inst.name.clone(), inst.clone());
+        }
+        NetlistInstance(inst).into_py_variant(py)
     }
 
     #[pyo3(signature = (*ports))]

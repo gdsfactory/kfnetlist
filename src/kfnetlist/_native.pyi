@@ -1,8 +1,8 @@
 """Type stubs for the Rust-backed ``kfnetlist._native`` module."""
 
 from collections.abc import Callable, Mapping, Sequence
-from typing import Any, ClassVar, Self
 from os import PathLike
+from typing import Any, ClassVar, Self
 
 class NetlistPort:
     name: str
@@ -97,6 +97,31 @@ class NetlistInstance:
     @classmethod
     def from_dict(cls, obj: dict[str, Any], name: str = ...) -> Self: ...
 
+class LeafNetlistInstance(NetlistInstance):
+    """A component instance without a child definition in this document."""
+
+class RefNetlistInstance(NetlistInstance):
+    """An instance referencing another netlist in the document."""
+    @property
+    def ref(self) -> str: ...
+    def __init__(
+        self,
+        kcl: str,
+        component: str,
+        settings: dict[str, Any] | None = ...,
+        array: NetlistArray | None = ...,
+        name: str = ...,
+        *,
+        ref: str,
+        info: dict[str, Any] | None = ...,
+    ) -> None: ...
+
+def hierarchy_from_json(data: str) -> dict[str, Netlist]:
+    """Load a document, rejecting dangling references and cycles."""
+
+def validate_hierarchy(netlists: dict[str, Netlist]) -> None:
+    """Validate all explicit references after constructing/editing a document."""
+
 class Placement:
     x: float
     y: float
@@ -188,6 +213,7 @@ class Netlist:
         nb: int = ...,
         *,
         info: dict[str, Any] | None = ...,
+        ref: str | None = ...,
     ) -> NetlistInstance: ...
     def create_net(self, *ports: NetMember) -> None: ...
     def add_net(self, net: Net) -> None: ...

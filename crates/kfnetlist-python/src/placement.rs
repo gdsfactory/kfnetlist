@@ -192,14 +192,16 @@ impl PlacedInstance {
             Some(obj) if !obj.is_none() => from_py_any::<serde_json::Value>(obj)?,
             _ => serde_json::Value::Object(Default::default()),
         };
-        let inst = NetlistInstance(kfnetlist_core::NetlistInstance {
-            info: info_from_py(info)?,
-            kcl,
-            component,
-            settings,
-            array: array.map(|value| value.0),
-            name,
-        });
+        let inst = NetlistInstance(kfnetlist_core::NetlistInstance::Leaf(
+            kfnetlist_core::LeafNetlistInstance {
+                info: info_from_py(info)?,
+                kcl,
+                component,
+                settings,
+                array: array.map(|value| value.0),
+                name,
+            },
+        ));
         Ok(placed_inst_init(
             inst,
             PlacedExtra {
