@@ -71,6 +71,24 @@ No names are silently ignored. Existing leaf comparison behavior is unchanged.
 A canonical LVS projection or name-independent graph matching is a separate API
 decision; it is not implemented by changing equality in this draft.
 
+### Future idea: compare hierarchy using content hashes
+
+Record for later discussion only; this is not implemented in this PR.
+Build a comparison representation from leaves toward the root: canonicalize
+each netlist's comparison-relevant contents, replace child references with the
+children's content hashes, and hash the resulting parent. Replace document keys
+and their references with those hashes in the comparison representation. This
+applies to the proposed `netlist_id` field (currently spelled `ref` in this draft).
+Keep the original document and readable identifiers for diagnostics.
+
+This could make equivalent hierarchies compare independently of document-local
+IDs while retaining differences in the referenced circuits. Before implementing,
+define the included fields, ordering and numeric normalization, and treatment
+of instance/port names. Sorting JSON keys alone does not establish graph
+isomorphism. Comparing equivalent circuits with different hierarchy boundaries
+also needs a separate policy. Hash equality is a candidate equality check;
+collision handling or comparison of canonical contents still needs a decision.
+
 ## Compatibility and operations
 
 Python retains the callable `NetlistInstance` facade and `isinstance` interface.
