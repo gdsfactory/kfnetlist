@@ -1090,6 +1090,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#selecting-one-instance-of-a-shared-cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Selecting one instance of a shared cell
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#flattening-a-whole-hierarchy" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1671,6 +1682,17 @@
 </li>
       
         <li class="md-nav__item">
+  <a href="#selecting-one-instance-of-a-shared-cell" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Selecting one instance of a shared cell
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
   <a href="#flattening-a-whole-hierarchy" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
@@ -1766,7 +1788,7 @@ name. So one of these has to supply the link:</p>
 </tr>
 <tr>
 <td><code>instance_cell_map</code></td>
-<td><code>{instance name: cell name}</code> for the netlist being flattened</td>
+<td><code>{instance name: cell name}</code> selects starting instances and supplies their cell names</td>
 </tr>
 <tr>
 <td><code>sub_instance_cell_maps</code></td>
@@ -1775,8 +1797,9 @@ name. So one of these has to supply the link:</p>
 </tbody>
 </table>
 <p>Instances whose cell cannot be resolved are left alone (pass
-<code>warn_skipped=True</code> to hear about them).</p>
-<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist</span><span class="w"> </span><span class="kn">import</span> <span class="n">Netlist</span><span class="p">,</span> <span class="n">PortRef</span><span class="p">,</span> <span class="n">flatten_netlists</span>
+<code>warn_skipped=True</code> to hear about them).
+An explicit map overrides stored cell names for its listed instances.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist</span><span class="w"> </span><span class="kn">import</span> <span class="n">Netlist</span><span class="p">,</span> <span class="n">PlacedNetlist</span><span class="p">,</span> <span class="n">PortRef</span><span class="p">,</span> <span class="n">flatten_netlists</span>
 </code></pre></div>
 <h2 id="a-two-level-hierarchy">A two-level hierarchy</h2>
 <p><code>chain</code> is a cell containing two straights in series; <code>top</code> places one
@@ -1855,11 +1878,51 @@ it. Use <code>exclude</code> for the cells that have their own model:</p>
     &lt;in&gt; — sub1.o1
     s1.o1 — sub1.o2
 </code></pre></div>
+<h2 id="selecting-one-instance-of-a-shared-cell">Selecting one instance of a shared cell</h2>
+<p><code>instance_cell_map=None</code> considers all instances whose cells can be resolved.
+An explicit map selects only its keys in the starting netlist, even for a
+<code>PlacedNetlist</code> whose instances already record their cells. <code>{}</code> selects
+nothing. This is a change from treating the map only as a cell-name override.</p>
+<p>Here two instances reference the same <code>chain</code> cell. Only <code>left</code> is expanded;
+<code>right</code> keeps its identity, settings, placement, and connections.</p>
+<div class="highlight"><pre><span></span><code><span class="n">pair</span> <span class="o">=</span> <span class="n">PlacedNetlist</span><span class="p">()</span>
+<span class="n">pair</span><span class="o">.</span><span class="n">create_inst</span><span class="p">(</span><span class="s2">"left"</span><span class="p">,</span> <span class="n">kcl</span><span class="o">=</span><span class="s2">"PDK"</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="s2">"chain"</span><span class="p">,</span> <span class="n">cell</span><span class="o">=</span><span class="s2">"chain"</span><span class="p">)</span>
+<span class="n">pair</span><span class="o">.</span><span class="n">create_inst</span><span class="p">(</span><span class="s2">"right"</span><span class="p">,</span> <span class="n">kcl</span><span class="o">=</span><span class="s2">"PDK"</span><span class="p">,</span> <span class="n">component</span><span class="o">=</span><span class="s2">"chain"</span><span class="p">,</span> <span class="n">cell</span><span class="o">=</span><span class="s2">"chain"</span><span class="p">)</span>
+<span class="n">pair_in</span> <span class="o">=</span> <span class="n">pair</span><span class="o">.</span><span class="n">create_port</span><span class="p">(</span><span class="s2">"in"</span><span class="p">)</span>
+<span class="n">pair_out</span> <span class="o">=</span> <span class="n">pair</span><span class="o">.</span><span class="n">create_port</span><span class="p">(</span><span class="s2">"out"</span><span class="p">)</span>
+<span class="n">pair</span><span class="o">.</span><span class="n">create_net</span><span class="p">(</span><span class="n">pair_in</span><span class="p">,</span> <span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">"left"</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">"o1"</span><span class="p">))</span>
+<span class="n">pair</span><span class="o">.</span><span class="n">create_net</span><span class="p">(</span><span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">"left"</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">"o2"</span><span class="p">),</span> <span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">"right"</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">"o1"</span><span class="p">))</span>
+<span class="n">pair</span><span class="o">.</span><span class="n">create_net</span><span class="p">(</span><span class="n">PortRef</span><span class="p">(</span><span class="n">instance</span><span class="o">=</span><span class="s2">"right"</span><span class="p">,</span> <span class="n">port</span><span class="o">=</span><span class="s2">"o2"</span><span class="p">),</span> <span class="n">pair_out</span><span class="p">)</span>
+
+<span class="n">selected</span> <span class="o">=</span> <span class="n">pair</span><span class="o">.</span><span class="n">flatten</span><span class="p">(</span>
+    <span class="n">netlists</span><span class="p">,</span>
+    <span class="n">instance_cell_map</span><span class="o">=</span><span class="p">{</span><span class="s2">"left"</span><span class="p">:</span> <span class="s2">"chain"</span><span class="p">},</span>
+    <span class="n">sub_instance_cell_maps</span><span class="o">=</span><span class="p">{</span><span class="s2">"chain"</span><span class="p">:</span> <span class="p">{</span><span class="s2">"wg1"</span><span class="p">:</span> <span class="s2">"straight"</span><span class="p">,</span> <span class="s2">"wg2"</span><span class="p">:</span> <span class="s2">"straight"</span><span class="p">}},</span>
+<span class="p">)</span>
+<span class="n">show</span><span class="p">(</span><span class="s2">"pair (left flattened)"</span><span class="p">,</span> <span class="n">selected</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>pair (left flattened): instances=['left.wg1', 'left.wg2', 'right']
+    &lt;in&gt; — left.wg1.o1
+    &lt;out&gt; — right.o2
+    left.wg1.o2 — left.wg2.o1
+    left.wg2.o2 — right.o1
+</code></pre></div>
+<p>With <code>recursive=True</code>, descendants of selected instances inherit eligibility
+for flattening. Unlisted starting instances stay intact through every pass.
+<code>sub_instance_cell_maps</code> supplies cell names for descendants; it does not
+restrict which descendants may flatten. The <code>cells</code> and <code>exclude</code> filters
+still apply at every level, and <code>recursive=False</code> expands only one level.
+Selection keys are names in the starting netlist, not paths into unexpanded
+child netlists.</p>
 <h2 id="flattening-a-whole-hierarchy">Flattening a whole hierarchy</h2>
 <p><code>flatten_netlists()</code> applies the same operation to every entry of the
 mapping — the shape <code>extract()</code> returns. Each netlist is flattened against
 the <em>original</em> mapping, so the result does not depend on iteration order, and
-the cells that were inlined keep their own entry.</p>
+the cells that were inlined keep their own entry.
+Each entry in <code>instance_cell_maps</code> selects the starting instances for that
+cell's result. An empty entry selects nothing; a missing entry considers all
+instances, using placed cell metadata when available. In recursive expansion,
+these maps supply descendant cell names without restricting inherited selection.</p>
 <div class="highlight"><pre><span></span><code><span class="n">flat_all</span> <span class="o">=</span> <span class="n">flatten_netlists</span><span class="p">(</span>
     <span class="n">netlists</span><span class="p">,</span>
     <span class="n">instance_cell_maps</span><span class="o">=</span><span class="p">{</span>
