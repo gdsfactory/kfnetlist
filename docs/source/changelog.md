@@ -10,6 +10,13 @@
   `kfnetlist-core` into the new `kfnetlist-schema` crate.
 - **Instance removal** no longer creates empty nets when an absent or isolated
   instance is removed.
+- **Selective instance flattening** — an explicit `instance_cell_map` now
+  selects which starting instances may flatten, in addition to supplying their
+  cell names. Omitted instances remain intact throughout recursion, including
+  placed instances of the same cell. `None` considers all instances; `{}`
+  selects none. Descendants of selected instances inherit eligibility, subject
+  to `cells` / `exclude`. `sub_instance_cell_maps` remains a cell-name lookup.
+  This changes the previous lookup-only behavior of `instance_cell_map`.
 - **Instance metadata** — `NetlistInstance.info` and `PlacedInstance.info`
   carry JSON-compatible dictionaries, accepted through keyword-only `info=`
   constructor and `create_inst()` arguments. Extraction copies named kfactory
