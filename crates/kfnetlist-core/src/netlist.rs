@@ -75,7 +75,7 @@ impl Netlist {
             if ka != kb {
                 return false;
             }
-            if va.netlist_ref() != vb.netlist_ref()
+            if va.netlist_id() != vb.netlist_id()
                 || va.kcl != vb.kcl
                 || va.component != vb.component
                 || va.settings != vb.settings

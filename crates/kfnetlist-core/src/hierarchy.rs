@@ -29,7 +29,7 @@ pub(crate) fn validate_instance_maps<'a>(
     let maps: HashMap<_, _> = netlists.into_iter().collect();
     for (name, instances) in &maps {
         for (instance, value) in *instances {
-            if let Some(reference) = value.netlist_ref() {
+            if let Some(reference) = value.netlist_id() {
                 if !maps.contains_key(reference) {
                     return Err(Error::MissingNetlistReference {
                         netlist: (*name).into(),
@@ -59,7 +59,7 @@ pub(crate) fn validate_instance_maps<'a>(
             }
             stack.push((name, true));
             for instance in maps[name].values().rev() {
-                if let Some(reference) = instance.netlist_ref() {
+                if let Some(reference) = instance.netlist_id() {
                     stack.push((reference, false));
                 }
             }

@@ -371,7 +371,7 @@ impl PlacedNetlist {
     /// [`Netlist::create_inst`] with trailing optional `cell`/`placement`;
     /// keeping the base parameter order makes this a substitutable override.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (name, kcl, component, settings=None, na=1, nb=1, cell=String::new(), placement=None, *, info=None, r#ref=None))]
+    #[pyo3(signature = (name, kcl, component, settings=None, na=1, nb=1, cell=String::new(), placement=None, *, info=None, netlist_id=None))]
     fn create_inst(
         slf: PyRefMut<'_, Self>,
         py: Python<'_>,
@@ -384,7 +384,7 @@ impl PlacedNetlist {
         cell: String,
         placement: Option<Placement>,
         info: Option<&Bound<'_, PyAny>>,
-        r#ref: Option<String>,
+        netlist_id: Option<String>,
     ) -> PyResult<Py<PlacedInstance>> {
         let settings = match settings {
             Some(obj) if !obj.is_none() => from_py_any::<serde_json::Value>(obj)?,
@@ -398,14 +398,14 @@ impl PlacedNetlist {
         let placed = Self::with_core(slf, |core| {
             let mut placed =
                 core.create_inst_with_info(name, kcl, component, settings, na, nb, info, extra)?;
-            if let Some(netlist_ref) = r#ref {
+            if let Some(netlist_id) = netlist_id {
                 let kfnetlist_core::NetlistInstance::Leaf(instance) = placed.instance else {
                     unreachable!()
                 };
                 placed.instance =
                     kfnetlist_core::NetlistInstance::Ref(kfnetlist_core::RefNetlistInstance {
                         instance,
-                        netlist_ref,
+                        netlist_id,
                     });
                 core.netlist
                     .instances

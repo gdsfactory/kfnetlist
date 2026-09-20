@@ -56,7 +56,7 @@ with their map keys when editing maps manually.
 Core values implement serde traits. `kfnetlist_core::to_json` and `from_json`
 provide JSON conversion with native errors; wire types live in their respective
 modules. Existing leaf JSON remains supported; reference instances add a required string
-`ref`. Net members remain untagged objects,
+`netlist_id`. Net members remain untagged objects,
 instance names are omitted from values and restored from parent map keys, null
 settings serialize as `{}`, and absent array metadata is omitted. Standalone
 instance deserialization leaves its name empty; the wire conversion methods

@@ -103,7 +103,7 @@ class LeafNetlistInstance(NetlistInstance):
 class RefNetlistInstance(NetlistInstance):
     """An instance referencing another netlist in the document."""
     @property
-    def ref(self) -> str: ...
+    def netlist_id(self) -> str: ...
     def __init__(
         self,
         kcl: str,
@@ -112,7 +112,7 @@ class RefNetlistInstance(NetlistInstance):
         array: NetlistArray | None = ...,
         name: str = ...,
         *,
-        ref: str,
+        netlist_id: str,
         info: dict[str, Any] | None = ...,
     ) -> None: ...
 
@@ -146,7 +146,7 @@ class Placement:
 
 class PlacedInstance(NetlistInstance):
     @property
-    def ref(self) -> str:
+    def netlist_id(self) -> str:
         """Document reference; raises AttributeError for a leaf instance."""
     cell: str
     placement: Placement
@@ -216,7 +216,7 @@ class Netlist:
         nb: int = ...,
         *,
         info: dict[str, Any] | None = ...,
-        ref: str | None = ...,
+        netlist_id: str | None = ...,
     ) -> NetlistInstance: ...
     def create_net(self, *ports: NetMember) -> None: ...
     def add_net(self, net: Net) -> None: ...
@@ -277,7 +277,7 @@ class PlacedNetlist(Netlist):
         placement: Placement | None = ...,
         *,
         info: dict[str, Any] | None = ...,
-        ref: str | None = ...,
+        netlist_id: str | None = ...,
     ) -> PlacedInstance: ...
     # Same parameters as the base, narrower (covariant) return type.
     def flatten(

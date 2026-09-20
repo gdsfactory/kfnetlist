@@ -146,9 +146,9 @@ impl NetlistInstance {
 
     /// Only reference variants expose a reference; leaves raise AttributeError.
     #[getter]
-    fn r#ref(&self) -> PyResult<String> {
-        self.0.netlist_ref().map(str::to_owned).ok_or_else(|| {
-            pyo3::exceptions::PyAttributeError::new_err("a leaf instance has no ref")
+    fn netlist_id(&self) -> PyResult<String> {
+        self.0.netlist_id().map(str::to_owned).ok_or_else(|| {
+            pyo3::exceptions::PyAttributeError::new_err("a leaf instance has no netlist_id")
         })
     }
 
@@ -197,7 +197,7 @@ impl NetlistInstance {
             return Ok(py.NotImplemented());
         };
         let other = other.borrow();
-        let eq = self.0.netlist_ref() == other.0.netlist_ref()
+        let eq = self.0.netlist_id() == other.0.netlist_id()
             && self.kcl == other.kcl
             && self.component == other.component
             && self.settings == other.settings
@@ -294,7 +294,7 @@ fn make_leaf(
 
 impl NetlistInstance {
     pub(crate) fn into_py_variant(self, py: Python<'_>) -> PyResult<Py<Self>> {
-        if self.0.netlist_ref().is_some() {
+        if self.0.netlist_id().is_some() {
             Ok(Py::new(
                 py,
                 PyClassInitializer::from(self).add_subclass(RefNetlistInstance),
@@ -314,7 +314,7 @@ impl NetlistInstance {
     }
     fn for_class(self, cls: &Bound<'_, PyType>) -> PyResult<Py<Self>> {
         let py = cls.py();
-        let is_ref = self.0.netlist_ref().is_some();
+        let is_ref = self.0.netlist_id().is_some();
         if (cls.is(&py.get_type::<LeafNetlistInstance>()) && is_ref)
             || (cls.is(&py.get_type::<RefNetlistInstance>()) && !is_ref)
         {
@@ -348,7 +348,7 @@ impl LeafNetlistInstance {
 #[pymethods]
 impl RefNetlistInstance {
     #[new]
-    #[pyo3(signature = (kcl, component, settings=None, array=None, name=String::new(), *, r#ref, info=None))]
+    #[pyo3(signature = (kcl, component, settings=None, array=None, name=String::new(), *, netlist_id, info=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
         kcl: String,
@@ -356,7 +356,7 @@ impl RefNetlistInstance {
         settings: Option<&Bound<'_, PyAny>>,
         array: Option<NetlistArray>,
         name: String,
-        r#ref: String,
+        netlist_id: String,
         info: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyClassInitializer<Self>> {
         let leaf = make_leaf(kcl, component, settings, array, name, info)?;
@@ -367,7 +367,7 @@ impl RefNetlistInstance {
             PyClassInitializer::from(NetlistInstance(kfnetlist_core::NetlistInstance::Ref(
                 kfnetlist_core::RefNetlistInstance {
                     instance,
-                    netlist_ref: r#ref,
+                    netlist_id,
                 },
             )))
             .add_subclass(Self),

@@ -90,7 +90,7 @@ impl From<LeafNetlistInstance> for LeafNetlistInstanceWire {
 #[serde(try_from = "serde_json::Value", into = "serde_json::Value")]
 pub struct RefNetlistInstance {
     pub instance: LeafNetlistInstance,
-    pub netlist_ref: String,
+    pub netlist_id: String,
 }
 
 /// A component leaf or an explicit reference to another netlist.
@@ -101,7 +101,7 @@ pub enum NetlistInstance {
     Ref(RefNetlistInstance),
 }
 
-/// Untagged on the wire: the presence of `ref` selects the reference variant.
+/// Untagged on the wire: the presence of `netlist_id` selects the reference variant.
 /// Invalid references cannot fall back to a leaf and lose their reference.
 #[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(try_from = "serde_json::Value", into = "serde_json::Value")]
@@ -109,22 +109,24 @@ pub enum NetlistInstanceWire {
     Leaf(LeafNetlistInstanceWire),
     Ref {
         instance: LeafNetlistInstanceWire,
-        netlist_ref: String,
+        netlist_id: String,
     },
 }
 
 impl TryFrom<serde_json::Value> for NetlistInstanceWire {
     type Error = serde_json::Error;
     fn try_from(mut value: serde_json::Value) -> Result<Self, Self::Error> {
-        let reference = value.as_object_mut().and_then(|obj| obj.remove("ref"));
-        let netlist_ref = reference
+        let reference = value
+            .as_object_mut()
+            .and_then(|obj| obj.remove("netlist_id"));
+        let netlist_id = reference
             .map(serde_json::from_value::<String>)
             .transpose()?;
         let instance = serde_json::from_value(value)?;
-        Ok(match netlist_ref {
-            Some(netlist_ref) => Self::Ref {
+        Ok(match netlist_id {
+            Some(netlist_id) => Self::Ref {
                 instance,
-                netlist_ref,
+                netlist_id,
             },
             None => Self::Leaf(instance),
         })
@@ -137,8 +139,8 @@ impl From<NetlistInstanceWire> for serde_json::Value {
             NetlistInstanceWire::Leaf(instance) => (instance, None),
             NetlistInstanceWire::Ref {
                 instance,
-                netlist_ref,
-            } => (instance, Some(netlist_ref)),
+                netlist_id,
+            } => (instance, Some(netlist_id)),
         };
         let mut value =
             serde_json::to_value(instance).expect("instance wire contains only JSON values");
@@ -146,17 +148,17 @@ impl From<NetlistInstanceWire> for serde_json::Value {
             value
                 .as_object_mut()
                 .expect("instance wire is an object")
-                .insert("ref".into(), reference.into());
+                .insert("netlist_id".into(), reference.into());
         }
         value
     }
 }
 
 impl NetlistInstance {
-    pub fn netlist_ref(&self) -> Option<&str> {
+    pub fn netlist_id(&self) -> Option<&str> {
         match self {
             Self::Leaf(_) => None,
-            Self::Ref(inst) => Some(&inst.netlist_ref),
+            Self::Ref(inst) => Some(&inst.netlist_id),
         }
     }
     pub fn to_wire(&self) -> NetlistInstanceWire {
@@ -164,7 +166,7 @@ impl NetlistInstance {
             Self::Leaf(inst) => NetlistInstanceWire::Leaf(inst.to_wire()),
             Self::Ref(inst) => NetlistInstanceWire::Ref {
                 instance: inst.instance.to_wire(),
-                netlist_ref: inst.netlist_ref.clone(),
+                netlist_id: inst.netlist_id.clone(),
             },
         }
     }
@@ -175,10 +177,10 @@ impl NetlistInstance {
             }
             NetlistInstanceWire::Ref {
                 instance,
-                netlist_ref,
+                netlist_id,
             } => Self::Ref(RefNetlistInstance {
                 instance: LeafNetlistInstance::from_wire(name, instance),
-                netlist_ref,
+                netlist_id,
             }),
         }
     }
@@ -223,7 +225,7 @@ impl TryFrom<serde_json::Value> for RefNetlistInstance {
         match NetlistInstance::from(NetlistInstanceWire::try_from(value)?) {
             NetlistInstance::Ref(instance) => Ok(instance),
             _ => Err(<serde_json::Error as serde::de::Error>::custom(
-                "missing field `ref`",
+                "missing field `netlist_id`",
             )),
         }
     }

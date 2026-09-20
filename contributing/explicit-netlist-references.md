@@ -17,9 +17,9 @@ pub enum NetlistInstance {
 
 Both variants carry the existing `kcl`, `component`, `settings`, `info`, `array`,
 and runtime `name` fields. `RefNetlistInstance` additionally requires a string
-`netlist_ref`, serialized as `ref`. A leaf has no `ref` field. Rust composes the
+`netlist_id` in Rust, Python, and JSON. A leaf has no `netlist_id` field. Rust composes the
 common fields inside `RefNetlistInstance.instance`; the wire format stays flat.
-No discriminator field is added: presence of `ref` selects the reference variant.
+No discriminator field is added: presence of `netlist_id` selects the reference variant.
 A present null, non-string reference, or unknown instance field is an error.
 
 The document remains a mapping of identifiers to existing `Netlist` values:
@@ -28,8 +28,8 @@ The document remains a mapping of identifiers to existing `Netlist` values:
 {
   "top": {
     "instances": {
-      "arm_left": {"kcl": "pdk", "component": "make_arm", "settings": {"length": 10}, "ref": "arm_10"},
-      "arm_right": {"kcl": "pdk", "component": "make_arm", "settings": {"length": 10}, "ref": "arm_10"}
+      "arm_left": {"kcl": "pdk", "component": "make_arm", "settings": {"length": 10}, "netlist_id": "arm_10"},
+      "arm_right": {"kcl": "pdk", "component": "make_arm", "settings": {"length": 10}, "netlist_id": "arm_10"}
     },
     "nets": [],
     "ports": []
@@ -45,7 +45,7 @@ The document remains a mapping of identifiers to existing `Netlist` values:
 ```
 
 Connections are omitted in this structural example. Their format is unchanged.
-`ref` is a key in this document, not a promise about a future GDS cell name.
+`netlist_id` is a key in this document, not a promise about a future GDS cell name.
 Leaves need not be physically primitive: their internal netlist is simply not
 supplied. Multiple references may share a definition. External library loading
 and namespacing are separate future work, not implied by these local keys.
@@ -78,7 +78,7 @@ Build a comparison representation from leaves toward the root: canonicalize
 each netlist's comparison-relevant contents, replace child references with the
 children's content hashes, and hash the resulting parent. Replace document keys
 and their references with those hashes in the comparison representation. This
-applies to the proposed `netlist_id` field (currently spelled `ref` in this draft).
+applies to the `netlist_id` field.
 Keep the original document and readable identifiers for diagnostics.
 
 This could make equivalent hierarchies compare independently of document-local
@@ -99,15 +99,15 @@ Explicit variant loaders reject the
 other variant. The two Python variants use the existing PyO3 subclass mechanism
 only to preserve this interface; the Rust domain model is an enum.
 
-`RefNetlistInstance(..., ref="arm_10")` requires a reference. Existing
-`Netlist.create_inst(...)` calls still create leaves; the new keyword-only `ref`
+`RefNetlistInstance(..., netlist_id="arm_10")` requires a reference. Existing
+`Netlist.create_inst(...)` calls still create leaves; the new keyword-only `netlist_id`
 creates a reference. `PlacedNetlist.create_inst` accepts the same keyword and
 keeps its placed return type. Snapshots, normalization, and JSON preserve the variant.
 `PlacedInstance` and `PlacedNetlist` retain their existing API and preserve an
 explicit reference when converting/serializing a referenced plain netlist.
 The physical `cell` name can differ from the logical document reference.
 
-Flattening resolves explicit `ref` values without side maps. Conflicting explicit
+Flattening resolves explicit `netlist_id` values without side maps. Conflicting explicit
 maps are errors. Legacy maps and placed-cell lookup remain available for old
 instances. Selective flattening preserves references at retained boundaries;
 existing flattening limitations, including arrays and empty child definitions,

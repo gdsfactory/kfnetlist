@@ -59,11 +59,10 @@ pub struct PlacedInstanceWire {
     pub placement: Placement,
     #[serde(
         default,
-        rename = "ref",
         skip_serializing_if = "Option::is_none",
         deserialize_with = "deserialize_reference"
     )]
-    pub netlist_ref: Option<String>,
+    pub netlist_id: Option<String>,
 }
 
 fn deserialize_reference<'de, D: serde::Deserializer<'de>>(
@@ -75,7 +74,7 @@ fn deserialize_reference<'de, D: serde::Deserializer<'de>>(
 impl PlacedInstanceWire {
     pub fn from_parts(inst: &NetlistInstance, extra: &PlacedExtra) -> Self {
         Self {
-            netlist_ref: inst.netlist_ref().map(str::to_owned),
+            netlist_id: inst.netlist_id().map(str::to_owned),
             info: inst.info.clone(),
             kcl: inst.kcl.clone(),
             component: inst.component.clone(),
@@ -99,11 +98,11 @@ impl PlacedInstanceWire {
             array: self.array,
             name,
         });
-        let inst = match (inst, self.netlist_ref) {
-            (NetlistInstance::Leaf(instance), Some(netlist_ref)) => {
+        let inst = match (inst, self.netlist_id) {
+            (NetlistInstance::Leaf(instance), Some(netlist_id)) => {
                 NetlistInstance::Ref(crate::RefNetlistInstance {
                     instance,
-                    netlist_ref,
+                    netlist_id,
                 })
             }
             (inst, _) => inst,

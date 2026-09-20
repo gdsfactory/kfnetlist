@@ -7,7 +7,7 @@
 //! discarded — this is the inverse of [`Netlist::remove_instances`], which
 //! deletes an instance and merges the nets it touched.
 //!
-//! Explicit instance `ref` values identify children in the supplied document.
+//! Explicit instance `netlist_id` values identify children in the supplied document.
 //! They are authoritative: conflicting side maps are rejected. Legacy leaves
 //! can still resolve through an instance-to-cell map, then `PlacedInstance.cell`.
 //! `component` remains a factory name and is never guessed to be a reference.
@@ -457,7 +457,7 @@ pub fn flatten_netlist(
     )?;
     let mut cell_of: HashMap<String, String> = HashMap::new();
     for (name, instance) in &base.instances {
-        if let Some(reference) = instance.netlist_ref() {
+        if let Some(reference) = instance.netlist_id() {
             if !subs.contains_key(reference) {
                 return Err(Error::MissingNetlistReference {
                     netlist: "<root>".into(),
@@ -500,7 +500,7 @@ pub fn flatten_netlist(
     } = state;
     if opts.recursive && opts.cells.is_none() && opts.exclude.is_empty() {
         for (name, instance) in &data.instances {
-            if let Some(reference) = instance.netlist_ref() {
+            if let Some(reference) = instance.netlist_id() {
                 return Err(Error::UnflattenedNetlistReference {
                     instance: name.clone(),
                     reference: reference.into(),
@@ -526,7 +526,7 @@ fn resolve_reference(
     mapped: Option<&String>,
     placed: Option<&String>,
 ) -> Result<Option<String>> {
-    if let Some(reference) = instance.netlist_ref() {
+    if let Some(reference) = instance.netlist_id() {
         if let Some(mapped) = mapped {
             if mapped != reference {
                 return Err(Error::ConflictingNetlistReference {

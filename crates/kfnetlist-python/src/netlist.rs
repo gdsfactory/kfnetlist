@@ -91,7 +91,7 @@ impl Netlist {
         NetlistPort(self.0.create_port(name))
     }
 
-    #[pyo3(signature = (name, kcl, component, settings=None, na=1, nb=1, *, info=None, r#ref=None))]
+    #[pyo3(signature = (name, kcl, component, settings=None, na=1, nb=1, *, info=None, netlist_id=None))]
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn create_inst(
         &mut self,
@@ -103,7 +103,7 @@ impl Netlist {
         na: i64,
         nb: i64,
         info: Option<&Bound<'_, PyAny>>,
-        r#ref: Option<String>,
+        netlist_id: Option<String>,
     ) -> PyResult<Py<NetlistInstance>> {
         let settings_value = match settings {
             Some(obj) if !obj.is_none() => from_py_any::<serde_json::Value>(obj)?,
@@ -121,13 +121,13 @@ impl Netlist {
                 info_from_py(info)?,
             )
             .map_err(core_error)?;
-        if let Some(netlist_ref) = r#ref {
+        if let Some(netlist_id) = netlist_id {
             let kfnetlist_core::NetlistInstance::Leaf(instance) = inst else {
                 unreachable!()
             };
             inst = kfnetlist_core::NetlistInstance::Ref(kfnetlist_core::RefNetlistInstance {
                 instance,
-                netlist_ref,
+                netlist_id,
             });
             self.0.instances.insert(inst.name.clone(), inst.clone());
         }
