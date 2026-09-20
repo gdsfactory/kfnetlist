@@ -12,8 +12,12 @@
 //! can still resolve through an instance-to-cell map, then `PlacedInstance.cell`.
 //! `component` remains a factory name and is never guessed to be a reference.
 //!
-//! Selective flattening retains references at the selected boundaries. Full
-//! recursive flattening rejects any explicit references it cannot expand.
+//! An explicit `instance_cell_map` also selects the instances to flatten in the
+//! starting netlist. Omitted instances remain intact, even when their reference
+//! or placed cell is known. Descendants of selected instances inherit eligibility;
+//! `sub_instance_cell_maps` only supplies cell names for those descendants.
+//! Selective flattening retains references at the selected boundaries. Recursive
+//! flattening without cell filters rejects eligible references it cannot expand.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -178,6 +182,8 @@ struct State {
     data: NetlistData,
     /// Instance name -> cell name, extended as instances are inlined.
     cell_of: HashMap<String, String>,
+    /// Instances selected for flattening, including descendants of expanded ones.
+    eligible: HashSet<String>,
     /// Instances already reported through `warn_skipped`.
     warned: HashSet<String>,
     warnings: Vec<String>,
@@ -211,6 +217,9 @@ fn expand_pass(
     let mut to_expand: Vec<String> = Vec::new();
     let mut skipped: Vec<(String, String)> = Vec::new();
     for (name, inst) in &state.data.instances {
+        if !state.eligible.contains(name) {
+            continue;
+        }
         let mut skip = |why: String| skipped.push((name.clone(), why));
         let Some(cell) = state.cell_of.get(name).cloned() else {
             skip(
@@ -244,6 +253,7 @@ fn expand_pass(
     let State {
         data: cur,
         cell_of,
+        eligible,
         warned,
         warnings,
     } = state;
@@ -253,6 +263,7 @@ fn expand_pass(
     let mut instances: IndexMap<String, NetlistInstance> = IndexMap::new();
     let mut extras: IndexMap<String, PlacedExtra> = IndexMap::new();
     let mut next_cell_of: HashMap<String, String> = HashMap::new();
+    let mut next_eligible = HashSet::new();
     let surviving: HashSet<&str> = cur
         .instances
         .keys()
@@ -268,6 +279,9 @@ fn expand_pass(
             }
             if let Some(cell) = cell_of.get(name) {
                 next_cell_of.insert(name.clone(), cell.clone());
+            }
+            if eligible.contains(name) {
+                next_eligible.insert(name.clone());
             }
             continue;
         }
@@ -286,6 +300,7 @@ fn expand_pass(
             let mut new_inst = inner_inst.clone();
             new_inst.name = new_name.clone();
             instances.insert(new_name.clone(), new_inst);
+            next_eligible.insert(new_name.clone());
 
             let inner_extra = sub.extras.get(inner_name).cloned().unwrap_or_default();
             // Preserve explicit references; use legacy maps/cell names only
@@ -431,6 +446,7 @@ fn expand_pass(
                 extras,
             },
             cell_of: next_cell_of,
+            eligible: next_eligible,
             warned,
             warnings,
         },
@@ -444,9 +460,14 @@ fn expand_pass(
 const MAX_PASSES: usize = 1000;
 
 /// Flatten `base` against the `{cell name: netlist}` mapping in `subs`.
+///
+/// `None` considers all starting instances. `Some(map)` selects only the map's
+/// keys and supplies their legacy cell names; an empty map selects nothing. Selected
+/// instances' descendants inherit eligibility when recursively flattened.
+/// `sub_instance_cell_maps` resolves descendants' cells without selecting them.
 pub fn flatten_netlist(
     base: NetlistData,
-    instance_cell_map: &HashMap<String, String>,
+    instance_cell_map: Option<&HashMap<String, String>>,
     subs: &HashMap<String, NetlistData>,
     sub_instance_cell_maps: &HashMap<String, HashMap<String, String>>,
     opts: &FlattenOptions,
@@ -456,7 +477,11 @@ pub fn flatten_netlist(
             .map(|(name, data)| (name.as_str(), &data.instances)),
     )?;
     let mut cell_of: HashMap<String, String> = HashMap::new();
+    let mut eligible = HashSet::new();
     for (name, instance) in &base.instances {
+        if instance_cell_map.is_none_or(|map| map.contains_key(name)) {
+            eligible.insert(name.clone());
+        }
         if let Some(reference) = instance.netlist_id() {
             if !subs.contains_key(reference) {
                 return Err(Error::MissingNetlistReference {
@@ -469,7 +494,7 @@ pub fn flatten_netlist(
         let cell = resolve_reference(
             name,
             instance,
-            instance_cell_map.get(name),
+            instance_cell_map.and_then(|map| map.get(name)),
             base.extras.get(name).map(|e| &e.cell),
         )?;
         if let Some(cell) = cell {
@@ -480,6 +505,7 @@ pub fn flatten_netlist(
     let mut state = State {
         data: base,
         cell_of,
+        eligible,
         warned: HashSet::new(),
         warnings: Vec::new(),
     };
@@ -496,10 +522,16 @@ pub fn flatten_netlist(
 
     // Deterministic output, matching the ordering `Netlist.sort()` produces.
     let State {
-        mut data, warnings, ..
+        mut data,
+        warnings,
+        eligible,
+        ..
     } = state;
     if opts.recursive && opts.cells.is_none() && opts.exclude.is_empty() {
         for (name, instance) in &data.instances {
+            if !eligible.contains(name) {
+                continue;
+            }
             if let Some(reference) = instance.netlist_id() {
                 return Err(Error::UnflattenedNetlistReference {
                     instance: name.clone(),

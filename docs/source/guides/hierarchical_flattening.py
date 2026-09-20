@@ -37,14 +37,15 @@
 # | Source | How |
 # |--------|-----|
 # | `PlacedInstance.cell` | automatic — `extract(include_placement=True)` fills it in |
-# | `instance_cell_map` | `{instance name: cell name}` for the netlist being flattened |
+# | `instance_cell_map` | `{instance name: cell name}` selects starting instances and supplies their cell names |
 # | `sub_instance_cell_maps` | `{cell name: {instance name: cell name}}` for the levels below |
 #
 # Instances whose cell cannot be resolved are left alone (pass
 # `warn_skipped=True` to hear about them).
+# An explicit map overrides stored cell names for its listed instances.
 
 # %%
-from kfnetlist import Netlist, PortRef, flatten_netlists
+from kfnetlist import Netlist, PlacedNetlist, PortRef, flatten_netlists
 
 # %% [markdown]
 # ## A two-level hierarchy
@@ -124,12 +125,52 @@ show(
 )
 
 # %% [markdown]
+# ## Selecting one instance of a shared cell
+#
+# `instance_cell_map=None` considers all instances whose cells can be resolved.
+# An explicit map selects only its keys in the starting netlist, even for a
+# `PlacedNetlist` whose instances already record their cells. `{}` selects
+# nothing. This is a change from treating the map only as a cell-name override.
+#
+# Here two instances reference the same `chain` cell. Only `left` is expanded;
+# `right` keeps its identity, settings, placement, and connections.
+
+# %%
+pair = PlacedNetlist()
+pair.create_inst("left", kcl="PDK", component="chain", cell="chain")
+pair.create_inst("right", kcl="PDK", component="chain", cell="chain")
+pair_in = pair.create_port("in")
+pair_out = pair.create_port("out")
+pair.create_net(pair_in, PortRef(instance="left", port="o1"))
+pair.create_net(PortRef(instance="left", port="o2"), PortRef(instance="right", port="o1"))
+pair.create_net(PortRef(instance="right", port="o2"), pair_out)
+
+selected = pair.flatten(
+    netlists,
+    instance_cell_map={"left": "chain"},
+    sub_instance_cell_maps={"chain": {"wg1": "straight", "wg2": "straight"}},
+)
+show("pair (left flattened)", selected)
+
+# %% [markdown]
+# With `recursive=True`, descendants of selected instances inherit eligibility
+# for flattening. Unlisted starting instances stay intact through every pass.
+# `sub_instance_cell_maps` supplies cell names for descendants; it does not
+# restrict which descendants may flatten. The `cells` and `exclude` filters
+# still apply at every level, and `recursive=False` expands only one level.
+# Selection keys are names in the starting netlist, not paths into unexpanded
+# child netlists.
+#
 # ## Flattening a whole hierarchy
 #
 # `flatten_netlists()` applies the same operation to every entry of the
 # mapping — the shape `extract()` returns. Each netlist is flattened against
 # the *original* mapping, so the result does not depend on iteration order, and
 # the cells that were inlined keep their own entry.
+# Each entry in `instance_cell_maps` selects the starting instances for that
+# cell's result. An empty entry selects nothing; a missing entry considers all
+# instances, using placed cell metadata when available. In recursive expansion,
+# these maps supply descendant cell names without restricting inherited selection.
 
 # %%
 flat_all = flatten_netlists(

@@ -231,3 +231,44 @@ def test_old_ref_spelling_is_rejected():
         )
     with pytest.raises(TypeError):
         RefNetlistInstance("pdk", "make_arm", ref="arm_10")  # ty: ignore[missing-argument, unknown-argument]
+
+
+@pytest.mark.parametrize("placed", [False, True])
+def test_instance_selection_preserves_unselected_references(placed):
+    doc = _document()
+    root = Netlist()
+    root.create_inst("chosen", "pdk", "make_top", netlist_id="top")
+    root.create_inst("retained", "pdk", "make_top", netlist_id="top")
+    if placed:
+        root = PlacedNetlist.from_netlist(
+            root, cells={"chosen": "layout_top", "retained": "layout_top"}
+        )
+
+    untouched = root.flatten(doc, instance_cell_map={})
+    assert untouched.to_dict() == root.to_dict()
+    selected = root.flatten(doc, instance_cell_map={"chosen": "top"})
+    assert set(selected.instances) == {
+        "chosen.left.wg",
+        "chosen.right.wg",
+        "retained",
+    }
+    retained = selected.instances["retained"]
+    assert isinstance(retained, (RefNetlistInstance, PlacedInstance))
+    assert retained.netlist_id == "top"
+    assert "netlist_id" not in selected.instances["chosen.left.wg"].to_dict()
+    assert "netlist_id" not in selected.instances["chosen.right.wg"].to_dict()
+    assert set(root.flatten(doc).instances) == {
+        "chosen.left.wg",
+        "chosen.right.wg",
+        "retained.left.wg",
+        "retained.right.wg",
+    }
+
+
+def test_selected_unexpandable_reference_still_raises():
+    doc = _document()
+    doc["top"].create_inst("array", "pdk", "make_arm", na=2, nb=3, netlist_id="arm_10")
+    selected = doc["top"].flatten(doc, instance_cell_map={"left": "arm_10"})
+    assert selected.instances["array"].netlist_id == "arm_10"
+    with pytest.raises(ValueError, match="cannot fully flatten"):
+        doc["top"].flatten(doc, instance_cell_map={"array": "arm_10"})

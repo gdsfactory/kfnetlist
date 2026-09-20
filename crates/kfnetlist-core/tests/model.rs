@@ -357,7 +357,7 @@ fn hierarchical_flattening_is_available_without_python() {
 
     let output = flatten_netlist(
         top.into(),
-        &HashMap::from([("sub".into(), "child".into())]),
+        Some(&HashMap::from([("sub".into(), "child".into())])),
         &HashMap::from([("child".into(), NetlistData::from(child))]),
         &HashMap::new(),
         &FlattenOptions::new(None, None, true, false, false, ".".into()),

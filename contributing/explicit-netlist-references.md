@@ -113,7 +113,10 @@ instances. Selective flattening preserves references at retained boundaries;
 existing flattening limitations, including arrays and empty child definitions,
 still apply. A full recursive flatten raises if any explicit references remain;
 it never silently returns a reference as a leaf. Selective/nonrecursive flatten
-can intentionally retain references.
+can intentionally retain references. An explicit `instance_cell_map` selects
+starting instances by its keys (an empty map selects nothing); their descendants
+inherit that selection. Unselected references remain intact. Recursive flattening
+without cell filters still rejects selected references that cannot be expanded.
 
 Rust struct-literal construction of the old `NetlistInstance` must change to
 `NetlistInstance::Leaf(LeafNetlistInstance { ... })` or `.into()`. This is a Rust
@@ -129,5 +132,5 @@ explicit references without any of those being redesigned in this PR.
 Focused checks cover Rust/Python variant construction, strict parsing, legacy
 construction, JSON round trips, reference validation, equality, snapshots,
 normalization, placed conversion, and flattening without side maps. Results are
-recorded in the draft PR description. Comprehensive release checks and CI
-monitoring are deferred while the draft is under discussion.
+recorded in the PR description. CI also runs the downstream kfactory test suite
+with this branch installed in place of its normal kfnetlist dependency.
