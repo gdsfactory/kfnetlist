@@ -113,3 +113,38 @@ Python suite checks the binding contract. CI runs both. Maturin reads
 distributions include both workspace dependencies. Package versions are
 inherited from the root `[workspace.package]` version, which the existing tbump
 configuration updates together with the Python package version.
+
+## Downstream kfactory CI
+
+`.github/workflows/kfactory.yml` runs kfactory's complete regular pytest suite
+against the kfnetlist commit that triggered the job. It runs for pushes to every
+branch, pull requests (using the PR head commit), manual dispatch, and the
+12-hour schedule. Branches must contain this workflow; merging it makes it part
+of the normal workflow for subsequent branches.
+
+The job checks out kfactory `main`, fetches its pinned public fixture submodules
+and `v0.6.0` GDS reference assets, then installs `kfactory[ci]` in a fresh virtual
+environment. A uv dependency override forces kfnetlist to come from the local
+checkout, even if kfactory's version constraint or Git pin says otherwise. The
+job verifies installation provenance and the native extension location before
+running pytest without project synchronization. Neither project's dependency
+manifest or lockfile is rewritten.
+
+The matrix matches kfactory's regular lane: Python 3.12–3.14 on Linux/macOS and
+3.12–3.13 on Windows, retaining upstream's Windows 3.14 KLayout-wheel exclusion.
+There are no extra test filters or skips; upstream's own optional-dependency
+skips remain visible. Minimum-dependency testing is a separate upstream lane.
+The workflow needs no private fixture credentials and uses read-only repository
+permissions. Failed tests fail the job, and JUnit reports are uploaded when
+available. Both repository SHAs and fixture submodule commits are logged so
+failures against the moving kfactory `main` can be reproduced.
+
+Local validation on 2026-09-20 used macOS ARM64/Python 3.12, kfactory commit
+`2b6a057c571be4aba44ecb2cf3999a667f3af15b`, and kfnetlist `a70fead` with the
+same fresh-environment install, override, fixtures, and provenance checks.
+The full suite with four workers completed in 124 seconds: **3,134 passed,
+4 skipped**. Skips were upstream's optional gdsfactory integration module and
+three empty parameter sets. A dry run with a deliberately conflicting
+`kfnetlist==0.0.0` requirement confirmed the override still selected the local
+checkout. `actionlint` and `git diff --check` passed. The other matrix entries
+have not been run locally.

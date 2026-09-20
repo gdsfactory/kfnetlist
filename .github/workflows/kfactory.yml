@@ -1,0 +1,112 @@
+name: kfactory compatibility
+
+on:
+  pull_request:
+  push:
+    branches: ["**"]
+  schedule:
+    - cron: "0 */12 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: kfactory-${{ github.event_name }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  kfactory:
+    name: kfactory (${{ matrix.python-version }}, ${{ matrix.os }})
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 30
+    strategy:
+      fail-fast: false
+      # Match kfactory's regular pytest matrix (not its minimum-dependency lane).
+      matrix:
+        python-version: ["3.12", "3.13", "3.14"]
+        os: [ubuntu-latest, windows-latest, macos-latest]
+        exclude:
+          # Same KLayout-wheel exclusion as kfactory's own workflow.
+          - os: windows-latest
+            python-version: "3.14"
+    defaults:
+      run:
+        shell: bash
+    steps:
+      - name: Check out the kfnetlist branch commit
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ github.event.pull_request.head.sha || github.sha }}
+          path: kfnetlist
+          persist-credentials: false
+      - name: Check out kfactory main
+        uses: actions/checkout@v6
+        with:
+          repository: gdsfactory/kfactory
+          ref: main
+          path: kfactory
+          persist-credentials: false
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: astral-sh/setup-uv@v7
+      - name: Fetch kfactory test fixtures
+        env:
+          GH_TOKEN: ${{ github.token }}
+          GIT_TERMINAL_PROMPT: "0"
+        run: |
+          # Both submodules are public. Rewrite their SSH URLs so fork PRs need no secret.
+          git -C kfactory \
+            -c 'url.https://github.com/.insteadOf=git@github.com:' \
+            -c 'url.https://github.com/.insteadOf=git@github.com:/' \
+            submodule update --init --recursive --depth 50
+          git -C kfactory/tests/gdsfactory-yaml-pics sparse-checkout set --no-cone "/docs/notebooks/yaml_pics/"
+          gh release download v0.6.0 --repo gdsfactory/kfactory --dir kfactory/gds/gds_ref --clobber
+          git -C kfnetlist rev-parse HEAD
+          git -C kfactory rev-parse HEAD
+          git -C kfactory submodule status
+      - name: Install kfactory with the checked-out kfnetlist as an override
+        run: |
+          uv venv .venv --python '${{ matrix.python-version }}'
+          uv run --no-project --python .venv python - <<'PY'
+          from pathlib import Path
+          checkout = Path("kfnetlist").resolve()
+          Path("kfnetlist-override.txt").write_text(
+              f"kfnetlist @ {checkout.as_uri()}\n", encoding="utf-8"
+          )
+          PY
+          # Override even a conflicting release/Git constraint; do not rewrite either lockfile.
+          uv pip install --python .venv --overrides kfnetlist-override.txt --editable './kfactory[ci]'
+      - name: Verify the dependency came from this checkout
+        run: |
+          uv run --no-project --python .venv python - <<'PY'
+          import json
+          import sys
+          from importlib.metadata import distribution
+          from pathlib import Path
+          import kfnetlist
+          from kfnetlist import _native
+
+          checkout = Path("kfnetlist").resolve()
+          installed = distribution("kfnetlist")
+          source = json.loads(installed.read_text("direct_url.json") or "{}")
+          assert source.get("url") == checkout.as_uri(), source
+          environment = Path(sys.prefix).resolve()
+          assert Path(kfnetlist.__file__).resolve().is_relative_to(environment)
+          assert Path(_native.__file__).resolve().is_relative_to(environment)
+          print(f"Testing kfnetlist {installed.version} built from {source['url']}")
+          print(f"Native extension: {_native.__file__}")
+          PY
+      - name: Run the full kfactory pytest suite
+        working-directory: kfactory
+        env:
+          KFACTORY_LOGFILTER_LEVEL: "ERROR"
+        run: |
+          # Use the prepared environment directly; project sync could restore a release.
+          uv run --no-project --python ../.venv python -m pytest -n logical -ra --junitxml=../kfactory-results.xml
+      - name: Upload kfactory test results
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: kfactory-${{ matrix.python-version }}-${{ matrix.os }}
+          path: kfactory-results.xml
+          if-no-files-found: ignore
