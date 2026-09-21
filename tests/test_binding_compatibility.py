@@ -5,15 +5,17 @@ from __future__ import annotations
 import json
 
 import pytest
+
 from kfnetlist import (
+    LeafNetlistInstance,
     Net,
     Netlist,
     NetlistArray,
     NetlistInstance,
     NetlistPort,
-    Placement,
     PlacedInstance,
     PlacedNetlist,
+    Placement,
     PortArrayRef,
     PortRef,
 )
@@ -124,7 +126,8 @@ def test_placed_normalization_still_returns_plain_connectivity() -> None:
     nl.create_inst("unit", "pdk", "cell", cell="placed", settings={"width": 1.0})
     normalized = nl.normalize()
     assert type(normalized) is Netlist
-    assert type(normalized.instances["unit"]) is NetlistInstance
+    assert type(normalized.instances["unit"]) is LeafNetlistInstance
+    assert isinstance(normalized.instances["unit"], NetlistInstance)
     assert normalized.instances["unit"].settings == {"width": 1}
     assert nl.instances["unit"].cell == "placed"
 

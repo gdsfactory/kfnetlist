@@ -21,6 +21,21 @@ pub enum Error {
     },
     MissingCanonicalPort(String),
     MissingInstance(String),
+    MissingNetlistReference {
+        netlist: String,
+        instance: String,
+        reference: String,
+    },
+    CyclicNetlistReference(String),
+    UnflattenedNetlistReference {
+        instance: String,
+        reference: String,
+    },
+    ConflictingNetlistReference {
+        instance: String,
+        reference: String,
+        mapped: String,
+    },
     FlattenInstanceCollision {
         instance: String,
         new_name: String,
@@ -60,6 +75,10 @@ impl fmt::Display for Error {
             Self::MissingCanonicalPort(name) => write!(f,
                 "normalize: canonical port {name:?} not present in netlist ports"),
             Self::MissingInstance(name) => f.write_str(name),
+            Self::MissingNetlistReference { netlist, instance, reference } => write!(f, "netlist {netlist:?}, instance {instance:?}: netlist_id {reference:?} does not exist in this document"),
+            Self::UnflattenedNetlistReference { instance, reference } => write!(f, "cannot fully flatten instance {instance:?} referencing {reference:?}: array or empty child cannot be inlined; use selective flattening to retain this reference"),
+            Self::CyclicNetlistReference(name) => write!(f, "cyclic netlist reference involving {name:?}"),
+            Self::ConflictingNetlistReference { instance, reference, mapped } => write!(f, "instance {instance:?}: netlist_id {reference:?} conflicts with explicit mapping {mapped:?}"),
             Self::FlattenInstanceCollision { instance, new_name } => write!(
                 f,
                 "flatten: inlining instance {instance:?} would create instance {new_name:?}, which already exists"

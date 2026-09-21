@@ -34,7 +34,7 @@ mod netlist;
 mod placement;
 mod port;
 mod schema;
-use instance::{NetlistArray, NetlistInstance};
+use instance::{LeafNetlistInstance, NetlistArray, NetlistInstance, RefNetlistInstance};
 use net::{Net, NetIter};
 use netlist::Netlist;
 use placement::{PlacedInstance, PlacedNetlist, Placement};
@@ -48,6 +48,10 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<PortArrayRef>()?;
     m.add_class::<NetlistArray>()?;
     m.add_class::<NetlistInstance>()?;
+    m.add_class::<LeafNetlistInstance>()?;
+    m.add_class::<RefNetlistInstance>()?;
+    m.add_function(wrap_pyfunction!(hierarchy_from_json, m)?)?;
+    m.add_function(wrap_pyfunction!(validate_hierarchy, m)?)?;
     m.add_class::<Net>()?;
     m.add_class::<NetIter>()?;
     m.add_class::<Netlist>()?;
@@ -187,4 +191,38 @@ pub(crate) fn py_repr(s: &str) -> String {
     }
     out.push(quote);
     out
+}
+
+/// Load a complete plain-netlist document and validate reference targets and cycles.
+#[pyfunction]
+fn hierarchy_from_json<'py>(
+    py: Python<'py>,
+    data: &str,
+) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
+    let hierarchy = kfnetlist_core::hierarchy_from_json(data).map_err(core_error)?;
+    let result = pyo3::types::PyDict::new(py);
+    for (name, netlist) in hierarchy {
+        result.set_item(name, Py::new(py, Netlist(netlist))?)?;
+    }
+    Ok(result)
+}
+
+/// Validate a dict of existing netlists after construction or editing.
+#[pyfunction]
+fn validate_hierarchy(netlists: &Bound<'_, PyAny>) -> PyResult<()> {
+    let data = flatten::read_netlists(netlists)?;
+    let hierarchy = data
+        .into_iter()
+        .map(|(name, data)| {
+            (
+                name,
+                kfnetlist_core::Netlist {
+                    instances: data.instances,
+                    ports: data.ports,
+                    nets: data.nets,
+                },
+            )
+        })
+        .collect();
+    kfnetlist_core::validate_hierarchy(&hierarchy).map_err(core_error)
 }

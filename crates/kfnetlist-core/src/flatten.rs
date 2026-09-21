@@ -7,19 +7,17 @@
 //! discarded — this is the inverse of [`Netlist::remove_instances`], which
 //! deletes an instance and merges the nets it touched.
 //!
-//! Resolving an instance to its cell's netlist needs the *cell name*, which a
-//! plain [`NetlistInstance`] does not carry (`component` is the factory name).
-//! Two sources are supported, in priority order:
-//!
-//! 1. an explicit `instance name -> cell name` map (`instance_cell_map` for the netlist
-//!    being flattened, `sub_instance_cell_maps` keyed by cell name for the levels below), and
-//! 2. `PlacedInstance.cell`, which extraction fills in for the placed flavor.
+//! Explicit instance `netlist_id` values identify children in the supplied document.
+//! They are authoritative: conflicting side maps are rejected. Legacy leaves
+//! can still resolve through an instance-to-cell map, then `PlacedInstance.cell`.
+//! `component` remains a factory name and is never guessed to be a reference.
 //!
 //! An explicit `instance_cell_map` also selects the instances to flatten in the
-//! starting netlist. Omitted instances remain intact, even when their placed
-//! cell is known. Descendants of selected instances inherit eligibility;
+//! starting netlist. Omitted instances remain intact, even when their reference
+//! or placed cell is known. Descendants of selected instances inherit eligibility;
 //! `sub_instance_cell_maps` only supplies cell names for those descendants.
-//! Instances whose cell cannot be resolved are left alone.
+//! Selective flattening retains references at the selected boundaries. Recursive
+//! flattening without cell filters rejects eligible references it cannot expand.
 
 use std::collections::{BTreeMap, HashMap, HashSet};
 
@@ -305,13 +303,16 @@ fn expand_pass(
             next_eligible.insert(new_name.clone());
 
             let inner_extra = sub.extras.get(inner_name).cloned().unwrap_or_default();
-            // An explicit map wins over `PlacedInstance.cell`, and either is
-            // worth recording: it keeps the result flattenable without maps.
-            let resolved = sub_instance_cell_maps
-                .get(cell)
-                .and_then(|map| map.get(inner_name))
-                .cloned()
-                .or_else(|| Some(inner_extra.cell.clone()).filter(|c| !c.is_empty()));
+            // Preserve explicit references; use legacy maps/cell names only
+            // when the instance has no document reference.
+            let resolved = resolve_reference(
+                inner_name,
+                inner_inst,
+                sub_instance_cell_maps
+                    .get(cell)
+                    .and_then(|map| map.get(inner_name)),
+                Some(&inner_extra.cell),
+            )?;
             extras.insert(
                 new_name.clone(),
                 PlacedExtra {
@@ -461,7 +462,7 @@ const MAX_PASSES: usize = 1000;
 /// Flatten `base` against the `{cell name: netlist}` mapping in `subs`.
 ///
 /// `None` considers all starting instances. `Some(map)` selects only the map's
-/// keys and overrides their cell names; an empty map selects nothing. Selected
+/// keys and supplies their legacy cell names; an empty map selects nothing. Selected
 /// instances' descendants inherit eligibility when recursively flattened.
 /// `sub_instance_cell_maps` resolves descendants' cells without selecting them.
 pub fn flatten_netlist(
@@ -471,17 +472,31 @@ pub fn flatten_netlist(
     sub_instance_cell_maps: &HashMap<String, HashMap<String, String>>,
     opts: &FlattenOptions,
 ) -> Result<FlattenOutput> {
+    crate::hierarchy::validate_instance_maps(
+        subs.iter()
+            .map(|(name, data)| (name.as_str(), &data.instances)),
+    )?;
     let mut cell_of: HashMap<String, String> = HashMap::new();
     let mut eligible = HashSet::new();
-    for name in base.instances.keys() {
+    for (name, instance) in &base.instances {
         if instance_cell_map.is_none_or(|map| map.contains_key(name)) {
             eligible.insert(name.clone());
         }
-        let cell = instance_cell_map
-            .and_then(|map| map.get(name))
-            .cloned()
-            .or_else(|| base.extras.get(name).map(|e| e.cell.clone()))
-            .filter(|cell| !cell.is_empty());
+        if let Some(reference) = instance.netlist_id() {
+            if !subs.contains_key(reference) {
+                return Err(Error::MissingNetlistReference {
+                    netlist: "<root>".into(),
+                    instance: name.clone(),
+                    reference: reference.into(),
+                });
+            }
+        }
+        let cell = resolve_reference(
+            name,
+            instance,
+            instance_cell_map.and_then(|map| map.get(name)),
+            base.extras.get(name).map(|e| &e.cell),
+        )?;
         if let Some(cell) = cell {
             cell_of.insert(name.clone(), cell);
         }
@@ -507,8 +522,24 @@ pub fn flatten_netlist(
 
     // Deterministic output, matching the ordering `Netlist.sort()` produces.
     let State {
-        mut data, warnings, ..
+        mut data,
+        warnings,
+        eligible,
+        ..
     } = state;
+    if opts.recursive && opts.cells.is_none() && opts.exclude.is_empty() {
+        for (name, instance) in &data.instances {
+            if !eligible.contains(name) {
+                continue;
+            }
+            if let Some(reference) = instance.netlist_id() {
+                return Err(Error::UnflattenedNetlistReference {
+                    instance: name.clone(),
+                    reference: reference.into(),
+                });
+            }
+        }
+    }
     data.instances.sort_keys();
     data.extras.sort_keys();
     for net in &mut data.nets {
@@ -517,4 +548,27 @@ pub fn flatten_netlist(
     data.nets.sort();
     data.ports.sort();
     Ok(FlattenOutput { data, warnings })
+}
+
+// Explicit document references are authoritative; legacy mapping remains available
+// for leaf/placed instances. A layout cell name need not equal a document key.
+fn resolve_reference(
+    name: &str,
+    instance: &NetlistInstance,
+    mapped: Option<&String>,
+    placed: Option<&String>,
+) -> Result<Option<String>> {
+    if let Some(reference) = instance.netlist_id() {
+        if let Some(mapped) = mapped {
+            if mapped != reference {
+                return Err(Error::ConflictingNetlistReference {
+                    instance: name.into(),
+                    reference: reference.into(),
+                    mapped: mapped.clone(),
+                });
+            }
+        }
+        return Ok(Some(reference.into()));
+    }
+    Ok(mapped.or(placed).filter(|value| !value.is_empty()).cloned())
 }

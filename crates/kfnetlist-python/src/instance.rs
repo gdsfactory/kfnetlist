@@ -131,6 +131,7 @@ impl NetlistInstance {
     }
     #[new]
     #[pyo3(signature = (kcl, component, settings=None, array=None, name=String::new(), *, info=None))]
+    #[allow(clippy::too_many_arguments)]
     fn new(
         py: Python<'_>,
         kcl: String,
@@ -139,20 +140,16 @@ impl NetlistInstance {
         array: Option<NetlistArray>,
         name: String,
         info: Option<&Bound<'_, PyAny>>,
-    ) -> PyResult<Self> {
-        let settings = match settings {
-            Some(obj) if !obj.is_none() => from_py_any::<serde_json::Value>(obj)?,
-            _ => serde_json::Value::Object(Default::default()),
-        };
-        let _ = py;
-        Ok(Self(kfnetlist_core::NetlistInstance {
-            kcl,
-            info: info_from_py(info)?,
-            component,
-            settings,
-            array: array.map(|value| value.0),
-            name,
-        }))
+    ) -> PyResult<Py<Self>> {
+        make_leaf(kcl, component, settings, array, name, info)?.into_py_variant(py)
+    }
+
+    /// Only reference variants expose a reference; leaves raise AttributeError.
+    #[getter]
+    fn netlist_id(&self) -> PyResult<String> {
+        self.0.netlist_id().map(str::to_owned).ok_or_else(|| {
+            pyo3::exceptions::PyAttributeError::new_err("a leaf instance has no netlist_id")
+        })
     }
 
     /// Fresh metadata snapshot; assign a whole dictionary to replace it.
@@ -200,7 +197,8 @@ impl NetlistInstance {
             return Ok(py.NotImplemented());
         };
         let other = other.borrow();
-        let eq = self.kcl == other.kcl
+        let eq = self.0.netlist_id() == other.0.netlist_id()
+            && self.kcl == other.kcl
             && self.component == other.component
             && self.settings == other.settings
             && self.info == other.info
@@ -231,9 +229,9 @@ impl NetlistInstance {
 
     #[classmethod]
     #[pyo3(signature = (data, name=String::new()))]
-    fn from_json(_cls: &Bound<'_, PyType>, data: &str, name: String) -> PyResult<Self> {
+    fn from_json(cls: &Bound<'_, PyType>, data: &str, name: String) -> PyResult<Py<Self>> {
         let wire: NetlistInstanceWire = json_parse(data)?;
-        Ok(Self::from_wire(name, wire))
+        Self::from_wire(name, wire).for_class(cls)
     }
 
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
@@ -242,9 +240,13 @@ impl NetlistInstance {
 
     #[classmethod]
     #[pyo3(signature = (obj, name=String::new()))]
-    fn from_dict(_cls: &Bound<'_, PyType>, obj: &Bound<'_, PyAny>, name: String) -> PyResult<Self> {
+    fn from_dict(
+        cls: &Bound<'_, PyType>,
+        obj: &Bound<'_, PyAny>,
+        name: String,
+    ) -> PyResult<Py<Self>> {
         let wire: NetlistInstanceWire = from_py_any(obj)?;
-        Ok(Self::from_wire(name, wire))
+        Self::from_wire(name, wire).for_class(cls)
     }
 }
 
@@ -255,5 +257,120 @@ pub(crate) fn info_from_py(
     match value {
         Some(obj) if !obj.is_none() => from_py_any(obj),
         _ => Ok(Default::default()),
+    }
+}
+
+// These Python subclasses preserve the historical callable/isinstance interface.
+// The domain representation is the Rust enum, not an inheritance hierarchy.
+#[pyclass(module = "kfnetlist._native", extends = NetlistInstance)]
+pub struct LeafNetlistInstance;
+
+#[pyclass(module = "kfnetlist._native", extends = NetlistInstance)]
+pub struct RefNetlistInstance;
+
+fn make_leaf(
+    kcl: String,
+    component: String,
+    settings: Option<&Bound<'_, PyAny>>,
+    array: Option<NetlistArray>,
+    name: String,
+    info: Option<&Bound<'_, PyAny>>,
+) -> PyResult<NetlistInstance> {
+    let settings = match settings {
+        Some(obj) if !obj.is_none() => from_py_any::<serde_json::Value>(obj)?,
+        _ => serde_json::Value::Object(Default::default()),
+    };
+    Ok(NetlistInstance(kfnetlist_core::NetlistInstance::Leaf(
+        kfnetlist_core::LeafNetlistInstance {
+            kcl,
+            component,
+            settings,
+            array: array.map(|a| a.0),
+            name,
+            info: info_from_py(info)?,
+        },
+    )))
+}
+
+impl NetlistInstance {
+    pub(crate) fn into_py_variant(self, py: Python<'_>) -> PyResult<Py<Self>> {
+        if self.0.netlist_id().is_some() {
+            Ok(Py::new(
+                py,
+                PyClassInitializer::from(self).add_subclass(RefNetlistInstance),
+            )?
+            .into_bound(py)
+            .into_super()
+            .unbind())
+        } else {
+            Ok(Py::new(
+                py,
+                PyClassInitializer::from(self).add_subclass(LeafNetlistInstance),
+            )?
+            .into_bound(py)
+            .into_super()
+            .unbind())
+        }
+    }
+    fn for_class(self, cls: &Bound<'_, PyType>) -> PyResult<Py<Self>> {
+        let py = cls.py();
+        let is_ref = self.0.netlist_id().is_some();
+        if (cls.is(&py.get_type::<LeafNetlistInstance>()) && is_ref)
+            || (cls.is(&py.get_type::<RefNetlistInstance>()) && !is_ref)
+        {
+            return Err(pyo3::exceptions::PyValueError::new_err(
+                "instance does not match the requested leaf/reference variant",
+            ));
+        }
+        self.into_py_variant(py)
+    }
+}
+
+#[pymethods]
+impl LeafNetlistInstance {
+    #[new]
+    #[pyo3(signature = (kcl, component, settings=None, array=None, name=String::new(), *, info=None))]
+    fn new(
+        kcl: String,
+        component: String,
+        settings: Option<&Bound<'_, PyAny>>,
+        array: Option<NetlistArray>,
+        name: String,
+        info: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        Ok(
+            PyClassInitializer::from(make_leaf(kcl, component, settings, array, name, info)?)
+                .add_subclass(Self),
+        )
+    }
+}
+
+#[pymethods]
+impl RefNetlistInstance {
+    #[new]
+    #[pyo3(signature = (kcl, component, settings=None, array=None, name=String::new(), *, netlist_id, info=None))]
+    #[allow(clippy::too_many_arguments)]
+    fn new(
+        kcl: String,
+        component: String,
+        settings: Option<&Bound<'_, PyAny>>,
+        array: Option<NetlistArray>,
+        name: String,
+        netlist_id: String,
+        info: Option<&Bound<'_, PyAny>>,
+    ) -> PyResult<PyClassInitializer<Self>> {
+        let leaf = make_leaf(kcl, component, settings, array, name, info)?;
+        let kfnetlist_core::NetlistInstance::Leaf(instance) = leaf.0 else {
+            unreachable!()
+        };
+        Ok(
+            PyClassInitializer::from(NetlistInstance(kfnetlist_core::NetlistInstance::Ref(
+                kfnetlist_core::RefNetlistInstance {
+                    instance,
+                    netlist_id,
+                },
+            )))
+            .add_subclass(Self),
+        )
     }
 }

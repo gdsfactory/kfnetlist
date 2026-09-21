@@ -170,3 +170,7 @@ Full documentation: https://gdsfactory.github.io/kfnetlist
 ## License
 
 kfnetlist is released under the [Apache License 2.0](LICENSE).
+
+The draft [explicit netlist references](contributing/explicit-netlist-references.md)
+proposal adds `LeafNetlistInstance` / `RefNetlistInstance` and hierarchy validation
+without requiring placement or generated layout cell names.

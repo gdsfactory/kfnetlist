@@ -39,9 +39,10 @@ def flatten_netlists(
     ``instance_cell_maps`` maps a cell name to that cell's
     ``{instance name -> cell name}``. For each starting netlist, an explicit
     map selects only its listed instances; an empty map selects nothing. A
-    missing cell entry considers all its instances, resolving their cells from
-    :class:`~kfnetlist.PlacedNetlist` metadata when available. Plain
-    :class:`~kfnetlist.Netlist` objects need maps to resolve their cell names.
+    missing cell entry considers all its instances, resolving explicit
+    ``netlist_id`` references first, then placed-cell metadata when available.
+    Legacy plain instances need maps to resolve their cell names. Map entries
+    that conflict with an explicit reference are errors.
     During recursive expansion, the same maps supply descendant cell names;
     descendants inherit selection from the instance being expanded.
     """

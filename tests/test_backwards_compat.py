@@ -20,6 +20,10 @@ class TestTopLevelExports:
 
     def test_all_declared(self):
         expected = {
+            "LeafNetlistInstance",
+            "RefNetlistInstance",
+            "hierarchy_from_json",
+            "validate_hierarchy",
             "Net",
             "Netlist",
             "NetlistArray",

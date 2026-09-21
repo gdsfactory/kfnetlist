@@ -192,14 +192,16 @@ impl PlacedInstance {
             Some(obj) if !obj.is_none() => from_py_any::<serde_json::Value>(obj)?,
             _ => serde_json::Value::Object(Default::default()),
         };
-        let inst = NetlistInstance(kfnetlist_core::NetlistInstance {
-            info: info_from_py(info)?,
-            kcl,
-            component,
-            settings,
-            array: array.map(|value| value.0),
-            name,
-        });
+        let inst = NetlistInstance(kfnetlist_core::NetlistInstance::Leaf(
+            kfnetlist_core::LeafNetlistInstance {
+                info: info_from_py(info)?,
+                kcl,
+                component,
+                settings,
+                array: array.map(|value| value.0),
+                name,
+            },
+        ));
         Ok(placed_inst_init(
             inst,
             PlacedExtra {
@@ -369,7 +371,7 @@ impl PlacedNetlist {
     /// [`Netlist::create_inst`] with trailing optional `cell`/`placement`;
     /// keeping the base parameter order makes this a substitutable override.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (name, kcl, component, settings=None, na=1, nb=1, cell=String::new(), placement=None, *, info=None))]
+    #[pyo3(signature = (name, kcl, component, settings=None, na=1, nb=1, cell=String::new(), placement=None, *, info=None, netlist_id=None))]
     fn create_inst(
         slf: PyRefMut<'_, Self>,
         py: Python<'_>,
@@ -382,6 +384,7 @@ impl PlacedNetlist {
         cell: String,
         placement: Option<Placement>,
         info: Option<&Bound<'_, PyAny>>,
+        netlist_id: Option<String>,
     ) -> PyResult<Py<PlacedInstance>> {
         let settings = match settings {
             Some(obj) if !obj.is_none() => from_py_any::<serde_json::Value>(obj)?,
@@ -393,7 +396,22 @@ impl PlacedNetlist {
         };
         let info = info_from_py(info)?;
         let placed = Self::with_core(slf, |core| {
-            core.create_inst_with_info(name, kcl, component, settings, na, nb, info, extra)
+            let mut placed =
+                core.create_inst_with_info(name, kcl, component, settings, na, nb, info, extra)?;
+            if let Some(netlist_id) = netlist_id {
+                let kfnetlist_core::NetlistInstance::Leaf(instance) = placed.instance else {
+                    unreachable!()
+                };
+                placed.instance =
+                    kfnetlist_core::NetlistInstance::Ref(kfnetlist_core::RefNetlistInstance {
+                        instance,
+                        netlist_id,
+                    });
+                core.netlist
+                    .instances
+                    .insert(placed.instance.name.clone(), placed.instance.clone());
+            }
+            Ok(placed)
         })
         .map_err(crate::core_error)?;
         Py::new(py, placed_inst_init(placed.instance.into(), placed.extra))
@@ -424,8 +442,9 @@ impl PlacedNetlist {
     /// came from (so the geometry stays in this cell's coordinates).
     ///
     /// Same arguments as [`Netlist::flatten`]. With `instance_cell_map=None`,
-    /// every instance is considered using `PlacedInstance.cell`. An explicit map
-    /// selects only its named instances and overrides their cell names; `{}`
+    /// every instance is considered using its explicit `netlist_id` or, for legacy
+    /// instances, `PlacedInstance.cell`. An explicit map selects only its named
+    /// instances and supplies legacy cell names; conflicting references are errors. `{}`
     /// selects nothing. Unlisted instances remain intact throughout recursion,
     /// while descendants of selected instances inherit eligibility.
     /// `sub_instance_cell_maps` only supplies cell-name overrides for descendants.
