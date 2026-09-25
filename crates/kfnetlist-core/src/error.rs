@@ -19,6 +19,10 @@ pub enum Error {
         size: i64,
         index: i64,
     },
+    ArrayInstanceCollision {
+        instance: String,
+        new_name: String,
+    },
     MissingCanonicalPort(String),
     MissingInstance(String),
     MissingNetlist(String),
@@ -73,6 +77,10 @@ impl fmt::Display for Error {
                 let direction = match direction { ArrayDirection::A => "na", ArrayDirection::B => "nb" };
                 write!(f, "Instance {instance} has only {size} elements in `{direction}` direction")
             }
+            Self::ArrayInstanceCollision { instance, new_name } => write!(
+                f,
+                "expanding array instance {instance:?} would create instance {new_name:?}, which already exists"
+            ),
             Self::MissingCanonicalPort(name) => write!(f,
                 "normalize: canonical port {name:?} not present in netlist ports"),
             Self::MissingInstance(name) => f.write_str(name),

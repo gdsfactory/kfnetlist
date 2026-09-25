@@ -253,6 +253,32 @@ def test_prune_unconnected_keeps_ports_and_explicit_roots() -> None:
     assert nl.instance_names() == ["a", "b", "c", "d"]
 
 
+def test_expand_arrays_preserves_refs_settings_and_original() -> None:
+    nl = Netlist()
+    nl.create_inst(
+        "arr", kcl="p", component="factory", settings={"gain": 2},
+        na=2, nb=1, netlist_id="child",
+    )
+    nl.create_port("in")
+    nl.create_net(NetlistPort("in"), PortRef("arr", "in"))
+    nl.create_net(PortArrayRef("arr", "out", 2, 1))
+    expanded = nl.expand_arrays()
+    assert expanded.instance_names() == ["arr<0.0>", "arr<1.0>"]
+    assert expanded.instances["arr<0.0>"].netlist_id == "child"
+    assert expanded.instances["arr<1.0>"].settings == {"gain": 2}
+    assert all(instance.array is None for instance in expanded.instances.values())
+    assert nl.instance_names() == ["arr"]
+    assert isinstance(expanded.nets[0][1], PortRef)
+
+
+def test_expand_arrays_rejects_generated_name_collisions() -> None:
+    nl = Netlist()
+    nl.create_inst("arr", kcl="p", component="factory", na=2)
+    nl.create_inst("arr<0.0>", kcl="p", component="other")
+    with pytest.raises(ValueError, match="already exists"):
+        nl.expand_arrays()
+
+
 def test_flatten_instances_is_a_deprecated_alias() -> None:
     nl = _netlist_with_removable_instance()
     with pytest.deprecated_call():

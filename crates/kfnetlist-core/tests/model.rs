@@ -360,6 +360,49 @@ fn pruning_keeps_port_connected_components_and_explicit_roots() {
 }
 
 #[test]
+fn expanding_arrays_rewrites_refs_and_preserves_source() {
+    let mut nl = Netlist::default();
+    nl.create_inst(
+        "arr".into(),
+        "pdk".into(),
+        "cell".into(),
+        json!({"gain": 2}),
+        2,
+        1,
+    )
+    .unwrap();
+    let input = nl.create_port("in".into());
+    nl.create_net([NetMember::Port(input), reference("arr", "in")])
+        .unwrap();
+    nl.create_net([array_reference("arr", 1, 1), array_reference("arr", 2, 1)])
+        .unwrap();
+
+    let expanded = nl.expand_arrays().unwrap();
+    assert_eq!(expanded.instance_names(), vec!["arr<0.0>", "arr<1.0>"]);
+    assert!(expanded
+        .instances
+        .values()
+        .all(|instance| instance.array.is_none()));
+    assert_eq!(expanded.instances["arr<0.0>"].settings, json!({"gain": 2}));
+    assert!(expanded.nets.iter().all(|net| net
+        .members
+        .iter()
+        .all(|member| !matches!(member, NetMember::ArrayRef(_)))));
+    assert_eq!(nl.instance_names(), vec!["arr"]);
+}
+
+#[test]
+fn expanding_arrays_rejects_generated_name_collisions() {
+    let mut nl = Netlist::default();
+    add_instance(&mut nl, "arr", "cell");
+    add_instance(&mut nl, "arr<0.0>", "other");
+    assert!(matches!(
+        nl.expand_arrays(),
+        Err(Error::ArrayInstanceCollision { .. })
+    ));
+}
+
+#[test]
 fn hierarchical_flattening_is_available_without_python() {
     let mut child = Netlist::default();
     child

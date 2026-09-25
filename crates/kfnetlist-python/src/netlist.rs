@@ -165,6 +165,11 @@ impl Netlist {
             .map_err(core_error)
     }
 
+    /// Copy this netlist with array instances expanded into scalar instances.
+    fn expand_arrays(&self) -> PyResult<Self> {
+        self.0.expand_arrays().map(Self).map_err(core_error)
+    }
+
     /// Deprecated alias for [`Netlist::remove_instances`].
     #[pyo3(name = "flatten_instances")]
     fn flatten_instances_deprecated(&mut self, py: Python<'_>, names: Vec<String>) -> PyResult<()> {

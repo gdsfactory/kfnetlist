@@ -319,6 +319,105 @@ impl Netlist {
         Ok(result)
     }
 
+    /// Expand array instances to scalar instances named `name<column.row>`
+    /// (zero-based), and rewrite every array port reference accordingly.
+    /// An unindexed port reference to an array selects its first element.
+    pub fn expand_arrays(&self) -> Result<Self> {
+        let mut result = Self {
+            instances: Default::default(),
+            nets: Vec::with_capacity(self.nets.len()),
+            ports: self.ports.clone(),
+        };
+        for (name, instance) in &self.instances {
+            let (na, nb) = instance
+                .array
+                .as_ref()
+                .map_or((1, 1), |array| (array.na, array.nb));
+            if na < 1 || nb < 1 {
+                return Err(Error::InvalidArrayDimensions { na, nb });
+            }
+            for column in 0..na {
+                for row in 0..nb {
+                    let new_name = array_element_name(name, column, row, na, nb);
+                    if result.instances.contains_key(&new_name)
+                        || (new_name != *name && self.instances.contains_key(&new_name))
+                    {
+                        return Err(Error::ArrayInstanceCollision {
+                            instance: name.clone(),
+                            new_name,
+                        });
+                    }
+                    let mut scalar = instance.clone();
+                    scalar.name = new_name.clone();
+                    scalar.array = None;
+                    result.instances.insert(new_name, scalar);
+                }
+            }
+        }
+
+        for net in &self.nets {
+            let members = net
+                .members
+                .iter()
+                .map(|member| match member {
+                    NetMember::Port(port) => Ok(NetMember::Port(port.clone())),
+                    NetMember::Ref(reference) => {
+                        let instance = self
+                            .instances
+                            .get(&reference.instance)
+                            .ok_or_else(|| Error::UnknownInstance(reference.instance.clone()))?;
+                        let (na, nb) = instance
+                            .array
+                            .as_ref()
+                            .map_or((1, 1), |array| (array.na, array.nb));
+                        Ok(NetMember::Ref(PortRef {
+                            instance: array_element_name(&reference.instance, 0, 0, na, nb),
+                            port: reference.port.clone(),
+                        }))
+                    }
+                    NetMember::ArrayRef(reference) => {
+                        let instance = self
+                            .instances
+                            .get(&reference.instance)
+                            .ok_or_else(|| Error::UnknownInstance(reference.instance.clone()))?;
+                        let array = instance
+                            .array
+                            .as_ref()
+                            .ok_or_else(|| Error::NotArrayInstance(reference.clone()))?;
+                        if reference.ia < 1 || reference.ia > array.na {
+                            return Err(Error::ArrayIndexOutOfBounds {
+                                instance: reference.instance.clone(),
+                                direction: crate::ArrayDirection::A,
+                                size: array.na,
+                                index: reference.ia,
+                            });
+                        }
+                        if reference.ib < 1 || reference.ib > array.nb {
+                            return Err(Error::ArrayIndexOutOfBounds {
+                                instance: reference.instance.clone(),
+                                direction: crate::ArrayDirection::B,
+                                size: array.nb,
+                                index: reference.ib,
+                            });
+                        }
+                        Ok(NetMember::Ref(PortRef {
+                            instance: array_element_name(
+                                &reference.instance,
+                                reference.ia - 1,
+                                reference.ib - 1,
+                                array.na,
+                                array.nb,
+                            ),
+                            port: reference.port.clone(),
+                        }))
+                    }
+                })
+                .collect::<Result<Vec<_>>>()?;
+            result.create_net(members)?;
+        }
+        Ok(result)
+    }
+
     /// Backwards-compatible alias for [`Netlist::remove_instances`].
     #[deprecated(note = "use remove_instances; flatten now means hierarchical inlining")]
     pub fn flatten_instances(&mut self, names: Vec<String>) -> Result<()> {
@@ -532,6 +631,14 @@ impl Netlist {
         nl.normalize_settings();
         nl.sort();
         Ok(nl)
+    }
+}
+
+fn array_element_name(name: &str, column: i64, row: i64, na: i64, nb: i64) -> String {
+    if na == 1 && nb == 1 {
+        name.to_string()
+    } else {
+        format!("{name}<{column}.{row}>")
     }
 }
 fn nl_component_lookup(
