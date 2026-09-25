@@ -97,6 +97,14 @@ impl HierarchicalNetlist {
             .ok_or_else(|| PyKeyError::new_err(key.to_string()))
     }
 
+    #[pyo3(signature = (key, default=None))]
+    fn get(&self, py: Python<'_>, key: &str, default: Option<Py<PyAny>>) -> Py<PyAny> {
+        self.netlists
+            .get(key)
+            .map(|value| value.clone_ref(py).into_any())
+            .unwrap_or_else(|| default.unwrap_or_else(|| py.None()))
+    }
+
     fn __setitem__(
         &mut self,
         py: Python<'_>,

@@ -1,6 +1,7 @@
 """A live Python hierarchy object with explicit document validation."""
 
 import json
+from collections.abc import Mapping
 
 import pytest
 
@@ -32,6 +33,9 @@ def test_mapping_construction_and_live_child_edits() -> None:
     assert doc["top"] is source["top"]
     assert doc.keys() == ["top", "child"]
     assert doc.items()[0][1] is source["top"]
+    assert isinstance(doc, Mapping)
+    assert doc.get("top") is source["top"]
+    assert doc.get("missing") is None
     assert "top" in doc and len(doc) == 2
     doc["top"].create_inst("missing", "pdk", "make_other", netlist_id="other")
     with pytest.raises(ValueError, match="other.*does not exist"):

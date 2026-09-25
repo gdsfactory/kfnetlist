@@ -1,5 +1,7 @@
 """Standalone netlist schema decoupled from kfactory's release cadence."""
 
+from collections.abc import Mapping
+
 from ._flatten import flatten_netlists
 from ._native import (
     HierarchicalNetlist,
@@ -19,6 +21,8 @@ from ._native import (
     validate_hierarchy,
 )
 from .port_check import PortCheck, check_connection
+
+Mapping.register(HierarchicalNetlist)
 
 __version__ = "0.3.0"
 
