@@ -20,6 +20,7 @@ class TestTopLevelExports:
 
     def test_all_declared(self):
         expected = {
+            "HierarchicalNetlist",
             "LeafNetlistInstance",
             "RefNetlistInstance",
             "hierarchy_from_json",
@@ -43,6 +44,7 @@ class TestTopLevelExports:
     def test_native_types_are_rust_classes(self):
         # Confirm the Rust extension is what backs these names
         from kfnetlist._native import (
+            HierarchicalNetlist,
             Net,
             Netlist,
             NetlistArray,
@@ -53,6 +55,7 @@ class TestTopLevelExports:
         )
 
         assert kfnetlist.Net is Net
+        assert kfnetlist.HierarchicalNetlist is HierarchicalNetlist
         assert kfnetlist.Netlist is Netlist
         assert kfnetlist.NetlistArray is NetlistArray
         assert kfnetlist.NetlistInstance is NetlistInstance

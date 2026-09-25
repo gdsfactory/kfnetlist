@@ -7,6 +7,7 @@ use pyo3::exceptions::PyTypeError;
 use pyo3::prelude::*;
 use pyo3::types::PyDict;
 
+use crate::hierarchy::HierarchicalNetlist;
 use crate::netlist::Netlist;
 use crate::placement::PlacedNetlist;
 
@@ -14,9 +15,16 @@ use crate::placement::PlacedNetlist;
 pub(crate) fn read_netlists(
     obj: &Bound<'_, PyAny>,
 ) -> PyResult<HashMap<String, kfnetlist_core::NetlistData>> {
-    let dict = obj.downcast::<PyDict>().map_err(|_| {
-        PyTypeError::new_err("netlists must be a dict of {cell name: Netlist | PlacedNetlist}")
-    })?;
+    if let Ok(hierarchy) = obj.downcast::<HierarchicalNetlist>() {
+        let core = hierarchy.borrow().to_core(obj.py())?;
+        return Ok(core
+            .iter()
+            .map(|(name, netlist)| (name.clone(), netlist.clone().into()))
+            .collect());
+    }
+    let dict = obj
+        .downcast::<PyDict>()
+        .map_err(|_| PyTypeError::new_err("netlists must be a dict or HierarchicalNetlist"))?;
     let mut out = HashMap::with_capacity(dict.len());
     for (key, value) in dict.iter() {
         let name: String = key

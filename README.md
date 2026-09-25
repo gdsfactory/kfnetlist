@@ -58,6 +58,31 @@ nl.create_net(
 print(nl.to_json())
 ```
 
+## Hierarchical documents
+
+`HierarchicalNetlist` groups named netlists in one ordered document. A reference
+instance's `netlist_id` selects another entry; no layout cell name is required.
+The document keeps the same `{id: netlist}` JSON shape as a plain dictionary.
+
+```python
+from kfnetlist import HierarchicalNetlist, Netlist
+
+child = Netlist()
+top = Netlist()
+top.create_inst("arm", "MY_PDK", "make_arm", netlist_id="arm_10")
+document = HierarchicalNetlist({"top": top, "arm_10": child})
+
+document["arm_10"].create_inst("wg", "MY_PDK", "straight")
+document.validate()  # child netlists are mutable; recheck after editing them
+flat_top = document.flatten("top")
+encoded = document.to_json()  # validates before serialization
+```
+
+`flatten_all()` produces a new document with every entry flattened. The root is
+passed to `flatten()` explicitly; the hierarchy does not assign one. The existing
+`hierarchy_from_json()` and `validate_hierarchy()` functions remain available for
+callers that use plain dictionaries.
+
 ## Connectivity Verification
 
 kfnetlist provides tools for LVS-style connectivity verification: detecting
@@ -95,9 +120,9 @@ For a complete walkthrough, see the
   `__get_pydantic_core_schema__`; install Pydantic separately to use it
 - **Equivalent ports** — `Netlist.normalize()` folds electrically-equivalent
   ports into canonical names for netlist comparison
-- **Hierarchical flattening** — `Netlist.flatten()` replaces instances by the
-  contents of their own cell's netlist (and `flatten_netlists()` does it for a
-  whole `{cell name: netlist}` mapping), rewiring nets across both levels
+- **Hierarchical flattening** — `HierarchicalNetlist.flatten(root)` inlines one
+  root, and `flatten_all()` inlines every entry; `Netlist.flatten()` and
+  `flatten_netlists()` also accept the document as a mapping
 - **Instance removal** — `Netlist.remove_instances()` deletes sub-cell
   instances, merging the nets they touched
 - **Port checking** — `PortCheck` bitmask and `check_connection()` for

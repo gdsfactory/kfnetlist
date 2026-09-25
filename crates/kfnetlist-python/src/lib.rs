@@ -28,12 +28,14 @@ macro_rules! core_wrapper {
 pub(crate) use core_wrapper;
 
 mod flatten;
+mod hierarchy;
 mod instance;
 mod net;
 mod netlist;
 mod placement;
 mod port;
 mod schema;
+use hierarchy::HierarchicalNetlist;
 use instance::{LeafNetlistInstance, NetlistArray, NetlistInstance, RefNetlistInstance};
 use net::{Net, NetIter};
 use netlist::Netlist;
@@ -50,6 +52,7 @@ fn _native(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<NetlistInstance>()?;
     m.add_class::<LeafNetlistInstance>()?;
     m.add_class::<RefNetlistInstance>()?;
+    m.add_class::<HierarchicalNetlist>()?;
     m.add_function(wrap_pyfunction!(hierarchy_from_json, m)?)?;
     m.add_function(wrap_pyfunction!(validate_hierarchy, m)?)?;
     m.add_class::<Net>()?;
@@ -201,8 +204,8 @@ fn hierarchy_from_json<'py>(
 ) -> PyResult<Bound<'py, pyo3::types::PyDict>> {
     let hierarchy = kfnetlist_core::hierarchy_from_json(data).map_err(core_error)?;
     let result = pyo3::types::PyDict::new(py);
-    for (name, netlist) in hierarchy {
-        result.set_item(name, Py::new(py, Netlist(netlist))?)?;
+    for (name, netlist) in hierarchy.iter() {
+        result.set_item(name, Py::new(py, Netlist(netlist.clone()))?)?;
     }
     Ok(result)
 }
@@ -211,7 +214,7 @@ fn hierarchy_from_json<'py>(
 #[pyfunction]
 fn validate_hierarchy(netlists: &Bound<'_, PyAny>) -> PyResult<()> {
     let data = flatten::read_netlists(netlists)?;
-    let hierarchy = data
+    let netlists = data
         .into_iter()
         .map(|(name, data)| {
             (
@@ -224,5 +227,7 @@ fn validate_hierarchy(netlists: &Bound<'_, PyAny>) -> PyResult<()> {
             )
         })
         .collect();
-    kfnetlist_core::validate_hierarchy(&hierarchy).map_err(core_error)
+    kfnetlist_core::HierarchicalNetlist::from_netlists(netlists)
+        .map(|_| ())
+        .map_err(core_error)
 }

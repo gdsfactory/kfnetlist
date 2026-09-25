@@ -1,6 +1,7 @@
+use indexmap::IndexMap;
 use kfnetlist_core::{
-    from_json, hierarchy_from_json, to_json, validate_hierarchy, Error, HierarchicalNetlist,
-    LeafNetlistInstance, Netlist, NetlistInstance, RefNetlistInstance,
+    from_json, hierarchy_from_json, to_json, validate_hierarchy, Error, FlattenOptions,
+    HierarchicalNetlist, LeafNetlistInstance, Netlist, NetlistInstance, RefNetlistInstance,
 };
 use serde_json::json;
 
@@ -66,4 +67,40 @@ fn deep_hierarchy_validation_does_not_recurse_on_the_call_stack() {
         doc.insert(i.to_string(), serde_json::from_value(value).unwrap());
     }
     validate_hierarchy(&doc).unwrap();
+}
+
+#[test]
+fn hierarchy_struct_validates_construction_edit_and_flatten() {
+    let child: Netlist = from_json(
+        r#"{"instances":{"wg":{"kcl":"pdk","component":"straight","settings":{}}},"nets":[[{"name":"in"},{"instance":"wg","port":"in"}],[{"instance":"wg","port":"out"},{"name":"out"}]],"ports":[{"name":"in"},{"name":"out"}]}"#,
+    )
+    .unwrap();
+    let top: Netlist = from_json(
+        r#"{"instances":{"arm":{"kcl":"pdk","component":"make_arm","settings":{},"netlist_id":"child"}},"nets":[[{"name":"in"},{"instance":"arm","port":"in"}],[{"instance":"arm","port":"out"},{"name":"out"}]],"ports":[{"name":"in"},{"name":"out"}]}"#,
+    )
+    .unwrap();
+    let mut entries = IndexMap::new();
+    entries.insert("top".into(), top);
+    assert!(matches!(
+        HierarchicalNetlist::from_netlists(entries.clone()),
+        Err(Error::MissingNetlistReference { .. })
+    ));
+    entries.insert("child".into(), child);
+    let mut hierarchy = HierarchicalNetlist::from_netlists(entries).unwrap();
+    let options = FlattenOptions::new(None, None, true, false, false, ".".into());
+    let flat = hierarchy.flatten("top", &options).unwrap();
+    assert!(flat.instances.contains_key("arm.wg"));
+    assert!(matches!(
+        hierarchy.flatten("missing", &options),
+        Err(Error::MissingNetlist(_))
+    ));
+    assert_eq!(
+        hierarchy_from_json(&hierarchy.to_json().unwrap()).unwrap(),
+        hierarchy
+    );
+    hierarchy.shift_remove("child");
+    assert!(hierarchy.validate().is_err());
+    assert!(hierarchy.to_json().is_err());
+    assert!(hierarchy.flatten("top", &options).is_err());
+    assert!(to_json(&hierarchy).is_err());
 }

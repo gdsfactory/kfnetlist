@@ -2,6 +2,7 @@
 
 from ._flatten import flatten_netlists
 from ._native import (
+    HierarchicalNetlist,
     LeafNetlistInstance,
     Net,
     Netlist,
@@ -22,6 +23,7 @@ from .port_check import PortCheck, check_connection
 __version__ = "0.3.0"
 
 __all__ = [
+    "HierarchicalNetlist",
     "LeafNetlistInstance",
     "Net",
     "Netlist",

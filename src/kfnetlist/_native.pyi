@@ -1,6 +1,6 @@
 """Type stubs for the Rust-backed ``kfnetlist._native`` module."""
 
-from collections.abc import Callable, Mapping, Sequence
+from collections.abc import Callable, Iterator, Mapping, Sequence
 from os import PathLike
 from typing import Any, ClassVar, Self
 
@@ -119,8 +119,46 @@ class RefNetlistInstance(NetlistInstance):
 def hierarchy_from_json(data: str) -> dict[str, Netlist]:
     """Load a document, rejecting dangling references and cycles."""
 
-def validate_hierarchy(netlists: dict[str, Netlist]) -> None:
+def validate_hierarchy(netlists: Mapping[str, Netlist] | HierarchicalNetlist) -> None:
     """Validate all explicit references after constructing/editing a document."""
+
+class HierarchicalNetlist(Mapping[str, Netlist]):
+    """Ordered, mutable netlist document; validate after editing child netlists."""
+
+    def __init__(self, netlists: Mapping[str, Netlist] | None = ...) -> None: ...
+    def validate(self) -> None: ...
+    def __len__(self) -> int: ...
+    def __contains__(self, key: str) -> bool: ...
+    def __getitem__(self, key: str) -> Netlist: ...
+    def __setitem__(self, key: str, value: Netlist) -> None: ...
+    def __delitem__(self, key: str) -> None: ...
+    def __iter__(self) -> Iterator[str]: ...
+    def keys(self) -> list[str]: ...
+    def values(self) -> list[Netlist]: ...
+    def items(self) -> list[tuple[str, Netlist]]: ...
+    def to_dict(self) -> dict[str, dict[str, Any]]: ...
+    @classmethod
+    def from_dict(cls, data: Mapping[str, Netlist | dict[str, Any]]) -> Self: ...
+    def to_json(self) -> str: ...
+    @classmethod
+    def from_json(cls, data: str) -> Self: ...
+    def flatten(
+        self,
+        root: str,
+        *,
+        exclude: Sequence[str] | None = ...,
+        recursive: bool = ...,
+        allow_unconnected_ports: bool = ...,
+        separator: str = ...,
+    ) -> Netlist: ...
+    def flatten_all(
+        self,
+        *,
+        exclude: Sequence[str] | None = ...,
+        recursive: bool = ...,
+        allow_unconnected_ports: bool = ...,
+        separator: str = ...,
+    ) -> HierarchicalNetlist: ...
 
 class Placement:
     x: float
@@ -227,7 +265,7 @@ class Netlist:
         """Deprecated alias for ``remove_instances``."""
     def flatten(
         self,
-        netlists: Mapping[str, Netlist],
+        netlists: Mapping[str, Netlist] | HierarchicalNetlist,
         cells: Sequence[str] | None = ...,
         *,
         exclude: Sequence[str] | None = ...,

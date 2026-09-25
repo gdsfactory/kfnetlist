@@ -21,6 +21,7 @@ pub enum Error {
     },
     MissingCanonicalPort(String),
     MissingInstance(String),
+    MissingNetlist(String),
     MissingNetlistReference {
         netlist: String,
         instance: String,
@@ -75,6 +76,7 @@ impl fmt::Display for Error {
             Self::MissingCanonicalPort(name) => write!(f,
                 "normalize: canonical port {name:?} not present in netlist ports"),
             Self::MissingInstance(name) => f.write_str(name),
+            Self::MissingNetlist(name) => write!(f, "Unknown netlist {name:?}"),
             Self::MissingNetlistReference { netlist, instance, reference } => write!(f, "netlist {netlist:?}, instance {instance:?}: netlist_id {reference:?} does not exist in this document"),
             Self::UnflattenedNetlistReference { instance, reference } => write!(f, "cannot fully flatten instance {instance:?} referencing {reference:?}: array or empty child cannot be inlined; use selective flattening to retain this reference"),
             Self::CyclicNetlistReference(name) => write!(f, "cyclic netlist reference involving {name:?}"),
