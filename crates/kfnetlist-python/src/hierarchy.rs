@@ -144,6 +144,15 @@ impl HierarchicalNetlist {
         format!("HierarchicalNetlist(netlists={})", self.netlists.len())
     }
 
+    #[classmethod]
+    fn __get_pydantic_core_schema__(
+        cls: &Bound<'_, PyType>,
+        _source_type: &Bound<'_, PyAny>,
+        _handler: &Bound<'_, PyAny>,
+    ) -> PyResult<PyObject> {
+        crate::pydantic_core_schema(cls)
+    }
+
     fn to_dict<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
         self.validate(py)?;
         let out = PyDict::new(py);
@@ -221,6 +230,8 @@ impl HierarchicalNetlist {
             let flat = core.flatten(name, &options).map_err(core_error)?;
             netlists.insert(name.clone(), Py::new(py, Netlist(flat))?);
         }
-        Ok(Self { netlists })
+        let hierarchy = Self { netlists };
+        hierarchy.validate(py)?;
+        Ok(hierarchy)
     }
 }

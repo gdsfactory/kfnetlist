@@ -88,3 +88,13 @@ def test_constructor_rejects_invalid_documents() -> None:
     source["child"].create_inst("cycle", "pdk", "top", netlist_id="top")
     with pytest.raises(ValueError, match="cyclic"):
         HierarchicalNetlist(source)
+
+
+def test_pydantic_accepts_and_serializes_hierarchy() -> None:
+    pydantic = pytest.importorskip("pydantic")
+    doc = HierarchicalNetlist(_document())
+    adapter = pydantic.TypeAdapter(HierarchicalNetlist)
+    assert adapter.validate_python(doc) is doc
+    loaded = adapter.validate_python(doc.to_dict())
+    assert isinstance(loaded, HierarchicalNetlist)
+    assert adapter.dump_python(loaded) == doc.to_dict()
