@@ -263,6 +263,62 @@ impl Netlist {
         Ok(())
     }
 
+    /// Return a copy containing only instances connected to a declared port or
+    /// one of the explicitly kept instances. Connections through a multi-member
+    /// net are traversed together; the original netlist is unchanged.
+    pub fn prune_unconnected(&self, keep_instances: &[String]) -> Result<Self> {
+        let declared: HashSet<&str> = self.ports.iter().map(|port| port.name.as_str()).collect();
+        let mut adjacent: HashMap<&str, Vec<&str>> = HashMap::new();
+        let mut reachable: HashSet<&str> = keep_instances
+            .iter()
+            .filter_map(|name| {
+                self.instances
+                    .get_key_value(name)
+                    .map(|(key, _)| key.as_str())
+            })
+            .collect();
+
+        for net in &self.nets {
+            let names: Vec<&str> = net
+                .members
+                .iter()
+                .filter_map(|member| match member {
+                    NetMember::Ref(reference) => Some(reference.instance.as_str()),
+                    NetMember::ArrayRef(reference) => Some(reference.instance.as_str()),
+                    NetMember::Port(_) => None,
+                })
+                .collect();
+            if net.members.iter().any(|member| {
+                matches!(member, NetMember::Port(port) if declared.contains(port.name.as_str()))
+            }) {
+                reachable.extend(names.iter().copied());
+            }
+            for pair in names.windows(2) {
+                adjacent.entry(pair[0]).or_default().push(pair[1]);
+                adjacent.entry(pair[1]).or_default().push(pair[0]);
+            }
+        }
+
+        let mut pending: Vec<&str> = reachable.iter().copied().collect();
+        while let Some(name) = pending.pop() {
+            for neighbor in adjacent.get(name).into_iter().flatten() {
+                if reachable.insert(neighbor) {
+                    pending.push(neighbor);
+                }
+            }
+        }
+
+        let unused = self
+            .instances
+            .keys()
+            .filter(|name| !reachable.contains(name.as_str()))
+            .cloned()
+            .collect();
+        let mut result = self.clone();
+        result.remove_instances(unused)?;
+        Ok(result)
+    }
+
     /// Backwards-compatible alias for [`Netlist::remove_instances`].
     #[deprecated(note = "use remove_instances; flatten now means hierarchical inlining")]
     pub fn flatten_instances(&mut self, names: Vec<String>) -> Result<()> {

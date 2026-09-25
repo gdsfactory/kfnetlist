@@ -338,6 +338,28 @@ fn removing_absent_or_isolated_instances_does_not_create_empty_nets() {
 }
 
 #[test]
+fn pruning_keeps_port_connected_components_and_explicit_roots() {
+    let mut nl = Netlist::default();
+    for name in ["a", "b", "c", "d", "isolated"] {
+        nl.create_inst(name.into(), "pdk".into(), "leaf".into(), json!({}), 1, 1)
+            .unwrap();
+    }
+    let input = nl.create_port("in".into());
+    nl.create_net([NetMember::Port(input), reference("a", "in")])
+        .unwrap();
+    nl.create_net([reference("a", "out"), reference("b", "in")])
+        .unwrap();
+    nl.create_net([array_reference("c", 1, 1), reference("d", "in")])
+        .unwrap();
+
+    let from_ports = nl.prune_unconnected(&[]).unwrap();
+    assert_eq!(from_ports.instance_names(), vec!["a", "b"]);
+    let with_root = nl.prune_unconnected(&["c".into()]).unwrap();
+    assert_eq!(with_root.instance_names(), vec!["a", "b", "c", "d"]);
+    assert_eq!(nl.instance_names().len(), 5);
+}
+
+#[test]
 fn hierarchical_flattening_is_available_without_python() {
     let mut child = Netlist::default();
     child

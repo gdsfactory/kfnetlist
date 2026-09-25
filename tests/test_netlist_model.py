@@ -239,6 +239,20 @@ def test_remove_instances_does_not_create_empty_nets() -> None:
     assert nl.nets == []
 
 
+def test_prune_unconnected_keeps_ports_and_explicit_roots() -> None:
+    nl = Netlist()
+    for name in ("a", "b", "c", "d"):
+        nl.create_inst(name, kcl="p", component="c")
+    nl.create_port("in")
+    nl.create_net(NetlistPort(name="in"), PortRef(instance="a", port="in"))
+    nl.create_net(PortRef(instance="a", port="out"), PortRef(instance="b", port="in"))
+    nl.create_net(PortRef(instance="c", port="out"), PortRef(instance="d", port="in"))
+
+    assert nl.prune_unconnected().instance_names() == ["a", "b"]
+    assert nl.prune_unconnected(["c"]).instance_names() == ["a", "b", "c", "d"]
+    assert nl.instance_names() == ["a", "b", "c", "d"]
+
+
 def test_flatten_instances_is_a_deprecated_alias() -> None:
     nl = _netlist_with_removable_instance()
     with pytest.deprecated_call():
