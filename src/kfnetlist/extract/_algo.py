@@ -9,8 +9,8 @@ from kfnetlist import (
     Net,
     Netlist,
     NetlistPort,
-    Placement,
     PlacedNetlist,
+    Placement,
     PortArrayRef,
     PortRef,
     flatten_netlists,
@@ -20,8 +20,14 @@ from ._geometry import get_optical_nets
 from ._l2n import l2n_elec as _l2n_elec
 from ._protocols import (
     CellLike as _CellLike,
+)
+from ._protocols import (
     InstanceLike as _InstanceLike,
+)
+from ._protocols import (
     PlaceableLike as _PlaceableLike,
+)
+from ._protocols import (
     RootCellLike as _RootCellLike,
 )
 from ._settings import serialize_setting
@@ -120,6 +126,7 @@ def _create_inst_entry(nl: Netlist, inst: _InstanceLike) -> None:
         kcl=kcl_name,
         component=component,
         settings=settings,
+        netlist_id=cell.name,
         info=info.model_dump() if info is not None else {},
         na=inst.na,
         nb=inst.nb,
@@ -242,7 +249,8 @@ def extract(
     whose instances additionally carry a :class:`~kfnetlist.Placement` — the
     cell name, origin transform (x, y, orientation, mirror), and bounding box —
     read from the layout. The default (``False``) returns plain
-    :class:`~kfnetlist.Netlist` objects, identical to before.
+    :class:`~kfnetlist.Netlist` objects whose instances reference child
+    netlists by their extracted cell names.
 
     ``flatten`` inlines instances into their parent: each returned netlist has
     the selected instances replaced by the contents of their own cell's netlist
@@ -267,9 +275,9 @@ def extract(
     )
 
     netlists: dict[str, Netlist] = {}
-    # Per cell, `instance name -> placed cell name`. `Netlist` instances only
-    # carry the factory name, so this is what lets `flatten()` find the netlist
-    # belonging to an instance regardless of the flavor.
+    # Per cell, `instance name -> placed cell name`. The flattener also accepts
+    # this mapping for extracted layouts with instance names modified by
+    # normalization.
     instance_cell_maps: dict[str, dict[str, str]] = {}
 
     for ci in [cell.cell_index(), *cell.called_cells()]:

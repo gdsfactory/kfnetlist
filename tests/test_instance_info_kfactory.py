@@ -2,6 +2,7 @@
 
 import pytest
 
+from kfnetlist import HierarchicalNetlist
 from kfnetlist.extract import extract
 
 
@@ -24,16 +25,20 @@ def test_kfactory_instance_info_extraction(include_placement, dtype) -> None:
     second.info["measure"] = "spectrum"
     unnamed = parent << child
 
-    result = extract(
+    cells = extract(
         parent,
         wrap_kdb_instance=lambda i: kf.Instance(kcl=kcl, instance=i),
         include_placement=include_placement,
-    )[parent.name]
+    )
+    result = cells[parent.name]
+    if not include_placement:
+        HierarchicalNetlist(cells).validate()
     expected = first.info.model_dump()
     first.info["measure"] = "changed"
     assert result.instances["first"].info == expected
     assert result.instances["second"].info == {"measure": "spectrum"}
     assert result.instances[unnamed.name].info == {}
+    assert all(inst.netlist_id == child.name for inst in result.instances.values())
     assert type(result).from_json(result.to_json()) == result
     if not include_placement:
         assert (
