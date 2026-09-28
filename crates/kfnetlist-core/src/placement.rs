@@ -48,6 +48,7 @@ pub struct PlacedExtra {
 pub struct PlacedInstanceWire {
     #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub info: serde_json::Map<String, serde_json::Value>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub kcl: String,
     pub component: String,
     #[serde(default)]
@@ -195,6 +196,18 @@ impl PlacedNetlist {
     }
     pub fn to_wire(&self) -> PlacedNetlistWire {
         PlacedNetlistWire::from_parts(&self.netlist, &self.extras)
+    }
+    /// Insert an already constructed leaf or reference with placement metadata.
+    pub fn insert_inst(
+        &mut self,
+        name: impl Into<String>,
+        instance: impl Into<NetlistInstance>,
+        extra: PlacedExtra,
+    ) -> crate::Result<PlacedInstance> {
+        let name = name.into();
+        let instance = self.netlist.insert_inst(name.clone(), instance)?;
+        self.extras.insert(name, extra.clone());
+        Ok(PlacedInstance { instance, extra })
     }
     /// Create an instance and attach physical attributes after validation succeeds.
     #[allow(clippy::too_many_arguments)]

@@ -91,20 +91,21 @@ impl Netlist {
         NetlistPort(self.0.create_port(name))
     }
 
-    #[pyo3(signature = (name, kcl, component, settings=None, na=1, nb=1, *, info=None, netlist_id=None))]
+    #[pyo3(signature = (name, kcl=None, component=None, settings=None, na=1, nb=1, *, info=None, netlist_id=None))]
     #[allow(clippy::too_many_arguments)]
     pub(crate) fn create_inst(
         &mut self,
         py: Python<'_>,
         name: String,
-        kcl: String,
-        component: String,
+        kcl: Option<String>,
+        component: Option<String>,
         settings: Option<&Bound<'_, PyAny>>,
         na: i64,
         nb: i64,
         info: Option<&Bound<'_, PyAny>>,
         netlist_id: Option<String>,
     ) -> PyResult<Py<NetlistInstance>> {
+        let (kcl, component) = crate::instance::library_and_component(kcl, component)?;
         let settings_value = match settings {
             Some(obj) if !obj.is_none() => from_py_any::<serde_json::Value>(obj)?,
             _ => serde_json::Value::Object(Default::default()),

@@ -106,6 +106,28 @@ impl Netlist {
             .ok_or_else(|| Error::MissingInstance(name.to_string()))
     }
 
+    /// Insert an already constructed leaf or reference instance. Its name is
+    /// taken from the mapping key, as it is when deserializing a netlist.
+    pub fn insert_inst(
+        &mut self,
+        name: impl Into<String>,
+        instance: impl Into<NetlistInstance>,
+    ) -> Result<NetlistInstance> {
+        let name = name.into();
+        let mut instance = instance.into();
+        if let Some(array) = &instance.array {
+            if array.na < 1 || array.nb < 1 {
+                return Err(Error::InvalidArrayDimensions {
+                    na: array.na,
+                    nb: array.nb,
+                });
+            }
+        }
+        instance.name = name.clone();
+        self.instances.insert(name, instance.clone());
+        Ok(instance)
+    }
+
     pub fn create_port(&mut self, name: String) -> NetlistPort {
         let p = NetlistPort { name };
         self.ports.push(p.clone());

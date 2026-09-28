@@ -20,7 +20,7 @@ use pyo3::prelude::*;
 use pyo3::types::{PyDict, PyType};
 use serde::{Deserialize, Serialize};
 
-use crate::instance::{info_from_py, NetlistArray, NetlistInstance};
+use crate::instance::{info_from_py, library_and_component, NetlistArray, NetlistInstance};
 use crate::netlist::Netlist;
 use crate::{cmp_to_py, from_py_any, json_parse, json_string, richcmp_result, to_py_dict};
 
@@ -176,11 +176,11 @@ impl PlacedInstance {
         self.0.cell = value;
     }
     #[new]
-    #[pyo3(signature = (kcl, component, settings=None, array=None, name=String::new(), cell=String::new(), placement=None, *, info=None))]
+    #[pyo3(signature = (kcl=None, component=None, settings=None, array=None, name=String::new(), cell=String::new(), placement=None, *, info=None))]
     #[allow(clippy::too_many_arguments)]
     fn new(
-        kcl: String,
-        component: String,
+        kcl: Option<String>,
+        component: Option<String>,
         settings: Option<&Bound<'_, PyAny>>,
         array: Option<NetlistArray>,
         name: String,
@@ -188,6 +188,7 @@ impl PlacedInstance {
         placement: Option<Placement>,
         info: Option<&Bound<'_, PyAny>>,
     ) -> PyResult<PyClassInitializer<Self>> {
+        let (kcl, component) = library_and_component(kcl, component)?;
         let settings = match settings {
             Some(obj) if !obj.is_none() => from_py_any::<serde_json::Value>(obj)?,
             _ => serde_json::Value::Object(Default::default()),
@@ -371,13 +372,13 @@ impl PlacedNetlist {
     /// [`Netlist::create_inst`] with trailing optional `cell`/`placement`;
     /// keeping the base parameter order makes this a substitutable override.
     #[allow(clippy::too_many_arguments)]
-    #[pyo3(signature = (name, kcl, component, settings=None, na=1, nb=1, cell=String::new(), placement=None, *, info=None, netlist_id=None))]
+    #[pyo3(signature = (name, kcl=None, component=None, settings=None, na=1, nb=1, cell=String::new(), placement=None, *, info=None, netlist_id=None))]
     fn create_inst(
         slf: PyRefMut<'_, Self>,
         py: Python<'_>,
         name: String,
-        kcl: String,
-        component: String,
+        kcl: Option<String>,
+        component: Option<String>,
         settings: Option<&Bound<'_, PyAny>>,
         na: i64,
         nb: i64,
@@ -386,6 +387,7 @@ impl PlacedNetlist {
         info: Option<&Bound<'_, PyAny>>,
         netlist_id: Option<String>,
     ) -> PyResult<Py<PlacedInstance>> {
+        let (kcl, component) = library_and_component(kcl, component)?;
         let settings = match settings {
             Some(obj) if !obj.is_none() => from_py_any::<serde_json::Value>(obj)?,
             _ => serde_json::Value::Object(Default::default()),

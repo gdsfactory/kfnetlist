@@ -134,7 +134,9 @@ print("Dict round-trip ✓")
 # The JSON/dict wire format has a few conventions:
 #
 # - **Instance names are keys**, not stored inside the instance payload. This
-#   avoids redundancy (`{"wg1": {"kcl": ..., "component": ...}}`).
+#   avoids redundancy (`{"wg1": {"component": ...}}`).
+# - **`kcl` is optional**. It is omitted when empty and retained when a
+#   component needs a KCLayout/library qualifier.
 # - **Net members are untagged** — the deserializer infers the type from the
 #   fields present (`{"name": ...}` → `NetlistPort`, `{"instance": ..., "port": ...}`
 #   → `PortRef`, add `ia`/`ib` → `PortArrayRef`).

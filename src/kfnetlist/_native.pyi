@@ -81,8 +81,8 @@ class NetlistInstance:
 
     def __init__(
         self,
-        kcl: str,
-        component: str,
+        kcl: str | None = ...,
+        component: str | None = ...,
         settings: dict[str, Any] | None = ...,
         array: NetlistArray | None = ...,
         name: str = ...,
@@ -106,8 +106,8 @@ class RefNetlistInstance(NetlistInstance):
     def netlist_id(self) -> str: ...
     def __init__(
         self,
-        kcl: str,
-        component: str,
+        kcl: str | None = ...,
+        component: str | None = ...,
         settings: dict[str, Any] | None = ...,
         array: NetlistArray | None = ...,
         name: str = ...,
@@ -192,8 +192,8 @@ class PlacedInstance(NetlistInstance):
 
     def __init__(
         self,
-        kcl: str,
-        component: str,
+        kcl: str | None = ...,
+        component: str | None = ...,
         settings: dict[str, Any] | None = ...,
         array: NetlistArray | None = ...,
         name: str = ...,
@@ -248,8 +248,8 @@ class Netlist:
     def create_inst(
         self,
         name: str,
-        kcl: str,
-        component: str,
+        kcl: str | None = ...,
+        component: str | None = ...,
         settings: dict[str, Any] | None = ...,
         na: int = ...,
         nb: int = ...,
@@ -309,8 +309,8 @@ class PlacedNetlist(Netlist):
     def create_inst(
         self,
         name: str,
-        kcl: str,
-        component: str,
+        kcl: str | None = ...,
+        component: str | None = ...,
         settings: dict[str, Any] | None = ...,
         na: int = ...,
         nb: int = ...,

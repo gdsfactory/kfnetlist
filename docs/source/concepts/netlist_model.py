@@ -55,7 +55,8 @@ nl = Netlist()
 # ### Instances
 #
 # `create_inst` returns the created `NetlistInstance`. Each instance records the
-# PDK name (`kcl`), component name, and a settings dict.
+# component name and a settings dict. The KCLayout/library name (`kcl`) is
+# optional when a component name needs no library qualification.
 
 # %%
 inst1 = nl.create_inst(
@@ -66,7 +67,6 @@ inst1 = nl.create_inst(
 )
 inst2 = nl.create_inst(
     "wg1",
-    kcl="MY_PDK",
     component="straight",
     settings={"width": 500, "length": 10_000},
 )

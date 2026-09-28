@@ -33,6 +33,7 @@ pub struct LeafNetlistInstance {
 pub struct LeafNetlistInstanceWire {
     #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
     pub info: serde_json::Map<String, serde_json::Value>,
+    #[serde(default, skip_serializing_if = "String::is_empty")]
     pub kcl: String,
     pub component: String,
     #[serde(default)]
@@ -42,6 +43,24 @@ pub struct LeafNetlistInstanceWire {
 }
 
 impl LeafNetlistInstance {
+    /// Create a component instance without a library identity.
+    pub fn new(component: impl Into<String>) -> Self {
+        Self {
+            info: Default::default(),
+            kcl: String::new(),
+            component: component.into(),
+            settings: serde_json::Value::Object(Default::default()),
+            array: None,
+            name: String::new(),
+        }
+    }
+
+    /// Qualify the component with its KCLayout/library name.
+    pub fn with_kcl(mut self, kcl: impl Into<String>) -> Self {
+        self.kcl = kcl.into();
+        self
+    }
+
     pub fn to_wire(&self) -> LeafNetlistInstanceWire {
         LeafNetlistInstanceWire {
             info: self.info.clone(),
@@ -91,6 +110,21 @@ impl From<LeafNetlistInstance> for LeafNetlistInstanceWire {
 pub struct RefNetlistInstance {
     pub instance: LeafNetlistInstance,
     pub netlist_id: String,
+}
+
+impl RefNetlistInstance {
+    /// Create a referenced child without requiring a library identity.
+    pub fn new(component: impl Into<String>, netlist_id: impl Into<String>) -> Self {
+        Self {
+            instance: LeafNetlistInstance::new(component),
+            netlist_id: netlist_id.into(),
+        }
+    }
+
+    pub fn with_kcl(mut self, kcl: impl Into<String>) -> Self {
+        self.instance.kcl = kcl.into();
+        self
+    }
 }
 
 /// A component leaf or an explicit reference to another netlist.
@@ -207,6 +241,11 @@ impl std::ops::DerefMut for NetlistInstance {
 impl From<LeafNetlistInstance> for NetlistInstance {
     fn from(value: LeafNetlistInstance) -> Self {
         Self::Leaf(value)
+    }
+}
+impl From<RefNetlistInstance> for NetlistInstance {
+    fn from(value: RefNetlistInstance) -> Self {
+        Self::Ref(value)
     }
 }
 impl From<NetlistInstanceWire> for NetlistInstance {

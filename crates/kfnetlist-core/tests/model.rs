@@ -1,7 +1,8 @@
 use kfnetlist_core::{
-    flatten_netlist, from_json, to_json, ArrayDirection, Error, FlattenOptions, Net, NetMember,
-    Netlist, NetlistData, NetlistInstance, NetlistPort, PlacedExtra, PlacedInstance, PlacedNetlist,
-    Placement, PortArrayRef, PortRef,
+    flatten_netlist, from_json, to_json, ArrayDirection, Error, FlattenOptions,
+    LeafNetlistInstance, Net, NetMember, Netlist, NetlistData, NetlistInstance, NetlistPort,
+    PlacedExtra, PlacedInstance, PlacedNetlist, Placement, PortArrayRef, PortRef,
+    RefNetlistInstance,
 };
 use serde_json::json;
 use std::collections::HashMap;
@@ -25,6 +26,43 @@ fn array_reference(instance: &str, ia: i64, ib: i64) -> NetMember {
 fn add_instance(nl: &mut Netlist, name: &str, component: &str) {
     nl.create_inst(name.into(), "pdk".into(), component.into(), json!({}), 2, 3)
         .unwrap();
+}
+
+#[test]
+fn library_identity_is_optional_in_wire_and_rust_construction() {
+    let mut nl = Netlist::default();
+    nl.insert_inst("leaf", LeafNetlistInstance::new("coupler"))
+        .unwrap();
+    nl.insert_inst(
+        "child",
+        RefNetlistInstance::new("make_child", "child_id").with_kcl("PDK"),
+    )
+    .unwrap();
+
+    let wire = serde_json::to_value(&nl).unwrap();
+    assert_eq!(
+        wire["instances"]["leaf"],
+        json!({"component": "coupler", "settings": {}})
+    );
+    assert_eq!(wire["instances"]["child"]["kcl"], "PDK");
+    let loaded: Netlist = serde_json::from_value(wire).unwrap();
+    assert_eq!(loaded.instances["leaf"].kcl, "");
+    assert_eq!(loaded.instances["child"].netlist_id(), Some("child_id"));
+    assert_eq!(loaded.instances["leaf"], nl.instances["leaf"]);
+    assert_eq!(loaded.instances["child"], nl.instances["child"]);
+
+    let mut placed = PlacedNetlist::default();
+    placed
+        .insert_inst(
+            "placed",
+            LeafNetlistInstance::new("coupler"),
+            PlacedExtra::default(),
+        )
+        .unwrap();
+    let placed_wire = serde_json::to_value(&placed).unwrap();
+    assert!(placed_wire["instances"]["placed"].get("kcl").is_none());
+    let placed_loaded: PlacedNetlist = serde_json::from_value(placed_wire).unwrap();
+    assert_eq!(placed_loaded.netlist.instances["placed"].kcl, "");
 }
 
 #[test]
