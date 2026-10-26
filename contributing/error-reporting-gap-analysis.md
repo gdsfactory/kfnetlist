@@ -23,7 +23,12 @@ kfnetlist is a high-performance netlist data model (Rust core + PyO3 Python bind
 
 **Elvis:** Every net carries a name derived from the schematic or layout extraction.
 
-**kfnetlist:** `Net` (`src/net.rs:62-64`) is anonymous — a sorted `Vec<NetMember>` with no `name` field. KLayout's `kdb.Net.name` is captured during L2N parsing (`src/kfnetlist/extract/_parser.py:99`) but **discarded** when data enters the Rust `Netlist` model via `_build_cell_netlist()`.
+**kfnetlist:** `Net` (`crates/kfnetlist-core/src/net.rs`) has an optional `name`
+alongside its sorted `Vec<NetMember>`, but nothing populates it: names are unset
+on both the extraction and the schematic path. KLayout's `kdb.Net.name` is
+captured during L2N parsing (`src/kfnetlist/extract/_parser.py:99`) and then
+**discarded** when data enters the Rust `Netlist` model via
+`_build_cell_netlist()`, which calls `create_net()` without a name.
 
 **Impact:** Without named nets, shorts cannot be meaningfully reported ("net X is shorted to net Y"). This is the single most critical prerequisite.
 

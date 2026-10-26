@@ -85,11 +85,20 @@ def test_netlist_round_trip_keeps_names_and_leaves_unnamed_nets_unchanged() -> N
     back = Netlist.from_json(nl.to_json())
     assert [net.name for net in back.nets] == ["in", None]
     assert back == nl
-    # The unnamed net's JSON is still exactly its member list.
-    assert back.nets[1].to_json() == Net(back.nets[1].members()).to_json()
 
     # An all-unnamed netlist is byte-identical to the pre-name output.
     assert _netlist(named=False).to_json() == GOLDEN_UNNAMED_NETLIST
+
+
+def test_the_object_form_is_strict_so_a_typo_cannot_empty_a_net() -> None:
+    with pytest.raises(ValueError):
+        Net.from_json('{"name":"MID","member":[{"instance":"R1","port":"n"}]}')
+    with pytest.raises(ValueError):
+        Net.from_json('{"name":"MID"}')
+    with pytest.raises(ValueError):
+        Net.from_json("{}")
+    with pytest.raises(ValueError):
+        Net.from_json('{"names":"MID","members":[]}')
 
 
 def test_add_net_keeps_the_name() -> None:
@@ -159,5 +168,7 @@ def test_name_is_keyword_only_and_mutable() -> None:
     net.name = "GND"
     assert net.name == "GND"
     assert json.loads(net.to_json())["name"] == "GND"
+    assert repr(net) == "Net([PortRef(instance='R1', port='p')], name=\"GND\")"
     net.name = None
+    assert net.name is None
     assert net.to_json() == '[{"instance":"R1","port":"p"}]'

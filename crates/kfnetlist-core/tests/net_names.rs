@@ -43,7 +43,6 @@ fn unnamed_nets_keep_the_historical_wire_shape() {
     // Before names, a net *was* its member list. An unnamed net must still
     // serialize to exactly that.
     let net = Net::from_members(vec![reference("R1", "p")]);
-    assert_eq!(to_json(&net).unwrap(), to_json(&net.members).unwrap());
     assert_eq!(to_json(&net).unwrap(), r#"[{"instance":"R1","port":"p"}]"#);
     assert_eq!(
         serde_json::to_value(&net).unwrap(),
@@ -92,6 +91,16 @@ fn reading_accepts_both_shapes() {
 }
 
 #[test]
+fn the_object_form_is_strict_so_a_typo_cannot_empty_a_net() {
+    // A misspelled or missing `members` would otherwise read as an empty net
+    // and silently drop the connectivity.
+    assert!(from_json::<Net>(r#"{"name":"MID","member":[{"instance":"R1","port":"n"}]}"#).is_err());
+    assert!(from_json::<Net>(r#"{"name":"MID"}"#).is_err());
+    assert!(from_json::<Net>("{}").is_err());
+    assert!(from_json::<Net>(r#"{"names":"MID","members":[]}"#).is_err());
+}
+
+#[test]
 fn netlist_round_trip_keeps_names_and_leaves_unnamed_nets_unchanged() {
     let mut nl = Netlist::default();
     add_instance(&mut nl, "R1", "res");
@@ -115,12 +124,6 @@ fn netlist_round_trip_keeps_names_and_leaves_unnamed_nets_unchanged() {
     assert_eq!(loaded.nets[0].name.as_deref(), Some("in"));
     assert_eq!(loaded.nets[1].name, None);
     assert_eq!(loaded, nl);
-
-    // The unnamed net's JSON is exactly what it was before names existed.
-    assert_eq!(
-        to_json(&loaded.nets[1]).unwrap(),
-        to_json(&loaded.nets[1].members).unwrap()
-    );
 }
 
 #[test]

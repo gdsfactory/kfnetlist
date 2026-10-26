@@ -42,9 +42,12 @@
   metadata, not identity: equality, hashing and ordering ignore them, so
   connectivity comparison is unchanged. A named net is written as
   `{"name": ..., "members": [...]}`; an unnamed net keeps the historical bare
-  JSON array, and reading accepts both. **Forward incompatibility:** a reader
-  released before this change expects a net to be an array and rejects any
-  document containing a named net.
+  JSON array, and reading accepts both. The object form requires `members` and
+  rejects unknown fields. **Forward incompatibility:** a reader released before
+  this change expects a net to be an array and rejects any document containing
+  a named net. Names travel with the netlist JSON only — the PIC-document
+  (YAML/protobuf) net representation has no name slot yet, so
+  `Module.from_netlist()` still drops them.
 
 ## 0.2.0
 

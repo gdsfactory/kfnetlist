@@ -45,7 +45,9 @@ pub enum NetMember {
 /// so existing netlists and consumers are unaffected. A named net is an object
 /// `{"name": ..., "members": [...]}`. Reading accepts both shapes; a net read
 /// from the object form without a `name` (or with `"name": null`) is unnamed and
-/// re-serializes as a bare array. Writing the object form is a forward
+/// re-serializes as a bare array. The object form requires `members` and rejects
+/// unknown fields, like the rest of the wire format, so a misspelled key cannot
+/// silently read as an empty net. Writing the object form is a forward
 /// incompatibility: a reader older than names cannot read a file containing a
 /// named net (its net deserializer expects an array).
 #[derive(Clone, Debug)]
@@ -126,6 +128,9 @@ impl Serialize for Net {
     }
 }
 
+/// Members of the object form of a net, for serde's error messages.
+const NET_FIELDS: &[&str] = &["name", "members"];
+
 impl<'de> Deserialize<'de> for Net {
     fn deserialize<D: Deserializer<'de>>(deserializer: D) -> Result<Self, D::Error> {
         struct NetVisitor;
@@ -157,14 +162,14 @@ impl<'de> Deserialize<'de> for Net {
                     match key.as_str() {
                         "name" => name = map.next_value::<Option<String>>()?,
                         "members" => members = Some(map.next_value()?),
-                        _ => {
-                            map.next_value::<de::IgnoredAny>()?;
-                        }
+                        other => return Err(de::Error::unknown_field(other, NET_FIELDS)),
                     }
                 }
                 Ok(Net {
                     name,
-                    members: members.unwrap_or_default(),
+                    // Strict on purpose: an object that lost or misspelled its
+                    // members would otherwise read as an empty net.
+                    members: members.ok_or_else(|| de::Error::missing_field("members"))?,
                 })
             }
         }

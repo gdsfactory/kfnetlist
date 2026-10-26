@@ -116,8 +116,9 @@ layout viewer.
 
 A **topological short** occurs when two named nets share the same port
 member — i.e., the same port appears in two different nets. kfnetlist does
-not currently detect topological shorts (this requires named nets, which
-are on the roadmap).
+not detect topological shorts yet: nets can carry a name (`Net.name`, set via
+`create_net(..., name=...)`), but nothing populates names during extraction and
+no detector uses them.
 
 A **geometric short** occurs when polygons belonging to different nets
 overlap on the same layer. `detect_shorts(l2n)` detects geometric shorts

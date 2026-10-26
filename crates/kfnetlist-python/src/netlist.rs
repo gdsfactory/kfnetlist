@@ -141,7 +141,10 @@ impl Netlist {
         let mut members = Vec::new();
         for item in ports.try_iter()? {
             members.push(NetMember::from_py(&item?).map_err(|_| {
-                PyValueError::new_err("create_net expects NetlistPort, PortRef, or PortArrayRef")
+                PyValueError::new_err(
+                    "create_net expects NetlistPort, PortRef, or PortArrayRef members; \
+                     name must be passed by keyword",
+                )
             })?);
         }
         match name {

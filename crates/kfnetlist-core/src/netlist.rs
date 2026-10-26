@@ -246,7 +246,9 @@ impl Netlist {
     /// instance), preserving every surviving port reference.
     ///
     /// Names are not merged: the merged net keeps the name of the
-    /// lowest-indexed contributing net that has one.
+    /// lowest-indexed contributing net that has one. With several names in one
+    /// call the rule is applied per pass, over the net list as it stands at
+    /// that point.
     ///
     /// This *deletes* an instance: nothing of the cell it referenced is kept.
     /// To replace an instance by the contents of its cell instead, use the
@@ -470,13 +472,12 @@ impl Netlist {
             let cell_mapping = port_mapping.entry(cell_name).or_default().clone();
 
             for idxs in groups.values() {
-                let mut idxs = idxs.clone();
-                idxs.sort_unstable();
                 // Names are not merged: the merged net keeps the name of the
-                // lowest-indexed contributing net that has one.
+                // lowest-indexed contributing net that has one. `idxs` is
+                // ascending (built by an ascending scan).
                 let name = idxs.iter().find_map(|&i| nl.nets[i].name.clone());
                 let mut seen: HashSet<NetMember> = HashSet::new();
-                for &i in &idxs {
+                for &i in idxs {
                     deleted.insert(i);
                     for m in &nl.nets[i].members {
                         let resolved = match m {
