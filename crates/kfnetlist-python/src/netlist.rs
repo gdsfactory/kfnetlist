@@ -134,18 +134,24 @@ impl Netlist {
         NetlistInstance(inst).into_py_variant(py)
     }
 
-    #[pyo3(signature = (*ports))]
-    fn create_net(&mut self, ports: &Bound<'_, PyAny>) -> PyResult<()> {
+    /// Add a net from its port members. `name` is keyword-only and optional;
+    /// see `Net` for what a name means.
+    #[pyo3(signature = (*ports, name=None))]
+    fn create_net(&mut self, ports: &Bound<'_, PyAny>, name: Option<String>) -> PyResult<()> {
         let mut members = Vec::new();
         for item in ports.try_iter()? {
             members.push(NetMember::from_py(&item?).map_err(|_| {
                 PyValueError::new_err("create_net expects NetlistPort, PortRef, or PortArrayRef")
             })?);
         }
-        self.0.create_net(members).map_err(core_error)
+        match name {
+            Some(name) => self.0.create_named_net(members, name),
+            None => self.0.create_net(members),
+        }
+        .map_err(core_error)
     }
 
-    /// Re-create a net using the members of an existing one.
+    /// Re-create a net using the members and the name of an existing one.
     fn add_net(&mut self, net: &Net) -> PyResult<()> {
         self.0.add_net(&net.0).map_err(core_error)
     }

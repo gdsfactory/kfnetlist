@@ -331,6 +331,8 @@ fn expand_pass(
     // referring to a sub-cell port are both dropped; instead, the nets that
     // held them are merged, which is what re-connects the two levels.
     let mut combined: Vec<Vec<NetMember>> = Vec::with_capacity(cur.nets.len());
+    // Name of the contributing net at the same index; merging picks from here.
+    let mut combined_names: Vec<Option<String>> = Vec::with_capacity(cur.nets.len());
     let mut binding: HashMap<(String, String), Vec<usize>> = HashMap::new();
     let mut parent_keys: Vec<(String, String)> = Vec::new();
     let mut inner_bound: HashSet<(String, String)> = HashSet::new();
@@ -355,6 +357,7 @@ fn expand_pass(
         }
         let idx = combined.len();
         combined.push(kept);
+        combined_names.push(net.name.clone());
         for key in touched {
             binding.entry(key.clone()).or_default().push(idx);
             parent_keys.push(key);
@@ -383,6 +386,7 @@ fn expand_pass(
             }
             let idx = combined.len();
             combined.push(kept);
+            combined_names.push(net.name.clone());
             for port in bound {
                 inner_bound.insert((name.clone(), port.clone()));
                 binding.entry((name.clone(), port)).or_default().push(idx);
@@ -423,6 +427,9 @@ fn expand_pass(
 
     let mut nets: Vec<Net> = Vec::with_capacity(ordered.len());
     for indices in ordered.into_values() {
+        // Names are never unioned: the merged net keeps the name of the
+        // lowest-indexed contributing net that has one. `indices` is ascending.
+        let name = indices.iter().find_map(|&idx| combined_names[idx].clone());
         let mut seen: HashSet<&NetMember> = HashSet::new();
         let mut members: Vec<NetMember> = Vec::new();
         for idx in indices {
@@ -433,7 +440,9 @@ fn expand_pass(
             }
         }
         if !members.is_empty() {
-            nets.push(Net::from_members(members));
+            let mut net = Net::from_members(members);
+            net.name = name;
+            nets.push(net);
         }
     }
 
