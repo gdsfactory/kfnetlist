@@ -2148,8 +2148,9 @@ layout viewer.</p>
 <h3 id="what-is-the-difference-between-topological-and-geometric-shorts">What is the difference between topological and geometric shorts?</h3>
 <p>A <strong>topological short</strong> occurs when two named nets share the same port
 member — i.e., the same port appears in two different nets. kfnetlist does
-not currently detect topological shorts (this requires named nets, which
-are on the roadmap).</p>
+not detect topological shorts yet: nets can carry a name (<code>Net.name</code>, set via
+<code>create_net(..., name=...)</code>), but nothing populates names during extraction and
+no detector uses them.</p>
 <p>A <strong>geometric short</strong> occurs when polygons belonging to different nets
 overlap on the same layer. <code>detect_shorts(l2n)</code> detects geometric shorts
 using klayout's boolean Region intersection.</p>

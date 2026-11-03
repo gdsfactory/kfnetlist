@@ -1932,8 +1932,8 @@ Dict: [{'name': 'in'}, {'instance': 'wg1', 'port': 'o1'}]
 <span class="nb">print</span><span class="p">(</span><span class="s2">"JSON:"</span><span class="p">,</span> <span class="n">inst</span><span class="o">.</span><span class="n">to_json</span><span class="p">())</span>
 <span class="nb">print</span><span class="p">(</span><span class="s2">"Dict:"</span><span class="p">,</span> <span class="n">inst</span><span class="o">.</span><span class="n">to_dict</span><span class="p">())</span>
 </code></pre></div>
-<div class="highlight"><pre><span></span><code>JSON: {"kcl":"MY_PDK","component":"straight","settings":{"length":10000,"width":500}}
-Dict: {'kcl': 'MY_PDK', 'component': 'straight', 'settings': {'length': 10000, 'width': 500}}
+<div class="highlight"><pre><span></span><code>JSON: {"component":"straight","kcl":"MY_PDK","settings":{"length":10000,"width":500}}
+Dict: {'component': 'straight', 'kcl': 'MY_PDK', 'settings': {'length': 10000, 'width': 500}}
 </code></pre></div>
 <h2 id="full-netlist-serialization">Full Netlist serialization</h2>
 <p>The <code>Netlist</code> itself supports JSON and dict round-trips containing all
@@ -1952,25 +1952,25 @@ instances, nets, and ports.</p>
 <div class="highlight"><pre><span></span><code>{
   "instances": {
     "wg1": {
-      "kcl": "PDK",
-      "component": "straight",
-      "settings": {
-        "width": 500
-      },
       "array": {
         "na": 1,
         "nb": 1
+      },
+      "component": "straight",
+      "kcl": "PDK",
+      "settings": {
+        "width": 500
       }
     },
     "wg2": {
-      "kcl": "PDK",
-      "component": "straight",
-      "settings": {
-        "width": 500
-      },
       "array": {
         "na": 1,
         "nb": 1
+      },
+      "component": "straight",
+      "kcl": "PDK",
+      "settings": {
+        "width": 500
       }
     }
   },

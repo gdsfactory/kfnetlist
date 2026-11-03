@@ -1682,6 +1682,20 @@
   name still works but raises a <code>DeprecationWarning</code>. It never inlined
   anything: it deletes instances and merges the nets they touched, which the
   new <code>flatten()</code> would otherwise be confused with.</li>
+<li><strong>Optional net names</strong> — <code>Net</code> carries a <code>name</code>, set at construction
+  (<code>Netlist.create_net(..., name=...)</code>, <code>Net(..., name=...)</code>, both
+  keyword-only) and copied by <code>Netlist.add_net()</code>. The name survives
+  serialization, <code>remove_instances()</code>, <code>normalize()</code> and <code>flatten()</code>; a merged
+  net keeps the name of the lowest-indexed net that had one. Names are
+  metadata, not identity: equality, hashing and ordering ignore them, so
+  connectivity comparison is unchanged. A named net is written as
+  <code>{"name": ..., "members": [...]}</code>; an unnamed net keeps the historical bare
+  JSON array, and reading accepts both. The object form requires <code>members</code> and
+  rejects unknown fields. <strong>Forward incompatibility:</strong> a reader released before
+  this change expects a net to be an array and rejects any document containing
+  a named net. Names travel with the netlist JSON only — the PIC-document
+  (YAML/protobuf) net representation has no name slot yet, so
+  <code>Module.from_netlist()</code> still drops them.</li>
 </ul>
 <h2 id="020">0.2.0</h2>
 <ul>
