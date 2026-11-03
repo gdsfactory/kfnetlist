@@ -161,6 +161,25 @@ impl Netlist {
     /// Validate and add a net atomically. Array reference (1, 1) becomes a plain
     /// reference; other indices retain the historical upper-bound-only check.
     pub fn create_net(&mut self, ports: impl IntoIterator<Item = NetMember>) -> Result<()> {
+        self.push_net(ports, None)
+    }
+
+    /// Validate and add a named net atomically; [`Netlist::create_net`] plus a
+    /// name. See [`Net`] for what a name means (metadata, not identity, and
+    /// what the wire format does with it).
+    pub fn create_named_net(
+        &mut self,
+        ports: impl IntoIterator<Item = NetMember>,
+        name: impl Into<String>,
+    ) -> Result<()> {
+        self.push_net(ports, Some(name.into()))
+    }
+
+    fn push_net(
+        &mut self,
+        ports: impl IntoIterator<Item = NetMember>,
+        name: Option<String>,
+    ) -> Result<()> {
         let mut members: Vec<NetMember> = Vec::new();
         for member in ports {
             match member {
@@ -212,17 +231,24 @@ impl Netlist {
                 }
             }
         }
-        self.nets.push(Net::from_members(members));
+        let mut net = Net::from_members(members);
+        net.name = name;
+        self.nets.push(net);
         Ok(())
     }
 
-    /// Validate and add a copy of an existing net.
+    /// Validate and add a copy of an existing net, name included.
     pub fn add_net(&mut self, net: &Net) -> Result<()> {
-        self.create_net(net.members.clone())
+        self.push_net(net.members.clone(), net.name.clone())
     }
     /// Remove the named instances and merge any nets touching them into
     /// a single new net (per group of nets that referenced the same removed
     /// instance), preserving every surviving port reference.
+    ///
+    /// Names are not merged: the merged net keeps the name of the
+    /// lowest-indexed contributing net that has one. With several names in one
+    /// call the rule is applied per pass, over the net list as it stands at
+    /// that point.
     ///
     /// This *deletes* an instance: nothing of the cell it referenced is kept.
     /// To replace an instance by the contents of its cell instead, use the
@@ -234,6 +260,9 @@ impl Netlist {
             }
             let mut surviving: Vec<Net> = Vec::with_capacity(self.nets.len());
             let mut merged: Vec<NetMember> = Vec::new();
+            // Nets are drained in source order, so the first named net is the
+            // lowest-indexed one.
+            let mut merged_name: Option<String> = None;
             for net in self.nets.drain(..) {
                 let touches = net.members.iter().any(|m| match m {
                     NetMember::Ref(r) => r.instance == inst_name,
@@ -241,6 +270,9 @@ impl Netlist {
                     NetMember::Port(_) => false,
                 });
                 if touches {
+                    if merged_name.is_none() {
+                        merged_name = net.name.clone();
+                    }
                     for m in net.members {
                         let keep = match &m {
                             NetMember::Ref(r) => r.instance != inst_name,
@@ -257,7 +289,9 @@ impl Netlist {
             }
             self.nets = surviving;
             if !merged.is_empty() {
-                self.nets.push(Net::from_members(merged));
+                let mut net = Net::from_members(merged);
+                net.name = merged_name;
+                self.nets.push(net);
             }
         }
         Ok(())
@@ -438,6 +472,10 @@ impl Netlist {
             let cell_mapping = port_mapping.entry(cell_name).or_default().clone();
 
             for idxs in groups.values() {
+                // Names are not merged: the merged net keeps the name of the
+                // lowest-indexed contributing net that has one. `idxs` is
+                // ascending (built by an ascending scan).
+                let name = idxs.iter().find_map(|&i| nl.nets[i].name.clone());
                 let mut seen: HashSet<NetMember> = HashSet::new();
                 for &i in idxs {
                     deleted.insert(i);
@@ -457,7 +495,9 @@ impl Netlist {
                         seen.insert(resolved);
                     }
                 }
-                new_nets.push(Net::from_members(seen.into_iter().collect()));
+                let mut merged = Net::from_members(seen.into_iter().collect());
+                merged.name = name;
+                new_nets.push(merged);
             }
 
             let mut surviving: Vec<Net> = Vec::with_capacity(nl.nets.len());

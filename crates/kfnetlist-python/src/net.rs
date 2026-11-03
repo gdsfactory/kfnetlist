@@ -40,8 +40,12 @@ impl NetMemberPython for NetMember {
 }
 
 /// A net: an unordered collection of port members that share electrical
-/// connectivity. Internally stored sorted by (kind, fields) for stable
-/// equality and hashing.
+/// connectivity, optionally carrying a name. Internally stored sorted by
+/// (kind, fields) for stable equality and hashing.
+///
+/// The name is metadata, not identity: equality, hashing and ordering ignore
+/// it, so two nets with the same members compare equal whether or not they
+/// are named.
 #[pyclass(module = "kfnetlist._native")]
 #[derive(Clone, Debug, Hash, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 #[serde(transparent)]
@@ -51,6 +55,10 @@ crate::core_wrapper!(Net, kfnetlist_core::Net);
 impl Net {
     pub(crate) fn from_members(members: Vec<NetMember>) -> Self {
         Self(kfnetlist_core::Net::from_members(members))
+    }
+
+    pub(crate) fn from_members_with_name(members: Vec<NetMember>, name: String) -> Self {
+        Self(kfnetlist_core::Net::with_name(members, name))
     }
 
     fn extract_members(obj: Option<&Bound<'_, PyAny>>) -> PyResult<Vec<NetMember>> {
@@ -73,10 +81,24 @@ impl Net {
 #[pymethods]
 impl Net {
     #[new]
-    #[pyo3(signature = (members=None))]
-    fn new(members: Option<&Bound<'_, PyAny>>) -> PyResult<Self> {
+    #[pyo3(signature = (members=None, *, name=None))]
+    fn new(members: Option<&Bound<'_, PyAny>>, name: Option<String>) -> PyResult<Self> {
         let members = Self::extract_members(members)?;
-        Ok(Net::from_members(members))
+        Ok(match name {
+            Some(name) => Net::from_members_with_name(members, name),
+            None => Net::from_members(members),
+        })
+    }
+
+    /// Name of the net, or `None` when it is unnamed.
+    #[getter]
+    fn name(&self) -> Option<String> {
+        self.0.name.clone()
+    }
+
+    #[setter]
+    fn set_name(&mut self, value: Option<String>) {
+        self.0.name = value;
     }
 
     fn __len__(&self) -> usize {
@@ -132,7 +154,10 @@ impl Net {
             let bound = m.clone().into_py_obj(py)?;
             parts.push(bound.repr()?.to_string());
         }
-        Ok(format!("Net([{}])", parts.join(", ")))
+        Ok(match &self.0.name {
+            Some(name) => format!("Net([{}], name={:?})", parts.join(", "), name),
+            None => format!("Net([{}])", parts.join(", ")),
+        })
     }
 
     fn sort(&mut self) {
