@@ -5,13 +5,13 @@ from typing import ClassVar
 
 from lark import Lark
 
-from kfnetlist.morphnet.morphnet_schema import Circuit
+from kfnetlist.morphnet.morphnet_schema import Netlist
 from kfnetlist.morphnet.netlist.hspice.preprocess import preprocess_hspice
 from kfnetlist.morphnet.netlist.hspice.transformer import HspiceTransformer
 
 
 class HspiceParser:
-    """Parse HSPICE netlist text into a Circuit model.
+    """Parse HSPICE netlist text into a Netlist model.
 
     Extends SpiceParser with HSPICE grammar and preprocessor.
     """
@@ -30,23 +30,22 @@ class HspiceParser:
         return cls.lark_instance
 
     @classmethod
-    def parse(cls, text: str) -> Circuit:
+    def parse(cls, text: str) -> Netlist:
         cleaned = preprocess_hspice(text)
         lark = cls.get_lark()
         tree = lark.parse(cleaned)
         transformer = HspiceTransformer()
-        circuit = transformer.transform(tree)
-        return Circuit(
-            name=circuit.name,
-            domain="hspice",
-            top_module=circuit.top_module,
-            modules=circuit.modules,
-            ext_modules=circuit.ext_modules,
-            directives=circuit.directives,
-            simulation=circuit.simulation,
+        netlist = transformer.transform(tree)
+        return Netlist(
+            name=netlist.name,
+            top_circuit=netlist.top_circuit,
+            circuits=netlist.circuits,
+            ext_modules=netlist.ext_modules,
+            directives=netlist.directives,
+            simulation=netlist.simulation,
         )
 
 
-def parse_hspice(text: str) -> Circuit:
-    """Parse HSPICE netlist text into a Circuit model."""
+def parse_hspice(text: str) -> Netlist:
+    """Parse HSPICE netlist text into a Netlist model."""
     return HspiceParser.parse(text)

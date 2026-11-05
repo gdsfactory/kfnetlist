@@ -6,15 +6,15 @@ from lark import Token, Transformer
 
 from kfnetlist.morphnet.morphnet_schema import (
     Analysis,
-    Circuit,
+    Netlist,
     Connection,
     Directive,
     DirectiveKind,
     ExternalModule,
     InitialCondition,
     Measurement,
-    Module,
-    ModuleReference,
+    Circuit,
+    SubCircuit,
     OutputRequest,
     Parameter,
     ParameterValue,
@@ -104,14 +104,14 @@ class ModelData:
 class SubcktData:
     """Intermediate representation of a fully parsed subcircuit."""
 
-    __slots__ = ("ext_modules", "module")
+    __slots__ = ("ext_modules", "circuit")
 
     def __init__(
         self,
-        module: Module,
+        circuit: Circuit,
         ext_modules: dict[str, ExternalModule],
     ) -> None:
-        self.module = module
+        self.circuit = circuit
         self.ext_modules = ext_modules
 
 
@@ -161,20 +161,20 @@ class ParamData:
         self.params = params
 
 
-class SpiceTransformer(Transformer[Token, Circuit]):
-    """Transform a SPICE parse tree into a Circuit model.
+class SpiceTransformer(Transformer[Token, Netlist]):
+    """Transform a SPICE parse tree into a Netlist model.
 
     Architecture:
     - Bottom-up: subcircuit bodies resolve before enclosing scope.
     - Dict-based lookups everywhere for O(n) overall complexity.
     - Per-subcircuit NetMap built in single pass over instances.
-    - Stateful: _all_subckts accumulates all resolved subcircuit Modules
+    - Stateful: _all_subckts accumulates all resolved subcircuit Circuits
       so later subcircuits can resolve X-instance port names from earlier ones.
     """
 
     def __init__(self) -> None:
         super().__init__()
-        self.all_subckts: dict[str, Module] = {}
+        self.all_subckts: dict[str, Circuit] = {}
 
     # ── Leaf transformers ───────────────────────────────────────────────
 
@@ -519,7 +519,7 @@ class SpiceTransformer(Transformer[Token, Circuit]):
                 body_items = item
 
         result = self.build_subckt(subckt_name, port_names, subckt_params, body_items)
-        self.all_subckts[subckt_name] = result.module
+        self.all_subckts[subckt_name] = result.circuit
         return result
 
     def build_subckt(
@@ -529,13 +529,13 @@ class SpiceTransformer(Transformer[Token, Circuit]):
         subckt_params: dict[str, ParameterValue],
         body_items: list[Any],
     ) -> SubcktData:
-        """Assemble a Module from parsed subcircuit contents.
+        """Assemble a Circuit from parsed subcircuit contents.
 
         O(n) overall: single pass over body items to collect instances,
         single pass to build NetMap, single pass to generate Connections.
         """
         instances: list[InstanceData] = []
-        nested_subckts: dict[str, Module] = {}
+        nested_subckts: dict[str, Circuit] = {}
         ext_modules: dict[str, ExternalModule] = {}
         model_defs: dict[str, ModelData] = {}
         circuit_params: list[Parameter] = []
@@ -546,7 +546,7 @@ class SpiceTransformer(Transformer[Token, Circuit]):
             if isinstance(item, InstanceData):
                 instances.append(item)
             elif isinstance(item, SubcktData):
-                nested_subckts[item.module.name] = item.module
+                nested_subckts[item.circuit.name] = item.circuit
                 ext_modules.update(item.ext_modules)
             elif isinstance(item, ModelData):
                 model_defs[item.name] = item
@@ -582,11 +582,11 @@ class SpiceTransformer(Transformer[Token, Circuit]):
                 )
             )
 
-        # Build module_references and NetMap from instances — O(n * avg_ports)
+        # Build subcircuits and NetMap from instances — O(n * avg_ports)
         net_map: NetMap = {}
-        module_references: list[ModuleReference] = []
+        subcircuits: list[SubCircuit] = []
 
-        # Register module's own ports on their nets (port name = net name)
+        # Register the circuit's own ports on their nets (port name = net name)
         for port in ports:
             add_port_to_net(net_map, port.name, "", port.name)
 
@@ -607,10 +607,10 @@ class SpiceTransformer(Transformer[Token, Circuit]):
                 for net_name, port_name in zip(inst.net_names, inst_port_names):
                     add_port_to_net(net_map, net_name, inst.name, port_name)
 
-                module_references.append(
-                    ModuleReference(
+                subcircuits.append(
+                    SubCircuit(
                         name=inst.name,
-                        module_name=inst.model_or_subckt,
+                        circuit_name=inst.model_or_subckt,
                         parameters=[
                             Parameter(name=pname, default_value=pval)
                             for pname, pval in inst.params.items()
@@ -657,10 +657,10 @@ class SpiceTransformer(Transformer[Token, Circuit]):
                 if inst.model_or_subckt:
                     props["model_name"] = inst.model_or_subckt
 
-                module_references.append(
-                    ModuleReference(
+                subcircuits.append(
+                    SubCircuit(
                         name=inst.name,
-                        module_name=module_name,
+                        circuit_name=module_name,
                         parameters=params,
                         properties=props,
                     )
@@ -669,10 +669,10 @@ class SpiceTransformer(Transformer[Token, Circuit]):
                 # Unknown prefix — treat as subcircuit
                 for i, net_name in enumerate(inst.net_names):
                     add_port_to_net(net_map, net_name, inst.name, f"p{i}")
-                module_references.append(
-                    ModuleReference(
+                subcircuits.append(
+                    SubCircuit(
                         name=inst.name,
-                        module_name=inst.model_or_subckt,
+                        circuit_name=inst.model_or_subckt,
                         parameters=[
                             Parameter(name=pname, default_value=pval)
                             for pname, pval in inst.params.items()
@@ -696,20 +696,20 @@ class SpiceTransformer(Transformer[Token, Circuit]):
         # Convert NetMap to Connections — O(n)
         connections: list[Connection] = net_map_to_connections(net_map)
 
-        module = Module(
+        circuit = Circuit(
             name=name,
             ports=ports,
             parameters=circuit_params,
-            module_references=module_references,
+            subcircuits=subcircuits,
             connections=connections,
             directives=directives,
         )
 
-        return SubcktData(module=module, ext_modules=ext_modules)
+        return SubcktData(circuit=circuit, ext_modules=ext_modules)
 
     # ── Top-level: start ────────────────────────────────────────────────
 
-    def start(self, items: list[Any]) -> Circuit:
+    def start(self, items: list[Any]) -> Netlist:
         subckt_datas: list[SubcktData] = []
         model_defs: dict[str, ModelData] = {}
         top_instances: list[InstanceData] = []
@@ -773,17 +773,17 @@ class SpiceTransformer(Transformer[Token, Circuit]):
             elif isinstance(item, TemperatureData):
                 temperatures.extend(item.temperatures)
 
-        # Collect all modules and ext_modules from subcircuit definitions
-        modules: list[Module] = []
+        # Collect all circuits and ext_modules from subcircuit definitions
+        circuits: list[Circuit] = []
         all_ext_modules: dict[str, ExternalModule] = {}
-        subckt_by_name: dict[str, Module] = {}
+        subckt_by_name: dict[str, Circuit] = {}
 
         for sd in subckt_datas:
-            modules.append(sd.module)
-            subckt_by_name[sd.module.name] = sd.module
+            circuits.append(sd.circuit)
+            subckt_by_name[sd.circuit.name] = sd.circuit
             all_ext_modules.update(sd.ext_modules)
 
-        # If there are top-level instances, create a synthetic top module
+        # If there are top-level instances, create a synthetic top circuit
         if top_instances:
             top_data = self.build_subckt(
                 name="__top__",
@@ -791,7 +791,7 @@ class SpiceTransformer(Transformer[Token, Circuit]):
                 subckt_params={},
                 body_items=top_instances,
             )
-            modules.insert(0, top_data.module)
+            circuits.insert(0, top_data.circuit)
             all_ext_modules.update(top_data.ext_modules)
 
         # Convert model definitions to ExternalModules
@@ -807,10 +807,10 @@ class SpiceTransformer(Transformer[Token, Circuit]):
                     properties={"model_type": mdata.type_name},
                 )
 
-        # Determine top module: last defined subcircuit is conventionally the top
-        top_module = ""
-        if modules:
-            top_module = modules[-1].name
+        # Determine top circuit: last defined subcircuit is conventionally the top
+        top_circuit = ""
+        if circuits:
+            top_circuit = circuits[-1].name
 
         for p in circuit_params:
             val = _param_value_to_str(p.default_value) if p.default_value else ""
@@ -865,10 +865,10 @@ class SpiceTransformer(Transformer[Token, Circuit]):
                 temperatures=temperatures,
             )
 
-        return Circuit(
+        return Netlist(
             name="",
-            top_module=top_module,
-            modules=modules,
+            top_circuit=top_circuit,
+            circuits=circuits,
             ext_modules=list(all_ext_modules.values()),
             directives=directives,
             simulation=simulation,

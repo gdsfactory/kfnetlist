@@ -9,9 +9,9 @@ R1 a b 1k
 .ends test
 .end
 """
-        circuit = parse_spectre_spice(text)
-        assert circuit.top_module == "test"
-        assert len(circuit.modules) == 1
+        netlist = parse_spectre_spice(text)
+        assert netlist.top_circuit == "test"
+        assert len(netlist.circuits) == 1
 
     def test_spice_devices(self) -> None:
         text = """\
@@ -20,9 +20,9 @@ M1 d g s b nch W=1u L=0.18u
 .ends test
 .end
 """
-        circuit = parse_spectre_spice(text)
-        ref = circuit.modules[0].module_references[0]
-        assert ref.module_name == "mosfet"
+        netlist = parse_spectre_spice(text)
+        ref = netlist.circuits[0].subcircuits[0]
+        assert ref.circuit_name == "mosfet"
         assert ref.properties.get("model_name") == "nch"
 
 
@@ -39,11 +39,11 @@ subckt spectre_mod (a b)
 R0 (a b) resistor r=1k
 ends spectre_mod
 """
-        circuit = parse_spectre_spice(text)
-        mod_names = {m.name for m in circuit.modules}
+        netlist = parse_spectre_spice(text)
+        mod_names = {m.name for m in netlist.circuits}
         assert "spice_mod" in mod_names
         assert "spectre_mod" in mod_names
-        assert len(circuit.modules) == 2
+        assert len(netlist.circuits) == 2
 
     def test_three_sections(self) -> None:
         text = """\
@@ -63,12 +63,12 @@ simulator lang=spice
 R2 a b 3k
 .ends s3
 """
-        circuit = parse_spectre_spice(text)
-        mod_names = [m.name for m in circuit.modules]
+        netlist = parse_spectre_spice(text)
+        mod_names = [m.name for m in netlist.circuits]
         assert "s1" in mod_names
         assert "s2" in mod_names
         assert "s3" in mod_names
-        assert circuit.top_module == "s3"
+        assert netlist.top_circuit == "s3"
 
     def test_directives_from_both_sections(self) -> None:
         text = """\
@@ -82,9 +82,9 @@ subckt test (a b)
 R0 (a b) resistor r=1k
 ends test
 """
-        circuit = parse_spectre_spice(text)
+        netlist = parse_spectre_spice(text)
         include_values = {
-            d.value for d in circuit.directives if d.kind.name == "INCLUDE"
+            d.value for d in netlist.directives if d.kind.name == "INCLUDE"
         }
         assert "spice_models.lib" in include_values
         assert "spectre_models.scs" in include_values

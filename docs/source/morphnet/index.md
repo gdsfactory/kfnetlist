@@ -8,7 +8,7 @@ All formats share a common intermediate representation defined in [Protocol Buff
 
 - **6 netlist formats** — HSPICE, SPICE, Xyce, Spectre, Spectre-SPICE, Verilog-AMS
 - **Bidirectional** — every format has both a parser and a writer
-- **Common IR** — all formats parse into the same `Circuit` model
+- **Common IR** — all formats parse into the same `Netlist` model (`Netlist` → `Circuit` definitions → `SubCircuit` instances), which serializes to protobuf, JSON and YAML with the kfnetlist schema (`circuit.proto`) field names
 - **Protocol Buffers** — compact binary serialization for cross-language interop
 - **Pydantic v2** — type-safe data models with JSON and YAML support
 - **Lark grammars** — each format is defined by a clean EBNF grammar
@@ -18,20 +18,20 @@ All formats share a common intermediate representation defined in [Protocol Buff
 ```
 spectre.scs ──┐                          ┌── spectre.scs
 hspice.sp  ───┤  parse_*()   write_*()   ├── hspice.sp
-xyce.cir   ───┼──────────► Circuit ──────►├── xyce.cir
+xyce.cir   ───┼──────────► Netlist ──────►├── xyce.cir
 spice.sp   ───┤          (protobuf +      ├── spice.sp
 vams.vams  ───┘           pydantic)       └── vams.vams
                              │
                         to_yaml / from_yaml
                              │
-                          circuit.yaml
+                          netlist.yaml
 ```
 
 Each format follows the same internal pipeline:
 
 ```
-raw text → preprocess → Lark grammar → parse tree → Transformer → Circuit
-Circuit → Writer → formatted text
+raw text → preprocess → Lark grammar → parse tree → Transformer → Netlist
+Netlist → Writer → formatted text
 ```
 
 ## Quick Example
@@ -47,8 +47,8 @@ C1 (out gnd) capacitor value=100p
 ends rc_lowpass
 """
 
-circuit = parse_spectre(spectre_netlist)
-print(write_vams(circuit))
+netlist = parse_spectre(spectre_netlist)
+print(write_vams(netlist))
 ```
 
 Output:

@@ -17,63 +17,63 @@ from kfnetlist.morphnet.netlist.spectre.writer import write_spectre
 
 ### HSPICE
 
-#### `parse_hspice(text: str) -> Circuit`
+#### `parse_hspice(text: str) -> Netlist`
 
 Parse HSPICE netlist text. Handles `.subckt`/`.ends`, `.macro`/`.eom`, device instances, `.model` statements, simulation directives (`.tran`, `.ac`, `.dc`, `.op`, `.fft`, etc.), `.include`, `.lib`, `.param`.
 
-#### `write_hspice(circuit: Circuit) -> str`
+#### `write_hspice(circuit: Netlist) -> str`
 
-Write a `Circuit` to HSPICE format.
+Write a `Netlist` to HSPICE format.
 
 ### SPICE
 
-#### `parse_spice(text: str) -> Circuit`
+#### `parse_spice(text: str) -> Netlist`
 
 Parse generic SPICE netlist text. Supports the common SPICE3 subset shared across simulators.
 
-#### `write_spice(circuit: Circuit) -> str`
+#### `write_spice(circuit: Netlist) -> str`
 
-Write a `Circuit` to generic SPICE format.
+Write a `Netlist` to generic SPICE format.
 
 ### Xyce
 
-#### `parse_xyce(text: str) -> Circuit`
+#### `parse_xyce(text: str) -> Netlist`
 
 Parse Xyce netlist text. Supports Xyce-specific syntax extensions.
 
-#### `write_xyce(circuit: Circuit) -> str`
+#### `write_xyce(circuit: Netlist) -> str`
 
-Write a `Circuit` to Xyce format.
+Write a `Netlist` to Xyce format.
 
 ### Spectre
 
-#### `parse_spectre(text: str) -> Circuit`
+#### `parse_spectre(text: str) -> Netlist`
 
-Parse Spectre netlist text. Handles `subckt`/`ends`, instances with `(port list) module_name param=value` syntax, model statements, and simulation analyses.
+Parse Spectre netlist text. Handles `subckt`/`ends`, instances with `(port list) circuit_name param=value` syntax, model statements, and simulation analyses.
 
-#### `write_spectre(circuit: Circuit) -> str`
+#### `write_spectre(circuit: Netlist) -> str`
 
-Write a `Circuit` to Spectre format.
+Write a `Netlist` to Spectre format.
 
 ### Spectre-SPICE
 
-#### `parse_spectre_spice(text: str) -> Circuit`
+#### `parse_spectre_spice(text: str) -> Netlist`
 
 Parse Spectre-SPICE mixed-mode netlists. Handles both Spectre and SPICE syntax blocks.
 
-#### `write_spectre_spice(circuit: Circuit) -> str`
+#### `write_spectre_spice(circuit: Netlist) -> str`
 
-Write a `Circuit` to Spectre-SPICE format (SPICE-style output).
+Write a `Netlist` to Spectre-SPICE format (SPICE-style output).
 
 ### Verilog-AMS
 
-#### `parse_vams(text: str) -> Circuit`
+#### `parse_vams(text: str) -> Netlist`
 
 Parse Verilog-AMS netlist text. Handles `module`/`endmodule`, named port connections (`.port(net)`), parameter overrides (`#(.param(value))`), natures, and disciplines.
 
-#### `write_vams(circuit: Circuit) -> str`
+#### `write_vams(circuit: Netlist) -> str`
 
-Write a `Circuit` to Verilog-AMS format.
+Write a `Netlist` to Verilog-AMS format.
 
 ---
 
@@ -82,7 +82,7 @@ Write a `Circuit` to Verilog-AMS format.
 All models are importable from `kfnetlist.morphnet.morphnet_schema`:
 
 ```python
-from kfnetlist.morphnet.morphnet_schema import Circuit, Module, Port, SIPrefix
+from kfnetlist.morphnet.morphnet_schema import Netlist, Circuit, Port, SIPrefix
 ```
 
 ### Base Class
@@ -107,214 +107,207 @@ Base class for all kfnetlist.morphnet data models. Extends `pydantic.BaseModel` 
 
 ### Core Models
 
+#### `Netlist`
+
+Top-level container (schema message `Circuit`): circuit definitions, external devices, directives and simulation.
+
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `name` | `name` | `str` | Netlist name |
+| `top_circuit` | `top_module` | `str` | Name of the top-level circuit |
+| `circuits` | `modules` | `list[Circuit]` | Circuit definitions |
+| `ext_modules` | `ext_modules` | `list[ExternalModule]` | Primitive device declarations |
+| `properties` | `properties` | `dict[str, str]` | Arbitrary key-value properties |
+| `directives` | `directives` | `list[Directive]` | Include, lib, param directives |
+| `simulation` | `simulation` | `Simulation \| None` | Simulation configuration |
+| `libraries` | `libraries` | `dict[str, ExternalLibrary]` | External model libraries by name |
+
 #### `Circuit`
 
-Top-level container for a parsed netlist.
+A circuit definition (schema message `Module`): ports, parameters, subcircuit instances and connections.
 
-| Field | Type | Description |
-|---|---|---|
-| `name` | `str` | Circuit name |
-| `domain` | `str` | Source format (e.g., `"spectre"`, `"hspice"`) |
-| `top_module` | `str` | Name of the top-level module |
-| `modules` | `list[Module]` | Subcircuit/module definitions |
-| `ext_modules` | `list[ExternalModule]` | Primitive device declarations |
-| `properties` | `dict[str, str]` | Arbitrary key-value properties |
-| `directives` | `list[Directive]` | Include, lib, param directives |
-| `simulation` | `Simulation \| None` | Simulation configuration |
-
-#### `Module`
-
-A subcircuit or module definition.
-
-| Field | Type | Description |
-|---|---|---|
-| `uid` | `int` | Unique identifier |
-| `name` | `str` | Module name |
-| `class_name` | `str` | Class/type name |
-| `ports` | `list[Port]` | Port declarations |
-| `parameters` | `list[Parameter]` | Parameter declarations |
-| `model_interfaces` | `list[ModelInterface]` | Model function definitions |
-| `module_references` | `list[ModuleReference]` | Instances of other modules |
-| `connections` | `list[Connection]` | Point-to-point connections |
-| `buses` | `list[Bus]` | Bus definitions |
-| `properties` | `dict[str, str]` | Arbitrary properties |
-| `directives` | `list[Directive]` | Module-level directives |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `name` | `name` | `str` | Circuit name |
+| `class_name` | `class_name` | `str` | Class/type name |
+| `ports` | `terminals` | `list[Port]` | Port declarations |
+| `parameters` | `parameters` | `list[Parameter]` | Parameter declarations |
+| `model_interfaces` | `model_interfaces` | `list[ModelInterface]` | Model function definitions |
+| `subcircuits` | `module_references` | `list[SubCircuit]` | Instances of other circuits |
+| `connections` | `connections` | `list[Connection]` | Point-to-point connections |
+| `buses` | `buses` | `list[Bus]` | Bus definitions |
+| `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
+| `directives` | `directives` | `list[Directive]` | Circuit-level directives |
 
 #### `ExternalModule`
 
 A primitive or externally-defined device (resistor, mosfet, etc.).
 
-| Field | Type | Description |
-|---|---|---|
-| `name` | `str` | Device name |
-| `domain` | `str` | Signal domain |
-| `ports` | `list[Port]` | Port declarations |
-| `parameters` | `list[Parameter]` | Parameter declarations |
-| `properties` | `dict[str, str]` | Arbitrary properties |
-| `kind` | `ExternalModuleKind` | Device kind (DEVICE, MODEL, etc.) |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `name` | `name` | `str` | Device name |
+| `class_name` | `class_name` | `str` | Class/type name |
+| `library_name` | `library_name` | `str` | Library providing the device |
+| `group_name` | `group_name` | `str` | Group within the library |
+| `ports` | `terminals` | `list[Port]` | Port declarations |
+| `parameters` | `parameters` | `list[Parameter]` | Parameter declarations |
+| `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
+| `kind` | `kind` | `ExternalModuleKind` | Device kind (DEVICE, MODEL, etc.) |
 
-#### `ModuleReference`
+#### `SubCircuit`
 
-An instance of a module or device within a parent module.
+An instance of a circuit or device inside a parent circuit (schema message `ModuleReference`).
 
-| Field | Type | Description |
-|---|---|---|
-| `name` | `str` | Instance name |
-| `module_name` | `str` | Referenced module name |
-| `class_name` | `str` | Class/type name |
-| `parameters` | `list[Parameter]` | Formal parameters |
-| `parameter_overrides` | `dict[str, Parameter]` | Overridden parameter values |
-| `properties` | `dict[str, str]` | Arbitrary properties |
-| `model_name` | `str` | Model name (for model-based instances) |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `name` | `name` | `str` | Instance name |
+| `circuit_name` | `module_name` | `str` | Referenced circuit name |
+| `class_name` | `class_name` | `str` | Class/type name |
+| `parameters` | `parameters` | `list[Parameter]` | Parameter values for this instance |
+| `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
 
 #### `Connection`
 
 A point-to-point connection between two port references on a net.
 
-| Field | Type | Description |
-|---|---|---|
-| `name` | `str` | Net name |
-| `source` | `PortReference \| None` | Source port reference |
-| `target` | `PortReference \| None` | Target port reference |
-| `domain` | `SignalDomain` | Signal domain |
-| `weight` | `int` | Connection weight |
-| `properties` | `dict[str, str]` | Arbitrary properties |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `name` | `name` | `str` | Net name |
+| `source` | `source` | `PortReference \| None` | Source port reference |
+| `target` | `target` | `PortReference \| None` | Target port reference |
+| `domain` | `domain` | `SignalDomain` | Signal domain |
+| `weight` | `weight` | `int` | Connection weight |
+| `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
 
 ### Port Models
 
 #### `Port`
 
-| Field | Type | Description |
-|---|---|---|
-| `uid` | `int` | Unique identifier |
-| `name` | `str` | Port name |
-| `direction` | `PortDirection` | INOUT, INPUT, or OUTPUT |
-| `domain` | `SignalDomain` | Signal domain |
-| `width` | `int` | Bus width |
-| `cross_section` | `str` | Cross section type |
-| `properties` | `dict[str, str]` | Arbitrary properties |
-| `discipline` | `str` | Verilog-AMS discipline |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `name` | `name` | `str` | Port name |
+| `direction` | `direction` | `PortDirection` | INOUT, INPUT, or OUTPUT |
+| `domain` | `domain` | `SignalDomain` | Signal domain |
+| `width` | `width` | `int` | Bus width |
+| `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
+| `discipline` | `discipline` | `str` | Verilog-AMS discipline |
 
 #### `PortReference`
 
 A reference to a specific port on a specific instance.
 
-| Field | Type | Description |
-|---|---|---|
-| `instance_name` | `str` | Name of the instance |
-| `port_name` | `str` | Name of the port |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `instance_name` | `instance_name` | `str` | Name of the instance |
+| `port_name` | `terminal_name` | `str` | Name of the port |
 
 #### `Bus`
 
-| Field | Type | Description |
-|---|---|---|
-| `name` | `str` | Bus name |
-| `width` | `int` | Bus width |
-| `domain` | `SignalDomain` | Signal domain |
-| `connections` | `list[Connection]` | Bus connections |
-| `properties` | `dict[str, str]` | Arbitrary properties |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `name` | `name` | `str` | Bus name |
+| `width` | `width` | `int` | Bus width |
+| `domain` | `domain` | `SignalDomain` | Signal domain |
+| `connections` | `connections` | `list[Connection]` | Bus connections |
+| `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
 
 ### Parameter Models
 
 #### `Parameter`
 
-| Field | Type | Description |
-|---|---|---|
-| `uid` | `int` | Unique identifier |
-| `name` | `str` | Parameter name |
-| `default_value` | `ParameterValue \| None` | Default value |
-| `description` | `str` | Description |
-| `properties` | `dict[str, str]` | Arbitrary properties |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `name` | `name` | `str` | Parameter name |
+| `default_value` | `default_value` | `ParameterValue \| None` | Default value |
+| `description` | `description` | `str` | Description |
+| `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
 
 #### `ParameterValue`
 
 A oneof value — exactly one field should be set:
 
-| Field | Type | Description |
-|---|---|---|
-| `prefixed_value` | `PrefixedValue \| None` | SI-prefixed numeric value |
-| `model_ref` | `ModelReference \| None` | Reference to a model |
-| `string_value` | `str \| None` | String value |
-| `expression` | `str \| None` | Expression string |
-| `int_value` | `int \| None` | Integer value |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `prefixed_value` | `prefixed_value` | `PrefixedValue \| None` | SI-prefixed numeric value |
+| `model_ref` | `model_ref` | `ModelReference \| None` | Reference to a model |
 
 #### `PrefixedValue`
 
-| Field | Type | Description |
-|---|---|---|
-| `double_value` | `float` | Numeric value |
-| `prefix` | `SIPrefix` | SI prefix (KILO, MEGA, PICO, etc.) |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `double_value` | `double_value` | `float` | Numeric value |
+| `prefix` | `prefix` | `SIPrefix` | SI prefix (KILO, MEGA, PICO, etc.) |
 
 #### `ModelReference`
 
-| Field | Type | Description |
-|---|---|---|
-| `model_interface_name` | `str` | Model interface name |
-| `arguments` | `dict[str, ParameterValue]` | Model arguments |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `model_interface_name` | `model_interface_name` | `str` | Model interface name |
+| `arguments` | `arguments` | `dict[str, ParameterValue]` | Model arguments |
 
 #### `ModelInterface`
 
-| Field | Type | Description |
-|---|---|---|
-| `name` | `str` | Interface name |
-| `function_name` | `str` | Function name |
-| `parameters` | `list[Parameter]` | Parameters |
-| `properties` | `dict[str, str]` | Arbitrary properties |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `name` | `name` | `str` | Interface name |
+| `function_name` | `function_name` | `str` | Function name |
+| `parameters` | `parameters` | `list[Parameter]` | Parameters |
+| `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
 
 ### Directive Models
 
 #### `Directive`
 
-| Field | Type | Description |
-|---|---|---|
-| `kind` | `DirectiveKind` | Directive type |
-| `name` | `str` | Directive name/key |
-| `value` | `str` | Directive value |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `kind` | `kind` | `DirectiveKind` | Directive type |
+| `name` | `name` | `str` | Directive name/key |
+| `value` | `value` | `str` | Directive value |
 
 ### Simulation Models
 
 #### `Simulation`
 
-| Field | Type | Description |
-|---|---|---|
-| `analyses` | `list[Analysis]` | Simulation analyses |
-| `output_requests` | `list[OutputRequest]` | Print/plot/probe/save requests |
-| `measurements` | `list[Measurement]` | .meas statements |
-| `initial_conditions` | `InitialCondition \| None` | Initial conditions |
-| `node_sets` | `InitialCondition \| None` | Node sets |
-| `temperatures` | `list[float]` | Temperature list |
-| `options` | `dict[str, str]` | Simulation options |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `analyses` | `analyses` | `list[Analysis]` | Simulation analyses |
+| `output_requests` | `output_requests` | `list[OutputRequest]` | Print/plot/probe/save requests |
+| `measurements` | `measurements` | `list[Measurement]` | .meas statements |
+| `initial_conditions` | `initial_conditions` | `InitialCondition \| None` | Initial conditions |
+| `node_sets` | `node_sets` | `InitialCondition \| None` | Node sets |
+| `temperatures` | `temperatures` | `list[float]` | Temperature list |
+| `options` | `options` | `dict[str, str]` | Simulation options |
 
 #### `Analysis`
 
-| Field | Type | Description |
-|---|---|---|
-| `kind` | `AnalysisKind` | Analysis type (OP, DC, AC, TRAN, etc.) |
-| `name` | `str` | Analysis name |
-| `arguments` | `list[str]` | Positional arguments |
-| `options` | `dict[str, str]` | Named options |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `kind` | `kind` | `AnalysisKind` | Analysis type (OP, DC, AC, TRAN, etc.) |
+| `name` | `name` | `str` | Analysis name |
+| `arguments` | `arguments` | `list[str]` | Positional arguments |
+| `options` | `options` | `dict[str, str]` | Named options |
 
 #### `OutputRequest`
 
-| Field | Type | Description |
-|---|---|---|
-| `kind` | `OutputRequestKind` | PRINT, PLOT, PROBE, or SAVE |
-| `analysis_type` | `str` | Associated analysis type |
-| `variables` | `list[str]` | Variable expressions |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `kind` | `kind` | `OutputRequestKind` | PRINT, PLOT, PROBE, or SAVE |
+| `analysis_type` | `analysis_type` | `str` | Associated analysis type |
+| `variables` | `variables` | `list[str]` | Variable expressions |
 
 #### `Measurement`
 
-| Field | Type | Description |
-|---|---|---|
-| `name` | `str` | Measurement name |
-| `analysis_type` | `str` | Associated analysis type |
-| `body` | `str` | Measurement body |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `name` | `name` | `str` | Measurement name |
+| `analysis_type` | `analysis_type` | `str` | Associated analysis type |
+| `body` | `body` | `str` | Measurement body |
 
 #### `InitialCondition`
 
-| Field | Type | Description |
-|---|---|---|
-| `conditions` | `dict[str, str]` | Node/value pairs |
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `conditions` | `conditions` | `dict[str, str]` | Node/value pairs |
 
 ### Enums
 

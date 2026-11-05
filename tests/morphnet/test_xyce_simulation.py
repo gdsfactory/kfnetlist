@@ -8,9 +8,9 @@ class TestXyceSimulationParsing:
 .print TRAN V(out)
 .end
 """
-        circuit = parse_xyce(text)
-        assert circuit.simulation is not None
-        req = circuit.simulation.output_requests[0]
+        netlist = parse_xyce(text)
+        assert netlist.simulation is not None
+        req = netlist.simulation.output_requests[0]
         assert req.kind == OutputRequestKind.PRINT
         assert req.analysis_type == "TRAN"
         assert req.variables == ["V(out)"]
@@ -20,9 +20,9 @@ class TestXyceSimulationParsing:
 .tran 0 10u
 .end
 """
-        circuit = parse_xyce(text)
-        assert circuit.simulation is not None
-        a = circuit.simulation.analyses[0]
+        netlist = parse_xyce(text)
+        assert netlist.simulation is not None
+        a = netlist.simulation.analyses[0]
         assert a.kind == AnalysisKind.TRAN
 
     def test_xyce_with_brace_expr(self) -> None:
@@ -30,9 +30,9 @@ class TestXyceSimulationParsing:
 .tran 0 {tstop}
 .end
 """
-        circuit = parse_xyce(text)
-        assert circuit.simulation is not None
-        a = circuit.simulation.analyses[0]
+        netlist = parse_xyce(text)
+        assert netlist.simulation is not None
+        a = netlist.simulation.analyses[0]
         assert a.kind == AnalysisKind.TRAN
         assert "{tstop}" in a.arguments
 
@@ -41,9 +41,9 @@ class TestXyceSimulationParsing:
 .dc VDD 0 1.8 0.01
 .end
 """
-        circuit = parse_xyce(text)
-        assert circuit.simulation is not None
-        a = circuit.simulation.analyses[0]
+        netlist = parse_xyce(text)
+        assert netlist.simulation is not None
+        a = netlist.simulation.analyses[0]
         assert a.kind == AnalysisKind.DC
 
     def test_ic_statement(self) -> None:
@@ -51,9 +51,9 @@ class TestXyceSimulationParsing:
 .ic V(out)=0
 .end
 """
-        circuit = parse_xyce(text)
-        assert circuit.simulation is not None
-        ic = circuit.simulation.initial_conditions
+        netlist = parse_xyce(text)
+        assert netlist.simulation is not None
+        ic = netlist.simulation.initial_conditions
         assert ic is not None
         assert ic.conditions["V(out)"] == "0"
 
@@ -67,7 +67,7 @@ X1 in out res r=10k
 .print DC V(out)
 .end
 """
-        circuit = parse_xyce(text)
-        assert circuit.simulation is not None
-        assert len(circuit.simulation.analyses) == 1
-        assert len(circuit.simulation.output_requests) == 1
+        netlist = parse_xyce(text)
+        assert netlist.simulation is not None
+        assert len(netlist.simulation.analyses) == 1
+        assert len(netlist.simulation.output_requests) == 1

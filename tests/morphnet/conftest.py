@@ -2,13 +2,13 @@ import pytest
 
 from kfnetlist.morphnet.morphnet_schema import (
     Bus,
-    Circuit,
+    Netlist,
     Connection,
     ExternalModule,
     ModelInterface,
     ModelReference,
-    Module,
-    ModuleReference,
+    Circuit,
+    SubCircuit,
     Parameter,
     ParameterValue,
     Port,
@@ -110,10 +110,10 @@ def bus(connection):
 
 
 @pytest.fixture
-def module_reference():
-    return ModuleReference(
+def subcircuit():
+    return SubCircuit(
         name="mmi_1",
-        module_name="mmi1x2",
+        circuit_name="mmi1x2",
         class_name="MMI1x2",
         parameters=[
             Parameter(
@@ -130,14 +130,14 @@ def module_reference():
 
 
 @pytest.fixture
-def module(port, parameter, model_interface, module_reference, connection, bus):
-    return Module(
+def circuit(port, parameter, model_interface, subcircuit, connection, bus):
+    return Circuit(
         name="top",
         class_name="TopLevel",
         ports=[port],
         parameters=[parameter],
         model_interfaces=[model_interface],
-        module_references=[module_reference],
+        subcircuits=[subcircuit],
         connections=[connection],
         buses=[bus],
         properties={"foundry": "GlobalFoundries"},
@@ -155,11 +155,11 @@ def external_module(port, parameter):
 
 
 @pytest.fixture
-def circuit(module, external_module):
-    return Circuit(
+def netlist(circuit, external_module):
+    return Netlist(
         name="mzi_circuit",
-        top_module="top",
-        modules=[module],
+        top_circuit="top",
+        circuits=[circuit],
         ext_modules=[external_module],
         properties={"pdk": "gf45spclo"},
     )

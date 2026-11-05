@@ -5,7 +5,7 @@ from typing import ClassVar
 
 from lark import Lark
 
-from kfnetlist.morphnet.morphnet_schema import Circuit, Directive, DirectiveKind
+from kfnetlist.morphnet.morphnet_schema import Netlist, Directive, DirectiveKind
 from kfnetlist.morphnet.netlist.vams.preprocess import preprocess_vams
 from kfnetlist.morphnet.netlist.vams.transformer import VamsTransformer
 
@@ -17,7 +17,7 @@ DIRECTIVE_KIND_MAP: dict[str, DirectiveKind] = {
 
 
 class VamsParser:
-    """Parse Verilog-AMS netlist text into a Circuit model."""
+    """Parse Verilog-AMS netlist text into a Netlist model."""
 
     lark_instance: ClassVar[Lark | None] = None
 
@@ -33,12 +33,12 @@ class VamsParser:
         return cls.lark_instance
 
     @classmethod
-    def parse(cls, text: str) -> Circuit:
+    def parse(cls, text: str) -> Netlist:
         result = preprocess_vams(text)
         lark = cls.get_lark()
         tree = lark.parse(result.text)
         transformer = VamsTransformer(analog_blocks=result.analog_blocks)
-        circuit = transformer.transform(tree)
+        netlist = transformer.transform(tree)
 
         directives: list[Directive] = []
         for kind_str, value in result.directives:
@@ -48,18 +48,18 @@ class VamsParser:
             directives.append(Directive(kind=dk, value=value))
 
         if directives:
-            circuit = Circuit(
-                name=circuit.name,
-                top_module=circuit.top_module,
-                modules=circuit.modules,
-                ext_modules=circuit.ext_modules,
-                properties=circuit.properties,
+            netlist = Netlist(
+                name=netlist.name,
+                top_circuit=netlist.top_circuit,
+                circuits=netlist.circuits,
+                ext_modules=netlist.ext_modules,
+                properties=netlist.properties,
                 directives=directives,
             )
 
-        return circuit
+        return netlist
 
 
-def parse_vams(text: str) -> Circuit:
-    """Parse Verilog-AMS netlist text into a Circuit model."""
+def parse_vams(text: str) -> Netlist:
+    """Parse Verilog-AMS netlist text into a Netlist model."""
     return VamsParser.parse(text)

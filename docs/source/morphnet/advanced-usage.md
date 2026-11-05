@@ -1,51 +1,56 @@
 # Advanced Usage
 
-## Working with the Circuit Model
+## Working with the Netlist Model
 
-### Circuit Structure
+### Netlist Structure
 
-A `Circuit` is the top-level container. Here is how it is organized:
+A `Netlist` is the top-level container. It holds `Circuit` definitions, and each
+`Circuit` holds `SubCircuit` instances. Field names on the right are the kfnetlist
+schema (`circuit.proto`) names used in protobuf, JSON and YAML:
 
 ```
-Circuit
-├── name: str                    # circuit name
-├── domain: str                  # source format ("spectre", "hspice", etc.)
-├── top_module: str              # name of the top-level module
-├── modules: list[Module]        # subcircuit/module definitions
-│   ├── ports: list[Port]
+Netlist                                            # schema: Circuit
+├── name: str
+├── top_circuit: str                               # schema: top_module
+├── circuits: list[Circuit]                        # schema: modules
+│   ├── name, class_name: str                      # Circuit — schema: Module
+│   ├── ports: list[Port]                          # schema: terminals
 │   ├── parameters: list[Parameter]
-│   ├── module_references: list[ModuleReference]  # instances
+│   ├── subcircuits: list[SubCircuit]              # schema: module_references
+│   │   └── name, circuit_name, class_name, parameters   # SubCircuit — schema: ModuleReference
 │   ├── connections: list[Connection]
-│   └── buses: list[Bus]
-├── ext_modules: list[ExternalModule]  # primitive devices (resistor, mosfet, etc.)
-├── directives: list[Directive]        # .include, .lib, .param, etc.
-└── simulation: Simulation | None      # analyses, output requests, measurements
+│   ├── buses: list[Bus]
+│   └── directives: list[Directive]
+├── ext_modules: list[ExternalModule]              # primitive devices (resistor, mosfet, ...)
+├── directives: list[Directive]                    # .include, .lib, .param, ...
+├── libraries: dict[str, ExternalLibrary]
+└── simulation: Simulation | None                  # analyses, output requests, measurements
 ```
 
-### Inspecting Modules
+### Inspecting Circuits
 
 ```python
 from kfnetlist.morphnet.netlist.spectre.parser import parse_spectre
 
-circuit = parse_spectre("""\
+netlist = parse_spectre("""\
 subckt rc_lowpass (in_ out gnd)
 R1 (in_ out) resistor value=1k
 C1 (out gnd) capacitor value=100p
 ends rc_lowpass
 """)
 
-module = circuit.modules[0]
-print(module.name)  # "rc_lowpass"
+circuit = netlist.circuits[0]
+print(circuit.name)  # "rc_lowpass"
 
 # List port names
-for port in module.ports:
+for port in circuit.ports:
     print(f"  {port.name} ({port.direction.name})")
 
 # List instances
-for ref in module.module_references:
-    print(f"  {ref.name} -> {ref.module_name}")
-    for pname, param in ref.parameter_overrides.items():
-        print(f"    {pname} = {param.default_value}")
+for sub in circuit.subcircuits:
+    print(f"  {sub.name} -> {sub.circuit_name}")
+    for param in sub.parameters:
+        print(f"    {param.name} = {param.default_value}")
 ```
 
 ### Inspecting Connections
@@ -53,7 +58,7 @@ for ref in module.module_references:
 Connections are point-to-point links between port references:
 
 ```python
-for conn in module.connections:
+for conn in circuit.connections:
     src = conn.source
     tgt = conn.target
     print(
@@ -64,15 +69,17 @@ for conn in module.connections:
 
 ### Modifying Circuits
 
-kfnetlist.morphnet models are mutable Pydantic models: the builder methods (`Module.add`, `Module.connect`, `Circuit.add`, ...) edit them in place. To derive a modified copy without touching the original, use `model_copy`:
+kfnetlist.morphnet models are mutable Pydantic models: the builder methods (`Circuit.add`, `Circuit.connect`, `Netlist.add`, ...) edit them in place. To derive a modified copy without touching the original, use `model_copy`:
 
 ```python
-modified = circuit.model_copy(update={"name": "my_modified_circuit"})
+from kfnetlist.morphnet import Port, PortDirection
 
-modified_module = module.model_copy(
+modified = netlist.model_copy(update={"name": "my_modified_circuit"})
+
+modified_circuit = circuit.model_copy(
     update={
         "name": "rc_lowpass_v2",
-        "ports": module.ports + [Port(name="extra", direction=PortDirection.INPUT)],
+        "ports": circuit.ports + [Port(name="extra", direction=PortDirection.INPUT)],
     }
 )
 ```
@@ -85,9 +92,9 @@ Compact binary format for storage or cross-language interop (C++, Java, Go, etc.
 
 ```python
 from kfnetlist.morphnet.netlist.spectre.parser import parse_spectre
-from kfnetlist.morphnet.morphnet_schema import Circuit
+from kfnetlist.morphnet.morphnet_schema import Netlist
 
-circuit = parse_spectre("""\
+netlist = parse_spectre("""\
 subckt rc_lowpass (in_ out gnd)
 R1 (in_ out) resistor value=1k
 C1 (out gnd) capacitor value=100p
@@ -95,20 +102,20 @@ ends rc_lowpass
 """)
 
 # Serialize to bytes
-data = circuit.to_proto_bytes()
+data = netlist.to_proto_bytes()
 print(f"Binary size: {len(data)} bytes")
 
 # Deserialize
-restored = Circuit.from_proto_bytes(data)
-assert restored == circuit
+restored = Netlist.from_proto_bytes(data)
+assert restored == netlist
 ```
 
 ### JSON Serialization
 
 ```python
-json_str = circuit.to_json()
-restored = Circuit.from_json(json_str)
-assert restored == circuit
+json_str = netlist.to_json()
+restored = Netlist.from_json(json_str)
+assert restored == netlist
 ```
 
 ## Simulation Data
@@ -121,7 +128,7 @@ kfnetlist.morphnet parses simulation directives (analyses, output requests, meas
 from kfnetlist.morphnet.netlist.hspice.parser import parse_hspice
 from kfnetlist.morphnet.morphnet_schema import AnalysisKind
 
-circuit = parse_hspice("""\
+netlist = parse_hspice("""\
 .macro inv vin vout vdd gnd
 M1 vout vin vdd vdd pmos w=1u l=100n
 M2 vout vin gnd gnd nmos w=500n l=100n
@@ -131,7 +138,7 @@ M2 vout vin gnd gnd nmos w=500n l=100n
 .end
 """)
 
-sim = circuit.simulation
+sim = netlist.simulation
 print(f"Analyses: {len(sim.analyses)}")
 print(f"Output requests: {len(sim.output_requests)}")
 
@@ -167,12 +174,12 @@ The `AnalysisKind` enum supports:
 from kfnetlist.morphnet.netlist.hspice.parser import parse_hspice
 from kfnetlist.morphnet.morphnet_schema import AnalysisKind
 
-circuit = parse_hspice("""\
+netlist = parse_hspice("""\
 .fft V(out) NP=1024 START=0 STOP=10u
 .end
 """)
 
-fft = circuit.simulation.analyses[0]
+fft = netlist.simulation.analyses[0]
 assert fft.kind == AnalysisKind.FFT
 print(fft.options)  # {"NP": "1024", "START": "0", "STOP": "10u"}
 ```
@@ -234,9 +241,9 @@ print(format_si_value(pv))  # "4.7k"
 ```python
 from kfnetlist.morphnet.netlist.value_utils import parse_parameter_number
 
-# Whole integers -> int_value
+# Plain numbers -> prefixed_value with no SI prefix
 pv = parse_parameter_number("42")
-print(pv.int_value)  # 42
+print(pv.prefixed_value.double_value)  # 42.0
 
 # SI-prefixed -> prefixed_value
 pv = parse_parameter_number("10k")

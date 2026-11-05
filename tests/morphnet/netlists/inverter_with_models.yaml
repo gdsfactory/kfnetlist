@@ -6,7 +6,9 @@ ext_modules:
   library_name: ''
   name: mosfet
   parameters: []
-  ports:
+  properties:
+    spice_prefix: M
+  terminals:
   - direction: 0
     discipline: ''
     domain: 1
@@ -31,8 +33,6 @@ ext_modules:
     name: b
     properties: {}
     width: 0
-  properties:
-    spice_prefix: M
 - class_name: ''
   group_name: ''
   kind: 0
@@ -63,9 +63,9 @@ ext_modules:
     description: ''
     name: vth0
     properties: {}
-  ports: []
   properties:
     model_type: nmos
+  terminals: []
 - class_name: ''
   group_name: ''
   kind: 0
@@ -96,9 +96,9 @@ ext_modules:
     description: ''
     name: vth0
     properties: {}
-  ports: []
   properties:
     model_type: pmos
+  terminals: []
 libraries: {}
 modules:
 - buses: []
@@ -109,80 +109,80 @@ modules:
     properties: {}
     source:
       instance_name: ''
-      port_name: in_
+      terminal_name: in_
     target:
       instance_name: M1
-      port_name: g
+      terminal_name: g
     weight: 0
   - domain: 0
     name: in_
     properties: {}
     source:
       instance_name: ''
-      port_name: in_
+      terminal_name: in_
     target:
       instance_name: M2
-      port_name: g
+      terminal_name: g
     weight: 0
   - domain: 0
     name: out
     properties: {}
     source:
       instance_name: ''
-      port_name: out
+      terminal_name: out
     target:
       instance_name: M1
-      port_name: d
+      terminal_name: d
     weight: 0
   - domain: 0
     name: out
     properties: {}
     source:
       instance_name: ''
-      port_name: out
+      terminal_name: out
     target:
       instance_name: M2
-      port_name: d
+      terminal_name: d
     weight: 0
   - domain: 0
     name: vdd
     properties: {}
     source:
       instance_name: ''
-      port_name: vdd
+      terminal_name: vdd
     target:
       instance_name: M1
-      port_name: s
+      terminal_name: s
     weight: 0
   - domain: 0
     name: vdd
     properties: {}
     source:
       instance_name: ''
-      port_name: vdd
+      terminal_name: vdd
     target:
       instance_name: M1
-      port_name: b
+      terminal_name: b
     weight: 0
   - domain: 0
     name: vss
     properties: {}
     source:
       instance_name: ''
-      port_name: vss
+      terminal_name: vss
     target:
       instance_name: M2
-      port_name: s
+      terminal_name: s
     weight: 0
   - domain: 0
     name: vss
     properties: {}
     source:
       instance_name: ''
-      port_name: vss
+      terminal_name: vss
     target:
       instance_name: M2
-      port_name: b
+      terminal_name: b
     weight: 0
   directives: []
   model_interfaces: []
@@ -233,7 +233,8 @@ modules:
       model_name: nch
   name: cmos_inverter
   parameters: []
-  ports:
+  properties: {}
+  terminals:
   - direction: 0
     discipline: ''
     domain: 1
@@ -258,7 +259,6 @@ modules:
     name: vss
     properties: {}
     width: 0
-  properties: {}
 name: ''
 properties: {}
 simulation: null

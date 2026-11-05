@@ -10,8 +10,7 @@ from kfnetlist.morphnet.morphnet_schema._circuit import (
     ExternalModuleKind,
     ModelInterface,
     ModelReference,
-    Module,
-    ModuleReference,
+    Netlist,
     Parameter,
     ParameterValue,
     Port,
@@ -20,6 +19,7 @@ from kfnetlist.morphnet.morphnet_schema._circuit import (
     PrefixedValue,
     SignalDomain,
     SIPrefix,
+    SubCircuit,
 )
 from kfnetlist.morphnet.morphnet_schema._simulation import (
     Analysis,
@@ -46,8 +46,7 @@ __all__ = [
     "Measurement",
     "ModelInterface",
     "ModelReference",
-    "Module",
-    "ModuleReference",
+    "Netlist",
     "OutputRequest",
     "OutputRequestKind",
     "Parameter",
@@ -60,4 +59,20 @@ __all__ = [
     "SIPrefix",
     "SignalDomain",
     "Simulation",
+    "SubCircuit",
 ]
+
+# Names before the Netlist → Circuit → SubCircuit rename.
+_DEPRECATED = {"Module": "Circuit", "ModuleReference": "SubCircuit"}
+
+
+def __getattr__(name: str) -> object:
+    if name in _DEPRECATED:
+        import warnings
+
+        new = _DEPRECATED[name]
+        warnings.warn(
+            f"{name} is deprecated; use {new}", DeprecationWarning, stacklevel=2
+        )
+        return globals()[new]
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")

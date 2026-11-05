@@ -8,9 +8,9 @@ kfnetlist.morphnet follows a consistent 5-module pattern for every netlist forma
 src/kfnetlist/morphnet/netlist/myformat/
   __init__.py          # empty
   preprocess.py        # text normalization
-  transformer.py       # parse tree -> Circuit
+  transformer.py       # parse tree -> Netlist
   parser.py            # grammar + orchestration
-  writer.py            # Circuit -> text
+  writer.py            # Netlist -> text
 ```
 
 Plus a grammar file:
@@ -64,7 +64,7 @@ def preprocess_myformat(text: str) -> str:
 
 ## Step 3: Implement the Transformer
 
-Create `src/kfnetlist/morphnet/netlist/myformat/transformer.py` with a Lark `Transformer` subclass that converts the parse tree into a `Circuit` model:
+Create `src/kfnetlist/morphnet/netlist/myformat/transformer.py` with a Lark `Transformer` subclass that converts the parse tree into a `Netlist` model:
 
 ```python
 # src/kfnetlist/morphnet/netlist/myformat/transformer.py
@@ -72,26 +72,26 @@ from __future__ import annotations
 
 from lark import Transformer
 
-from kfnetlist.morphnet.morphnet_schema import Circuit, Module, Port, ModuleReference, Connection
+from kfnetlist.morphnet.morphnet_schema import Netlist, Circuit, Port, SubCircuit, Connection
 from kfnetlist.morphnet.netlist.net_utils import NetMap, add_port_to_net, net_map_to_connections
 from kfnetlist.morphnet.netlist.value_utils import parse_si_number
 
 
 class MyFormatTransformer(Transformer):
     def subckt_def(self, items):
-        # Build a Module from the parsed subcircuit
+        # Build a Circuit from the parsed subcircuit
         ...
 
     def instance_stmt(self, items):
-        # Build a ModuleReference from a parsed instance
+        # Build a SubCircuit from a parsed instance
         ...
 
     def start(self, items):
         # Assemble the final Circuit
-        return Circuit(modules=..., ext_modules=...)
+        return Netlist(circuits=..., ext_modules=...)
 ```
 
-The transformer must produce a valid `Circuit` object — the same protobuf-backed Pydantic model that all other formats use.
+The transformer must produce a valid `Netlist` object — the same protobuf-backed Pydantic model that all other formats use.
 
 !!! tip "Reuse utilities"
     Use `net_map_to_connections` from `kfnetlist.morphnet.netlist.net_utils` to convert net-based connectivity (common in SPICE) to point-to-point `Connection` objects. Use `parse_si_number` from `kfnetlist.morphnet.netlist.value_utils` to parse SI-prefixed parameter values.
@@ -109,7 +109,7 @@ from typing import ClassVar
 
 from lark import Lark
 
-from kfnetlist.morphnet.morphnet_schema import Circuit
+from kfnetlist.morphnet.morphnet_schema import Netlist
 from kfnetlist.morphnet.netlist.myformat.preprocess import preprocess_myformat
 from kfnetlist.morphnet.netlist.myformat.transformer import MyFormatTransformer
 
@@ -129,42 +129,42 @@ class MyFormatParser:
         return cls.lark_instance
 
     @classmethod
-    def parse(cls, text: str) -> Circuit:
+    def parse(cls, text: str) -> Netlist:
         cleaned = preprocess_myformat(text)
         tree = cls.get_lark().parse(cleaned)
         return MyFormatTransformer().transform(tree)
 
 
-def parse_myformat(text: str) -> Circuit:
+def parse_myformat(text: str) -> Netlist:
     return MyFormatParser.parse(text)
 ```
 
 ## Step 5: Implement the Writer
 
-Create `src/kfnetlist/morphnet/netlist/myformat/writer.py` that takes a `Circuit` and produces formatted netlist text:
+Create `src/kfnetlist/morphnet/netlist/myformat/writer.py` that takes a `Netlist` and produces formatted netlist text:
 
 ```python
 # src/kfnetlist/morphnet/netlist/myformat/writer.py
 from __future__ import annotations
 
-from kfnetlist.morphnet.morphnet_schema import Circuit
+from kfnetlist.morphnet.morphnet_schema import Netlist
 from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
 from kfnetlist.morphnet.netlist.value_utils import format_si_value
 
 
 class MyFormatWriter:
-    def write(self, circuit: Circuit) -> str:
+    def write(self, netlist: Netlist) -> str:
         lines = []
-        for module in circuit.modules:
-            # Emit subcircuit/module header
+        for circuit in netlist.circuits:
+            # Emit subcircuit header
             # Emit instances with port connections and parameters
             # Emit footer
             ...
         return "\n".join(lines)
 
 
-def write_myformat(circuit: Circuit) -> str:
-    return MyFormatWriter().write(circuit)
+def write_myformat(netlist: Netlist) -> str:
+    return MyFormatWriter().write(netlist)
 ```
 
 !!! tip "Reuse utilities"
@@ -184,21 +184,21 @@ from kfnetlist.morphnet.netlist.myformat.parser import parse_myformat
 
 class TestBasicParsing:
     def test_resistor_subcircuit(self) -> None:
-        circuit = parse_myformat("...")
-        assert len(circuit.modules) == 1
-        assert circuit.modules[0].name == "divider"
+        netlist = parse_myformat("...")
+        assert len(netlist.circuits) == 1
+        assert netlist.circuits[0].name == "divider"
 
 
 class TestDeviceTypes:
     def test_mosfet_instance(self) -> None:
-        circuit = parse_myformat("...")
-        refs = circuit.modules[0].module_references
-        assert refs[0].module_name == "mosfet"
+        netlist = parse_myformat("...")
+        refs = netlist.circuits[0].subcircuits
+        assert refs[0].circuit_name == "mosfet"
 ```
 
 ### Writer tests
 
-`tests/test_myformat_writer.py` — unit tests for writer output on known `Circuit` objects.
+`tests/test_myformat_writer.py` — unit tests for writer output on known `Netlist` objects.
 
 ### Roundtrip tests
 

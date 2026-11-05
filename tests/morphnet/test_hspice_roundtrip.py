@@ -57,10 +57,10 @@ C1 b c 100p
         written = write_hspice(circuit1)
         circuit2 = parse_hspice(written)
 
-        assert circuit1.top_module == circuit2.top_module
-        assert len(circuit1.modules) == len(circuit2.modules)
+        assert circuit1.top_circuit == circuit2.top_circuit
+        assert len(circuit1.circuits) == len(circuit2.circuits)
 
-        for m1, m2 in zip(circuit1.modules, circuit2.modules):
+        for m1, m2 in zip(circuit1.circuits, circuit2.circuits):
             assert m1.name == m2.name
             assert [p.name for p in m1.ports] == [p.name for p in m2.ports]
-            assert len(m1.module_references) == len(m2.module_references)
+            assert len(m1.subcircuits) == len(m2.subcircuits)

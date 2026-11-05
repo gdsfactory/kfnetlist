@@ -37,6 +37,8 @@ class ProtoModel(BaseModel):
         return cls.from_proto(proto_msg)
 
     def to_json(self, **kwargs: Any) -> str:
+        # Keys are the kfnetlist schema (circuit.proto) field names.
+        kwargs.setdefault("by_alias", True)
         return self.model_dump_json(**kwargs)
 
     @classmethod
@@ -46,6 +48,7 @@ class ProtoModel(BaseModel):
     def to_yaml(self, **kwargs: Any) -> str:
         from pydantic_yaml import to_yaml_str
 
+        kwargs.setdefault("by_alias", True)
         return to_yaml_str(self, **kwargs)
 
     @classmethod

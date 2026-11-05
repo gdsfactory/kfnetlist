@@ -6,7 +6,9 @@ ext_modules:
   library_name: ''
   name: resistor
   parameters: []
-  ports:
+  properties:
+    spice_prefix: R
+  terminals:
   - direction: 0
     discipline: ''
     domain: 1
@@ -19,8 +21,6 @@ ext_modules:
     name: n
     properties: {}
     width: 0
-  properties:
-    spice_prefix: R
 libraries: {}
 modules:
 - buses: []
@@ -31,40 +31,40 @@ modules:
     properties: {}
     source:
       instance_name: ''
-      port_name: in_
+      terminal_name: in_
     target:
       instance_name: R1
-      port_name: p
+      terminal_name: p
     weight: 0
   - domain: 0
     name: out
     properties: {}
     source:
       instance_name: ''
-      port_name: out
+      terminal_name: out
     target:
       instance_name: R1
-      port_name: n
+      terminal_name: n
     weight: 0
   - domain: 0
     name: out
     properties: {}
     source:
       instance_name: ''
-      port_name: out
+      terminal_name: out
     target:
       instance_name: R2
-      port_name: p
+      terminal_name: p
     weight: 0
   - domain: 0
     name: vss
     properties: {}
     source:
       instance_name: ''
-      port_name: vss
+      terminal_name: vss
     target:
       instance_name: R2
-      port_name: n
+      terminal_name: n
     weight: 0
   directives: []
   model_interfaces: []
@@ -97,7 +97,8 @@ modules:
     properties: {}
   name: inverter
   parameters: []
-  ports:
+  properties: {}
+  terminals:
   - direction: 0
     discipline: ''
     domain: 1
@@ -122,7 +123,6 @@ modules:
     name: vss
     properties: {}
     width: 0
-  properties: {}
 - buses: []
   class_name: ''
   connections:
@@ -131,70 +131,70 @@ modules:
     properties: {}
     source:
       instance_name: ''
-      port_name: a
+      terminal_name: a
     target:
       instance_name: X1
-      port_name: in_
+      terminal_name: in_
     weight: 0
   - domain: 0
     name: b
     properties: {}
     source:
       instance_name: ''
-      port_name: b
+      terminal_name: b
     target:
       instance_name: X2
-      port_name: out
+      terminal_name: out
     weight: 0
   - domain: 0
     name: vdd
     properties: {}
     source:
       instance_name: ''
-      port_name: vdd
+      terminal_name: vdd
     target:
       instance_name: X1
-      port_name: vdd
+      terminal_name: vdd
     weight: 0
   - domain: 0
     name: vdd
     properties: {}
     source:
       instance_name: ''
-      port_name: vdd
+      terminal_name: vdd
     target:
       instance_name: X2
-      port_name: vdd
+      terminal_name: vdd
     weight: 0
   - domain: 0
     name: vss
     properties: {}
     source:
       instance_name: ''
-      port_name: vss
+      terminal_name: vss
     target:
       instance_name: X1
-      port_name: vss
+      terminal_name: vss
     weight: 0
   - domain: 0
     name: vss
     properties: {}
     source:
       instance_name: ''
-      port_name: vss
+      terminal_name: vss
     target:
       instance_name: X2
-      port_name: vss
+      terminal_name: vss
     weight: 0
   - domain: 0
     name: mid
     properties: {}
     source:
       instance_name: X1
-      port_name: out
+      terminal_name: out
     target:
       instance_name: X2
-      port_name: in_
+      terminal_name: in_
     weight: 0
   directives: []
   model_interfaces: []
@@ -211,7 +211,8 @@ modules:
     properties: {}
   name: buffer
   parameters: []
-  ports:
+  properties: {}
+  terminals:
   - direction: 0
     discipline: ''
     domain: 1
@@ -236,7 +237,6 @@ modules:
     name: vss
     properties: {}
     width: 0
-  properties: {}
 name: ''
 properties: {}
 simulation: null

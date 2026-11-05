@@ -14,14 +14,14 @@ R1 a b 10k
         written = write_spectre_spice(circuit1)
         circuit2 = parse_spectre_spice(written)
 
-        assert circuit1.top_module == circuit2.top_module
-        assert len(circuit1.modules) == len(circuit2.modules)
+        assert circuit1.top_circuit == circuit2.top_circuit
+        assert len(circuit1.circuits) == len(circuit2.circuits)
 
-        m1 = circuit1.modules[0]
-        m2 = circuit2.modules[0]
+        m1 = circuit1.circuits[0]
+        m2 = circuit2.circuits[0]
         assert m1.name == m2.name
         assert [p.name for p in m1.ports] == [p.name for p in m2.ports]
-        assert len(m1.module_references) == len(m2.module_references)
+        assert len(m1.subcircuits) == len(m2.subcircuits)
 
     def test_write_parse_write_stable(self) -> None:
         text = """\

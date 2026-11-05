@@ -5,13 +5,13 @@ from typing import ClassVar
 
 from lark import Lark
 
-from kfnetlist.morphnet.morphnet_schema import Circuit
+from kfnetlist.morphnet.morphnet_schema import Netlist
 from kfnetlist.morphnet.netlist.spectre.preprocess import preprocess_spectre
 from kfnetlist.morphnet.netlist.spectre.transformer import SpectreTransformer
 
 
 class SpectreParser:
-    """Parse Spectre netlist text into a Circuit model."""
+    """Parse Spectre netlist text into a Netlist model."""
 
     lark_instance: ClassVar[Lark | None] = None
 
@@ -27,7 +27,7 @@ class SpectreParser:
         return cls.lark_instance
 
     @classmethod
-    def parse(cls, text: str) -> Circuit:
+    def parse(cls, text: str) -> Netlist:
         cleaned = preprocess_spectre(text)
         lark = cls.get_lark()
         tree = lark.parse(cleaned)
@@ -35,6 +35,6 @@ class SpectreParser:
         return transformer.transform(tree)
 
 
-def parse_spectre(text: str) -> Circuit:
-    """Parse Spectre netlist text into a Circuit model."""
+def parse_spectre(text: str) -> Netlist:
+    """Parse Spectre netlist text into a Netlist model."""
     return SpectreParser.parse(text)

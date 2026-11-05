@@ -10,9 +10,9 @@ R2 vout gnd 10k
 .ENDS divider
 .END
 """
-        circuit = parse_xyce(text)
-        assert circuit.top_module == "divider"
-        assert len(circuit.modules) == 1
+        netlist = parse_xyce(text)
+        assert netlist.top_circuit == "divider"
+        assert len(netlist.circuits) == 1
 
     def test_params_keyword(self) -> None:
         """Xyce .SUBCKT with PARAMS: keyword."""
@@ -22,8 +22,8 @@ R1 in out {R}
 .ENDS myres
 .END
 """
-        circuit = parse_xyce(text)
-        m = circuit.modules[0]
+        netlist = parse_xyce(text)
+        m = netlist.circuits[0]
         assert m.name == "myres"
         assert [p.name for p in m.ports] == ["in", "out"]
 
@@ -34,8 +34,8 @@ R1 a b 1k
 .ends test
 .end
 """
-        circuit = parse_xyce(text)
-        assert circuit.modules[0].name == "test"
+        netlist = parse_xyce(text)
+        assert netlist.circuits[0].name == "test"
 
 
 class TestDeviceTypes:
@@ -47,9 +47,9 @@ M2 out in vss vss nch W=0.5u L=0.18u
 .ENDS inv
 .END
 """
-        circuit = parse_xyce(text)
-        refs = circuit.modules[0].module_references
-        assert refs[0].module_name == "mosfet"
+        netlist = parse_xyce(text)
+        refs = netlist.circuits[0].subcircuits
+        assert refs[0].circuit_name == "mosfet"
         assert refs[0].properties.get("model_name") == "pch"
 
 
@@ -62,8 +62,8 @@ R1 a b 1k
 .ENDS test
 .END
 """
-        circuit = parse_xyce(text)
-        includes = [d for d in circuit.directives if d.kind.name == "INCLUDE"]
+        netlist = parse_xyce(text)
+        includes = [d for d in netlist.directives if d.kind.name == "INCLUDE"]
         assert len(includes) >= 1
         assert includes[0].value == "models.lib"
 
@@ -75,6 +75,6 @@ M1 d g s b nch W=1u L=0.18u
 .ENDS test
 .END
 """
-        circuit = parse_xyce(text)
-        ext_names = {e.name for e in circuit.ext_modules}
+        netlist = parse_xyce(text)
+        ext_names = {e.name for e in netlist.ext_modules}
         assert "nch" in ext_names

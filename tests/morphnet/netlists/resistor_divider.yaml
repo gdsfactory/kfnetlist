@@ -6,7 +6,9 @@ ext_modules:
   library_name: ''
   name: resistor
   parameters: []
-  ports:
+  properties:
+    spice_prefix: R
+  terminals:
   - direction: 0
     discipline: ''
     domain: 1
@@ -19,8 +21,6 @@ ext_modules:
     name: n
     properties: {}
     width: 0
-  properties:
-    spice_prefix: R
 libraries: {}
 modules:
 - buses: []
@@ -31,40 +31,40 @@ modules:
     properties: {}
     source:
       instance_name: ''
-      port_name: vin
+      terminal_name: vin
     target:
       instance_name: R1
-      port_name: p
+      terminal_name: p
     weight: 0
   - domain: 0
     name: vout
     properties: {}
     source:
       instance_name: ''
-      port_name: vout
+      terminal_name: vout
     target:
       instance_name: R1
-      port_name: n
+      terminal_name: n
     weight: 0
   - domain: 0
     name: vout
     properties: {}
     source:
       instance_name: ''
-      port_name: vout
+      terminal_name: vout
     target:
       instance_name: R2
-      port_name: p
+      terminal_name: p
     weight: 0
   - domain: 0
     name: gnd
     properties: {}
     source:
       instance_name: ''
-      port_name: gnd
+      terminal_name: gnd
     target:
       instance_name: R2
-      port_name: n
+      terminal_name: n
     weight: 0
   directives: []
   model_interfaces: []
@@ -97,7 +97,8 @@ modules:
     properties: {}
   name: divider
   parameters: []
-  ports:
+  properties: {}
+  terminals:
   - direction: 0
     discipline: ''
     domain: 1
@@ -116,7 +117,6 @@ modules:
     name: gnd
     properties: {}
     width: 0
-  properties: {}
 name: ''
 properties: {}
 simulation: null

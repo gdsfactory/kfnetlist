@@ -1,12 +1,12 @@
 from kfnetlist.morphnet.morphnet_schema import (
-    Circuit,
+    Netlist,
     Connection,
     Directive,
     DirectiveKind,
     ExternalModule,
     ExternalModuleKind,
-    Module,
-    ModuleReference,
+    Circuit,
+    SubCircuit,
     Parameter,
     ParameterValue,
     Port,
@@ -48,13 +48,13 @@ def make_conn(
 
 class TestModuleOutput:
     def test_simple_module(self) -> None:
-        mod = Module(
+        circ = Circuit(
             name="divider",
             ports=[make_port("vin"), make_port("vout"), make_port("gnd")],
-            module_references=[
-                ModuleReference(
+            subcircuits=[
+                SubCircuit(
                     name="R1",
-                    module_name="resistor",
+                    circuit_name="resistor",
                     parameters=[
                         Parameter(name="r", default_value=make_pv(10.0, SIPrefix.KILO))
                     ],
@@ -65,8 +65,8 @@ class TestModuleOutput:
                 make_conn("vout", "", "vout", "R1", "n"),
             ],
         )
-        circuit = Circuit(name="", top_module="divider", modules=[mod])
-        output = write_vams(circuit)
+        netlist = Netlist(name="", top_circuit="divider", circuits=[circ])
+        output = write_vams(netlist)
         assert "module divider" in output
         assert "endmodule" in output
         assert "inout vin, vout, gnd;" in output
@@ -77,25 +77,25 @@ class TestModuleOutput:
 
 class TestDirectiveOutput:
     def test_include(self) -> None:
-        circuit = Circuit(
+        netlist = Netlist(
             name="",
             directives=[Directive(kind=DirectiveKind.INCLUDE, value="models.vams")],
         )
-        output = write_vams(circuit)
+        output = write_vams(netlist)
         assert '`include "models.vams"' in output
 
     def test_timescale(self) -> None:
-        circuit = Circuit(
+        netlist = Netlist(
             name="",
             directives=[Directive(kind=DirectiveKind.TIMESCALE, value="1ns/1ps")],
         )
-        output = write_vams(circuit)
+        output = write_vams(netlist)
         assert "`timescale 1ns/1ps" in output
 
 
 class TestParameterOutput:
     def test_typed_parameter(self) -> None:
-        mod = Module(
+        circ = Circuit(
             name="test",
             ports=[make_port("a")],
             parameters=[
@@ -106,8 +106,8 @@ class TestParameterOutput:
                 ),
             ],
         )
-        circuit = Circuit(name="", top_module="test", modules=[mod])
-        output = write_vams(circuit)
+        netlist = Netlist(name="", top_circuit="test", circuits=[circ])
+        output = write_vams(netlist)
         assert "parameter real r = 50" in output
 
 
@@ -118,8 +118,8 @@ class TestNatureAndDisciplineOutput:
             kind=ExternalModuleKind.NATURE,
             properties={"nature_units": "V", "nature_access": "V"},
         )
-        circuit = Circuit(name="", ext_modules=[ext])
-        output = write_vams(circuit)
+        netlist = Netlist(name="", ext_modules=[ext])
+        output = write_vams(netlist)
         assert "nature Voltage;" in output
         assert "endnature" in output
         assert "units = V;" in output
@@ -134,8 +134,8 @@ class TestNatureAndDisciplineOutput:
                 "discipline_domain": "continuous",
             },
         )
-        circuit = Circuit(name="", ext_modules=[ext])
-        output = write_vams(circuit)
+        netlist = Netlist(name="", ext_modules=[ext])
+        output = write_vams(netlist)
         assert "discipline electrical;" in output
         assert "enddiscipline" in output
         assert "domain continuous;" in output

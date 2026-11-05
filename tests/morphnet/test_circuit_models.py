@@ -4,13 +4,13 @@ import pytest
 
 from kfnetlist.morphnet.morphnet_schema import (
     Bus,
-    Circuit,
+    Netlist,
     Connection,
     ExternalModule,
     ModelInterface,
     ModelReference,
-    Module,
-    ModuleReference,
+    Circuit,
+    SubCircuit,
     Parameter,
     ParameterValue,
     Port,
@@ -77,10 +77,10 @@ class TestDefaults:
             Port,
             Connection,
             Bus,
-            ModuleReference,
-            Module,
-            ExternalModule,
+            SubCircuit,
             Circuit,
+            ExternalModule,
+            Netlist,
         ],
     )
     def test_default_construction(self, model_cls):
@@ -299,38 +299,38 @@ class TestBus:
         assert restored == bus
 
 
-class TestModuleReference:
-    def test_roundtrip_proto_binary(self, module_reference):
-        data = module_reference.to_proto_bytes()
-        restored = ModuleReference.from_proto_bytes(data)
-        assert restored == module_reference
+class TestSubCircuit:
+    def test_roundtrip_proto_binary(self, subcircuit):
+        data = subcircuit.to_proto_bytes()
+        restored = SubCircuit.from_proto_bytes(data)
+        assert restored == subcircuit
 
-    def test_roundtrip_json(self, module_reference):
-        json_str = module_reference.to_json()
-        restored = ModuleReference.from_json(json_str)
-        assert restored == module_reference
+    def test_roundtrip_json(self, subcircuit):
+        json_str = subcircuit.to_json()
+        restored = SubCircuit.from_json(json_str)
+        assert restored == subcircuit
 
-    def test_roundtrip_yaml(self, module_reference):
-        yaml_str = module_reference.to_yaml()
-        restored = ModuleReference.from_yaml(yaml_str)
-        assert restored == module_reference
+    def test_roundtrip_yaml(self, subcircuit):
+        yaml_str = subcircuit.to_yaml()
+        restored = SubCircuit.from_yaml(yaml_str)
+        assert restored == subcircuit
 
 
-class TestModule:
-    def test_roundtrip_proto_binary(self, module):
-        data = module.to_proto_bytes()
-        restored = Module.from_proto_bytes(data)
-        assert restored == module
+class TestCircuit:
+    def test_roundtrip_proto_binary(self, circuit):
+        data = circuit.to_proto_bytes()
+        restored = Circuit.from_proto_bytes(data)
+        assert restored == circuit
 
-    def test_roundtrip_json(self, module):
-        json_str = module.to_json()
-        restored = Module.from_json(json_str)
-        assert restored == module
+    def test_roundtrip_json(self, circuit):
+        json_str = circuit.to_json()
+        restored = Circuit.from_json(json_str)
+        assert restored == circuit
 
-    def test_roundtrip_yaml(self, module):
-        yaml_str = module.to_yaml()
-        restored = Module.from_yaml(yaml_str)
-        assert restored == module
+    def test_roundtrip_yaml(self, circuit):
+        yaml_str = circuit.to_yaml()
+        restored = Circuit.from_yaml(yaml_str)
+        assert restored == circuit
 
 
 class TestExternalModule:
@@ -355,37 +355,37 @@ class TestExternalModule:
 # ======================================================================
 
 
-class TestCircuitIntegration:
-    def test_roundtrip_proto_binary(self, circuit):
-        data = circuit.to_proto_bytes()
-        restored = Circuit.from_proto_bytes(data)
-        assert restored == circuit
+class TestNetlistIntegration:
+    def test_roundtrip_proto_binary(self, netlist):
+        data = netlist.to_proto_bytes()
+        restored = Netlist.from_proto_bytes(data)
+        assert restored == netlist
 
-    def test_roundtrip_json(self, circuit):
-        json_str = circuit.to_json()
-        restored = Circuit.from_json(json_str)
-        assert restored == circuit
+    def test_roundtrip_json(self, netlist):
+        json_str = netlist.to_json()
+        restored = Netlist.from_json(json_str)
+        assert restored == netlist
 
-    def test_roundtrip_yaml(self, circuit):
-        yaml_str = circuit.to_yaml()
-        restored = Circuit.from_yaml(yaml_str)
-        assert restored == circuit
+    def test_roundtrip_yaml(self, netlist):
+        yaml_str = netlist.to_yaml()
+        restored = Netlist.from_yaml(yaml_str)
+        assert restored == netlist
 
-    def test_proto_interop(self, circuit):
-        proto_msg = circuit.to_proto()
+    def test_proto_interop(self, netlist):
+        proto_msg = netlist.to_proto()
         assert proto_msg.name == "mzi_circuit"
-        # domain is Python-only (not in proto); proto_msg won't have it
+        # The protobuf message uses the kfnetlist schema names.
         assert proto_msg.top_module == "top"
         assert len(proto_msg.modules) == 1
         assert len(proto_msg.ext_modules) == 1
         assert proto_msg.modules[0].name == "top"
         assert proto_msg.modules[0].terminals[0].name == "o1"
 
-        restored = Circuit.from_proto(proto_msg)
-        assert restored == circuit
+        restored = Netlist.from_proto(proto_msg)
+        assert restored == netlist
 
-    def test_cross_format_equivalence(self, circuit):
-        from_proto = Circuit.from_proto_bytes(circuit.to_proto_bytes())
-        from_json = Circuit.from_json(circuit.to_json())
-        from_yaml = Circuit.from_yaml(circuit.to_yaml())
-        assert from_proto == from_json == from_yaml == circuit
+    def test_cross_format_equivalence(self, netlist):
+        from_proto = Netlist.from_proto_bytes(netlist.to_proto_bytes())
+        from_json = Netlist.from_json(netlist.to_json())
+        from_yaml = Netlist.from_yaml(netlist.to_yaml())
+        assert from_proto == from_json == from_yaml == netlist

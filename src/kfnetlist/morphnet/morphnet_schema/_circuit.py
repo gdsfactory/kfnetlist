@@ -21,8 +21,7 @@ __all__ = [
     "ExternalModuleKind",
     "ModelInterface",
     "ModelReference",
-    "Module",
-    "ModuleReference",
+    "Netlist",
     "Parameter",
     "ParameterValue",
     "Port",
@@ -31,6 +30,7 @@ __all__ = [
     "PrefixedValue",
     "SIPrefix",
     "SignalDomain",
+    "SubCircuit",
 ]
 
 
@@ -214,21 +214,27 @@ class Bus(ProtoModel):
 
 
 # ======================================================================
-# Module hierarchy
+# Circuit hierarchy: Netlist → Circuit (definition) → SubCircuit (instance)
+# Python names differ from the kfnetlist schema (circuit.proto) names; the
+# aliases are the schema names, used for protobuf, JSON and YAML.
 # ======================================================================
 
 
-class ModuleReference(ProtoModel):
+class SubCircuit(ProtoModel):
+    """An instance of a circuit (schema message ``ModuleReference``)."""
+
     _proto_type: ClassVar[type] = pb.ModuleReference
 
     name: str = ""
-    module_name: str = ""
+    circuit_name: str = Field(default="", alias="module_name")
     class_name: str = ""
     parameters: list[Parameter] = []
     properties: dict[str, str] = {}
 
 
-class Module(ProtoModel):
+class Circuit(ProtoModel):
+    """A circuit definition (schema message ``Module``)."""
+
     _proto_type: ClassVar[type] = pb.Module
 
     name: str = ""
@@ -236,7 +242,7 @@ class Module(ProtoModel):
     ports: list[Port] = Field(default=[], alias="terminals")
     parameters: list[Parameter] = []
     model_interfaces: list[ModelInterface] = []
-    module_references: list[ModuleReference] = []
+    subcircuits: list[SubCircuit] = Field(default=[], alias="module_references")
     connections: list[Connection] = []
     buses: list[Bus] = []
     properties: dict[str, str] = {}
@@ -251,7 +257,7 @@ class Module(ProtoModel):
         width: int = 0,
         discipline: str = "",
         properties: dict[str, str] | None = None,
-    ) -> "Module":
+    ) -> "Circuit":
         self.ports.append(
             Port(
                 name=name,
@@ -264,8 +270,8 @@ class Module(ProtoModel):
         )
         return self
 
-    def add(self, *refs: ModuleReference) -> "Module":
-        self.module_references.extend(refs)
+    def add(self, *subcircuits: SubCircuit) -> "Circuit":
+        self.subcircuits.extend(subcircuits)
         return self
 
     def connect(
@@ -274,12 +280,12 @@ class Module(ProtoModel):
         *endpoints: tuple[str, str],
         domain: SignalDomain = SignalDomain.UNSPECIFIED,
         properties: dict[str, str] | None = None,
-    ) -> "Module":
+    ) -> "Circuit":
         """
         Create chained point-to-point connections on a named net.
 
         Each endpoint is (instance_name, terminal_name).
-        instance_name='' refers to this module's own terminal (parent level).
+        instance_name='' refers to this circuit's own terminal (parent level).
         endpoints [A, B, C] → Connection(A→B), Connection(B→C).
         """
         if len(endpoints) < 2:
@@ -327,33 +333,35 @@ class ExternalLibrary(ProtoModel):
 
 
 # ======================================================================
-# Circuit (top-level container)
+# Netlist (top-level container)
 # ======================================================================
 
 
-class Circuit(ProtoModel):
+class Netlist(ProtoModel):
+    """The top-level container (schema message ``Circuit``)."""
+
     _proto_type: ClassVar[type] = pb.Circuit
 
     name: str = ""
-    top_module: str = ""
-    modules: list[Module] = []
+    top_circuit: str = Field(default="", alias="top_module")
+    circuits: list[Circuit] = Field(default=[], alias="modules")
     ext_modules: list[ExternalModule] = []
     properties: dict[str, str] = {}
     directives: list[Directive] = []
     simulation: Simulation | None = None
     libraries: dict[str, ExternalLibrary] = {}
 
-    def add(self, *modules: Module) -> "Circuit":
-        self.modules.extend(modules)
-        if not self.top_module and modules:
-            self.top_module = modules[0].name
+    def add(self, *circuits: Circuit) -> "Netlist":
+        self.circuits.extend(circuits)
+        if not self.top_circuit and circuits:
+            self.top_circuit = circuits[0].name
         return self
 
-    def add_ext(self, *ext: ExternalModule) -> "Circuit":
+    def add_ext(self, *ext: ExternalModule) -> "Netlist":
         self.ext_modules.extend(ext)
         return self
 
-    def add_library(self, name: str, lib: ExternalLibrary) -> "Circuit":
+    def add_library(self, name: str, lib: ExternalLibrary) -> "Netlist":
         self.libraries[name] = lib
         return self
 

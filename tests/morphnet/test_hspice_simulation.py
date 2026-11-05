@@ -8,9 +8,9 @@ class TestHspiceSimulationParsing:
 .fft V(out) NP=1024 START=0 STOP=10u
 .end
 """
-        circuit = parse_hspice(text)
-        assert circuit.simulation is not None
-        a = circuit.simulation.analyses[0]
+        netlist = parse_hspice(text)
+        assert netlist.simulation is not None
+        a = netlist.simulation.analyses[0]
         assert a.kind == AnalysisKind.FFT
         assert "V(out)" in a.arguments
         assert a.options.get("NP") == "1024"
@@ -20,9 +20,9 @@ class TestHspiceSimulationParsing:
 .tran 1n 10u
 .end
 """
-        circuit = parse_hspice(text)
-        assert circuit.simulation is not None
-        a = circuit.simulation.analyses[0]
+        netlist = parse_hspice(text)
+        assert netlist.simulation is not None
+        a = netlist.simulation.analyses[0]
         assert a.kind == AnalysisKind.TRAN
         assert a.arguments == ["1n", "10u"]
 
@@ -31,9 +31,9 @@ class TestHspiceSimulationParsing:
 .op
 .end
 """
-        circuit = parse_hspice(text)
-        assert circuit.simulation is not None
-        assert circuit.simulation.analyses[0].kind == AnalysisKind.OP
+        netlist = parse_hspice(text)
+        assert netlist.simulation is not None
+        assert netlist.simulation.analyses[0].kind == AnalysisKind.OP
 
     def test_hspice_macro_with_simulation(self) -> None:
         text = """\
@@ -45,7 +45,7 @@ M2 vout vin gnd gnd nmos w=500n l=100n
 .print TRAN V(vout)
 .end
 """
-        circuit = parse_hspice(text)
-        assert circuit.simulation is not None
-        assert len(circuit.simulation.analyses) == 1
-        assert len(circuit.simulation.output_requests) == 1
+        netlist = parse_hspice(text)
+        assert netlist.simulation is not None
+        assert len(netlist.simulation.analyses) == 1
+        assert len(netlist.simulation.output_requests) == 1

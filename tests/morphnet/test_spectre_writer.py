@@ -1,9 +1,9 @@
 from kfnetlist.morphnet.morphnet_schema import (
-    Circuit,
+    Netlist,
     Connection,
     ExternalModule,
-    Module,
-    ModuleReference,
+    Circuit,
+    SubCircuit,
     Parameter,
     Port,
     PortDirection,
@@ -42,12 +42,12 @@ def make_conn(
 
 class TestSpectreFormat:
     def test_subckt_with_parens(self) -> None:
-        mod = Module(
+        circ = Circuit(
             name="test",
             ports=[make_port("a"), make_port("b")],
         )
-        circuit = Circuit(name="test", top_module="test", modules=[mod])
-        output = write_spectre(circuit)
+        netlist = Netlist(name="test", top_circuit="test", circuits=[circ])
+        output = write_spectre(netlist)
         assert "subckt test (a b)" in output
         assert "ends test" in output
 
@@ -57,13 +57,13 @@ class TestSpectreFormat:
             ports=[make_port("p"), make_port("n")],
             properties={"spice_prefix": "R"},
         )
-        mod = Module(
+        circ = Circuit(
             name="test",
             ports=[make_port("a"), make_port("b")],
-            module_references=[
-                ModuleReference(
+            subcircuits=[
+                SubCircuit(
                     name="R1",
-                    module_name="resistor",
+                    circuit_name="resistor",
                     parameters=[
                         Parameter(name="r", default_value=make_pv(10.0, SIPrefix.KILO))
                     ],
@@ -74,30 +74,30 @@ class TestSpectreFormat:
                 make_conn("b", "", "b", "R1", "n"),
             ],
         )
-        circuit = Circuit(
+        netlist = Netlist(
             name="test",
-            top_module="test",
-            modules=[mod],
+            top_circuit="test",
+            circuits=[circ],
             ext_modules=[resistor],
         )
-        output = write_spectre(circuit)
+        output = write_spectre(netlist)
         assert "R1 (a b) resistor r=10k" in output
 
     def test_x_instance(self) -> None:
-        inner = Module(name="inner", ports=[make_port("p"), make_port("q")])
-        outer = Module(
+        inner = Circuit(name="inner", ports=[make_port("p"), make_port("q")])
+        outer = Circuit(
             name="outer",
             ports=[make_port("a"), make_port("b")],
-            module_references=[ModuleReference(name="X1", module_name="inner")],
+            subcircuits=[SubCircuit(name="X1", circuit_name="inner")],
             connections=[
                 make_conn("a", "", "a", "X1", "p"),
                 make_conn("b", "", "b", "X1", "q"),
             ],
         )
-        circuit = Circuit(
+        netlist = Netlist(
             name="test",
-            top_module="outer",
-            modules=[inner, outer],
+            top_circuit="outer",
+            circuits=[inner, outer],
         )
-        output = write_spectre(circuit)
+        output = write_spectre(netlist)
         assert "X1 (a b) inner" in output

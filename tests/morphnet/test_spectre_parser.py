@@ -9,9 +9,9 @@ R1 (vin vout) resistor r=10k
 R2 (vout gnd) resistor r=10k
 ends divider
 """
-        circuit = parse_spectre(text)
-        assert circuit.top_module == "divider"
-        assert len(circuit.modules) == 1
+        netlist = parse_spectre(text)
+        assert netlist.top_circuit == "divider"
+        assert len(netlist.circuits) == 1
 
     def test_port_names(self) -> None:
         text = """\
@@ -19,8 +19,8 @@ subckt mymod (a b c)
 R1 (a b) resistor r=1k
 ends mymod
 """
-        circuit = parse_spectre(text)
-        assert [p.name for p in circuit.modules[0].ports] == ["a", "b", "c"]
+        netlist = parse_spectre(text)
+        assert [p.name for p in netlist.circuits[0].ports] == ["a", "b", "c"]
 
     def test_instance_params(self) -> None:
         text = """\
@@ -28,8 +28,8 @@ subckt test (a b)
 R1 (a b) resistor r=10k
 ends test
 """
-        circuit = parse_spectre(text)
-        ref = circuit.modules[0].module_references[0]
+        netlist = parse_spectre(text)
+        ref = netlist.circuits[0].subcircuits[0]
         assert any(p.name == "r" for p in ref.parameters)
 
 
@@ -41,9 +41,9 @@ M1 (out in vdd vdd) pch w=1u l=0.18u
 M2 (out in vss vss) nch w=0.5u l=0.18u
 ends inv
 """
-        circuit = parse_spectre(text)
-        refs = circuit.modules[0].module_references
-        assert refs[0].module_name == "mosfet"
+        netlist = parse_spectre(text)
+        refs = netlist.circuits[0].subcircuits
+        assert refs[0].circuit_name == "mosfet"
         assert refs[0].properties.get("model_name") == "pch"
         assert refs[1].properties.get("model_name") == "nch"
 
@@ -57,9 +57,9 @@ subckt outer (x y)
 X1 (x y) inner
 ends outer
 """
-        circuit = parse_spectre(text)
-        outer = next(m for m in circuit.modules if m.name == "outer")
-        assert outer.module_references[0].module_name == "inner"
+        netlist = parse_spectre(text)
+        outer = next(m for m in netlist.circuits if m.name == "outer")
+        assert outer.subcircuits[0].circuit_name == "inner"
 
 
 class TestDirectives:
@@ -70,8 +70,8 @@ subckt test (a b)
 R1 (a b) resistor r=1k
 ends test
 """
-        circuit = parse_spectre(text)
-        includes = [d for d in circuit.directives if d.kind.name == "INCLUDE"]
+        netlist = parse_spectre(text)
+        includes = [d for d in netlist.directives if d.kind.name == "INCLUDE"]
         assert len(includes) >= 1
         assert includes[0].value == "models.scs"
 
@@ -82,8 +82,8 @@ subckt test (d g s b)
 M1 (d g s b) nch w=1u l=0.18u
 ends test
 """
-        circuit = parse_spectre(text)
-        ext_names = {e.name for e in circuit.ext_modules}
+        netlist = parse_spectre(text)
+        ext_names = {e.name for e in netlist.ext_modules}
         assert "nch" in ext_names
 
 
@@ -98,8 +98,8 @@ subckt parent (a b)
 X1 (a b) child
 ends parent
 """
-        circuit = parse_spectre(text)
-        parent = next(m for m in circuit.modules if m.name == "parent")
+        netlist = parse_spectre(text)
+        parent = next(m for m in netlist.circuits if m.name == "parent")
         x1_ports: set[str] = set()
         for c in parent.connections:
             if c.target and c.target.instance_name == "X1":

@@ -1,11 +1,11 @@
 from kfnetlist.morphnet.morphnet_schema import (
-    Circuit,
+    Netlist,
     Connection,
     Directive,
     DirectiveKind,
     ExternalModule,
-    Module,
-    ModuleReference,
+    Circuit,
+    SubCircuit,
     Parameter,
     ParameterValue,
     Port,
@@ -49,13 +49,13 @@ class TestResistorOutput:
             ports=[make_port("p"), make_port("n")],
             properties={"spice_prefix": "R"},
         )
-        mod = Module(
+        circ = Circuit(
             name="test",
             ports=[make_port("a"), make_port("b")],
-            module_references=[
-                ModuleReference(
+            subcircuits=[
+                SubCircuit(
                     name="R1",
-                    module_name="resistor",
+                    circuit_name="resistor",
                     parameters=[
                         Parameter(
                             name="value",
@@ -69,13 +69,13 @@ class TestResistorOutput:
                 make_conn("b", "", "b", "R1", "n"),
             ],
         )
-        circuit = Circuit(
+        netlist = Netlist(
             name="test_circuit",
-            top_module="test",
-            modules=[mod],
+            top_circuit="test",
+            circuits=[circ],
             ext_modules=[resistor],
         )
-        output = write_spice(circuit)
+        output = write_spice(netlist)
         assert ".subckt test a b" in output
         assert "R1 a b 10k" in output
         assert ".ends test" in output
@@ -94,7 +94,7 @@ class TestMosfetOutput:
             ],
             properties={"spice_prefix": "M"},
         )
-        mod = Module(
+        circ = Circuit(
             name="inv",
             ports=[
                 make_port("in_"),
@@ -102,10 +102,10 @@ class TestMosfetOutput:
                 make_port("vdd"),
                 make_port("vss"),
             ],
-            module_references=[
-                ModuleReference(
+            subcircuits=[
+                SubCircuit(
                     name="M1",
-                    module_name="mosfet",
+                    circuit_name="mosfet",
                     properties={"model_name": "pch"},
                     parameters=[
                         Parameter(name="W", default_value=make_pv(1.0, SIPrefix.MICRO)),
@@ -122,57 +122,57 @@ class TestMosfetOutput:
                 make_conn("vdd", "", "vdd", "M1", "b"),
             ],
         )
-        circuit = Circuit(
+        netlist = Netlist(
             name="test",
-            top_module="inv",
-            modules=[mod],
+            top_circuit="inv",
+            circuits=[circ],
             ext_modules=[mosfet],
         )
-        output = write_spice(circuit)
+        output = write_spice(netlist)
         assert "M1 out in_ vdd vdd pch W=1u L=0.18u" in output
 
 
 class TestSubcircuitInstance:
     def test_x_instance(self) -> None:
-        inner = Module(
+        inner = Circuit(
             name="inner",
             ports=[make_port("p"), make_port("q")],
         )
-        outer = Module(
+        outer = Circuit(
             name="outer",
             ports=[make_port("a"), make_port("b")],
-            module_references=[
-                ModuleReference(name="X1", module_name="inner"),
+            subcircuits=[
+                SubCircuit(name="X1", circuit_name="inner"),
             ],
             connections=[
                 make_conn("a", "", "a", "X1", "p"),
                 make_conn("b", "", "b", "X1", "q"),
             ],
         )
-        circuit = Circuit(
+        netlist = Netlist(
             name="test",
-            top_module="outer",
-            modules=[inner, outer],
+            top_circuit="outer",
+            circuits=[inner, outer],
         )
-        output = write_spice(circuit)
+        output = write_spice(netlist)
         assert "X1 a b inner" in output
 
 
 class TestDirectiveOutput:
     def test_include(self) -> None:
-        circuit = Circuit(
+        netlist = Netlist(
             name="test",
             directives=[Directive(kind=DirectiveKind.INCLUDE, value="models.lib")],
         )
-        output = write_spice(circuit)
+        output = write_spice(netlist)
         assert '.include "models.lib"' in output
 
     def test_global(self) -> None:
-        circuit = Circuit(
+        netlist = Netlist(
             name="test",
             directives=[Directive(kind=DirectiveKind.GLOBAL, value="VDD VSS")],
         )
-        output = write_spice(circuit)
+        output = write_spice(netlist)
         assert ".global VDD VSS" in output
 
     def test_model(self) -> None:
@@ -184,8 +184,8 @@ class TestDirectiveOutput:
             ],
             properties={"model_type": "nmos"},
         )
-        circuit = Circuit(name="test", ext_modules=[nch])
-        output = write_spice(circuit)
+        netlist = Netlist(name="test", ext_modules=[nch])
+        output = write_spice(netlist)
         assert ".model nch nmos" in output
         assert "level=49" in output
         assert "vth0=0.4" in output

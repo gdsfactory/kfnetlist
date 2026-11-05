@@ -23,7 +23,7 @@
 #
 # - The `nfet`/`pfet` external modules declare their ports, so positional
 #   formats (SPICE, Spectre) know the pin order.
-# - Nets that reach a module terminal are named after it. A subcircuit port is
+# - Nets that reach a circuit terminal are named after it. A subcircuit port is
 #   wired to the node with the same name.
 # - Instance names follow SPICE's first-letter convention: `X` marks a
 #   subcircuit or PDK-cell call. Without it, `inv1` would read as a current
@@ -47,22 +47,23 @@ from kfnetlist.morphnet.netlist import (
 # %% [markdown]
 # ## Leaf inverter cell
 #
-# `module()` declares parameters (names only, or `(name, default)` tuples).
-# `add_terminal()` adds the module's I/O, `module_reference()` places
+# `circuit()` declares a circuit and its parameters (names only, or
+# `(name, default)` tuples).
+# `add_terminal()` adds the circuit's I/O, `subcircuit()` places
 # sub-instances with parameter overrides as keyword arguments, and `connect()`
-# names a net and lists its endpoints. `("", terminal)` is the module's own
+# names a net and lists its endpoints. `("", terminal)` is the circuit's own
 # terminal.
 
 # %%
-inv = morphnet.module("inverter", parameters=["l", "w"])
+inv = morphnet.circuit("inverter", parameters=["l", "w"])
 inv.add_terminal("vdd", direction=morphnet.PortDirection.INPUT)
 inv.add_terminal("gnd", direction=morphnet.PortDirection.INPUT)
 inv.add_terminal("inp", direction=morphnet.PortDirection.INPUT)
 inv.add_terminal("out", direction=morphnet.PortDirection.OUTPUT)
 
 inv.add(
-    morphnet.module_reference("XMN", "nfet", l=100e-9, w=500e-9),
-    morphnet.module_reference("XMP", "pfet", l=100e-9, w=1000e-9),
+    morphnet.subcircuit("XMN", "nfet", l=100e-9, w=500e-9),
+    morphnet.subcircuit("XMP", "pfet", l=100e-9, w=1000e-9),
 )
 
 inv.connect("out", ("XMN", "drain"), ("XMP", "drain"), ("", "out"))
@@ -77,15 +78,15 @@ inv.connect("gnd", ("", "gnd"), ("XMN", "source"))
 # defaults.
 
 # %%
-ring = morphnet.module("ring_osc")
+ring = morphnet.circuit("ring_osc")
 ring.add_terminal("vdd", direction=morphnet.PortDirection.INPUT)
 ring.add_terminal("gnd", direction=morphnet.PortDirection.INPUT)
 ring.add_terminal("osc_out", direction=morphnet.PortDirection.OUTPUT)
 
 ring.add(
-    morphnet.module_reference("Xinv1", "inverter", parameters=[("w", 600e-9)]),
-    morphnet.module_reference("Xinv2", "inverter"),
-    morphnet.module_reference("Xinv3", "inverter"),
+    morphnet.subcircuit("Xinv1", "inverter", parameters=[("w", 600e-9)]),
+    morphnet.subcircuit("Xinv2", "inverter"),
+    morphnet.subcircuit("Xinv3", "inverter"),
 )
 ring.connect("n1", ("Xinv1", "out"), ("Xinv2", "inp"))
 ring.connect("n2", ("Xinv2", "out"), ("Xinv3", "inp"))
@@ -94,7 +95,7 @@ ring.connect("vdd", ("", "vdd"), ("Xinv1", "vdd"), ("Xinv2", "vdd"), ("Xinv3", "
 ring.connect("gnd", ("", "gnd"), ("Xinv1", "gnd"), ("Xinv2", "gnd"), ("Xinv3", "gnd"))
 
 # %% [markdown]
-# ## Circuit: PDK library, device models, modules
+# ## Netlist: PDK library, device models, circuits
 #
 # `external_library()` points at the model file, and `ext_module()` declares the
 # devices it provides, including their pin order.
@@ -102,7 +103,7 @@ ring.connect("gnd", ("", "gnd"), ("Xinv1", "gnd"), ("Xinv2", "gnd"), ("Xinv3", "
 # %%
 fet_ports = [morphnet.port(name) for name in ("drain", "gate", "source")]
 
-ckt = morphnet.circuit("ring_osc_top", top_module="ring_osc")
+ckt = morphnet.Netlist(name="ring_osc_top", top_circuit="ring_osc")
 ckt.add_library(
     "tt",
     morphnet.external_library(
@@ -115,8 +116,8 @@ ckt.add_ext(
 )
 ckt.add(ring, inv)
 
-assert ckt.top_module == "ring_osc"
-assert [m.name for m in ckt.modules] == ["ring_osc", "inverter"]
+assert ckt.top_circuit == "ring_osc"
+assert [m.name for m in ckt.circuits] == ["ring_osc", "inverter"]
 assert ckt.libraries["tt"].path == "path/to/tt.lib"
 
 # %% [markdown]
@@ -135,7 +136,7 @@ for fmt, text in texts.items():
     print(f"── {fmt} ──\n{text}")
 
 # %% [markdown]
-# The same `Circuit` also serializes to YAML (and to JSON or protobuf bytes) as a
+# The same `Netlist` also serializes to YAML (and to JSON or protobuf bytes) as a
 # portable interchange format:
 
 # %%
@@ -144,8 +145,8 @@ print(ckt.to_yaml())
 # %% [markdown]
 # ## Parse it back
 #
-# Every format parses back into a `Circuit`. Converting each one to kfnetlist
-# `Netlist`s shows that the connectivity survived every round trip.
+# Every format parses back into a morphnet `Netlist`. Converting each one to
+# `kfnetlist.Netlist` graphs shows that the connectivity survived every round trip.
 #
 # Positional formats (the SPICE family and Spectre) record pin *order*, not pin
 # names, so their instance pins come back as `p0`, `p1`, and so on. Only
@@ -162,8 +163,8 @@ PARSERS = {
     "Spectre": parse_spectre,
     "Verilog-AMS": parse_vams,
 }
-pin_order = {m.name: [p.name for p in m.ports] for m in [*ckt.modules, *ckt.ext_modules]}
-cell_of = {r.name: r.module_name for m in ckt.modules for r in m.module_references}
+pin_order = {m.name: [p.name for p in m.ports] for m in [*ckt.circuits, *ckt.ext_modules]}
+cell_of = {r.name: r.circuit_name for m in ckt.circuits for r in m.subcircuits}
 
 
 def pin(member) -> str:
@@ -174,10 +175,10 @@ def pin(member) -> str:
     return f"{member.instance}[{index}]"
 
 
-def connectivity(circuit: morphnet.Circuit) -> dict[str, list[list[str]]]:
+def connectivity(netlist: morphnet.Netlist) -> dict[str, list[list[str]]]:
     return {
         name: sorted(sorted(map(pin, net)) for net in nl.nets)
-        for name, nl in morphnet.circuit_to_netlists(circuit).items()
+        for name, nl in morphnet.to_netlists(netlist).items()
     }
 
 

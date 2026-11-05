@@ -5,13 +5,13 @@ from typing import ClassVar
 
 from lark import Lark
 
-from kfnetlist.morphnet.morphnet_schema import Circuit
+from kfnetlist.morphnet.morphnet_schema import Netlist
 from kfnetlist.morphnet.netlist.spice.preprocess import preprocess_spice
 from kfnetlist.morphnet.netlist.spice.transformer import SpiceTransformer
 
 
 class SpiceParser:
-    """Parse SPICE/HSPICE netlist text into a Circuit model.
+    """Parse SPICE/HSPICE netlist text into a Netlist model.
 
     The Lark parser instance is built once and cached at class level.
     """
@@ -30,8 +30,8 @@ class SpiceParser:
         return cls.lark_instance
 
     @classmethod
-    def parse(cls, text: str) -> Circuit:
-        """Parse SPICE netlist text into a Circuit model.
+    def parse(cls, text: str) -> Netlist:
+        """Parse SPICE netlist text into a Netlist model.
 
         Steps:
         1. Pre-process: strip comments, join continuations — O(lines)
@@ -45,6 +45,6 @@ class SpiceParser:
         return transformer.transform(tree)
 
 
-def parse_spice(text: str) -> Circuit:
-    """Parse SPICE netlist text into a Circuit model."""
+def parse_spice(text: str) -> Netlist:
+    """Parse SPICE netlist text into a Netlist model."""
     return SpiceParser.parse(text)

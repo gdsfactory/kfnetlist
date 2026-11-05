@@ -5,11 +5,11 @@ from typing import Any
 from lark import Token, Transformer
 
 from kfnetlist.morphnet.morphnet_schema import (
-    Circuit,
+    Netlist,
     ExternalModule,
     ExternalModuleKind,
-    Module,
-    ModuleReference,
+    Circuit,
+    SubCircuit,
     Parameter,
     ParameterValue,
     Port,
@@ -116,8 +116,8 @@ DIR_MAP = {
 }
 
 
-class VamsTransformer(Transformer[Token, Circuit]):
-    """Transform a Verilog-AMS parse tree into a Circuit model."""
+class VamsTransformer(Transformer[Token, Netlist]):
+    """Transform a Verilog-AMS parse tree into a Netlist model."""
 
     def __init__(self, analog_blocks: list[str] | None = None) -> None:
         super().__init__()
@@ -404,7 +404,7 @@ class VamsTransformer(Transformer[Token, Circuit]):
 
     def module_def(
         self, items: list[Any]
-    ) -> tuple[str, Module, dict[str, ExternalModule]]:
+    ) -> tuple[str, Circuit, dict[str, ExternalModule]]:
         module_name = str(items[0])
 
         port_names: list[str] = []
@@ -482,7 +482,7 @@ class VamsTransformer(Transformer[Token, Circuit]):
             properties["analog_block"] = analog_block
 
         net_map: NetMap = {}
-        module_references: list[ModuleReference] = []
+        subcircuits: list[SubCircuit] = []
         ext_modules: dict[str, ExternalModule] = {}
 
         for port in ports:
@@ -508,31 +508,31 @@ class VamsTransformer(Transformer[Token, Circuit]):
                 for pi, net_name in enumerate(inst.positional_ports):
                     add_port_to_net(net_map, net_name, inst.name, f"p{pi}")
 
-            module_references.append(
-                ModuleReference(
+            subcircuits.append(
+                SubCircuit(
                     name=inst.name,
-                    module_name=inst.module_type,
+                    circuit_name=inst.module_type,
                     parameters=params,
                 )
             )
 
         connections = net_map_to_connections(net_map)
 
-        module = Module(
+        circuit = Circuit(
             name=module_name,
             ports=ports,
             parameters=parameters,
-            module_references=module_references,
+            subcircuits=subcircuits,
             connections=connections,
             properties=properties,
         )
 
-        return (module_name, module, ext_modules)
+        return (module_name, circuit, ext_modules)
 
     # ── Top-level ──────────────────────────────────────────────────────
 
-    def start(self, items: list[Any]) -> Circuit:
-        modules: list[Module] = []
+    def start(self, items: list[Any]) -> Netlist:
+        circuits: list[Circuit] = []
         ext_modules: dict[str, ExternalModule] = {}
 
         for item in items:
@@ -540,8 +540,8 @@ class VamsTransformer(Transformer[Token, Circuit]):
                 continue
             if isinstance(item, tuple) and len(item) == 3:
                 _, mod, ext = item
-                if isinstance(mod, Module):
-                    modules.append(mod)
+                if isinstance(mod, Circuit):
+                    circuits.append(mod)
                     ext_modules.update(ext)
             elif isinstance(item, NatureData):
                 props: dict[str, str] = {"ext_kind": "nature"}
@@ -582,11 +582,11 @@ class VamsTransformer(Transformer[Token, Circuit]):
                     properties={"ext_kind": "model", "model_type": item.base_type},
                 )
 
-        top_module = modules[-1].name if modules else ""
+        top_circuit = circuits[-1].name if circuits else ""
 
-        return Circuit(
+        return Netlist(
             name="",
-            top_module=top_module,
-            modules=modules,
+            top_circuit=top_circuit,
+            circuits=circuits,
             ext_modules=list(ext_modules.values()),
         )

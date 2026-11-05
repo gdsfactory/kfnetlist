@@ -92,20 +92,21 @@ For a complete walkthrough, see the
 ## Netlist Format Conversion
 
 `kfnetlist.morphnet` (vendored from [morphnet](https://github.com/das-dias/morphnet))
-parses every supported format into one `Circuit` model and writes it back out in
+parses every supported format into one `Netlist` model (`Netlist` → `Circuit` definitions
+→ `SubCircuit` instances, serialized with the kfnetlist schema names) and writes it back out in
 any other. Spectre to Verilog-AMS:
 
 ```python
 from kfnetlist.morphnet.netlist.spectre.parser import parse_spectre
 from kfnetlist.morphnet.netlist.vams.writer import write_vams
 
-circuit = parse_spectre("""\
+netlist = parse_spectre("""\
 subckt rc_lowpass (in_ out gnd)
 R1 (in_ out) resistor value=1k
 C1 (out gnd) capacitor value=100p
 ends rc_lowpass
 """)
-print(write_vams(circuit))
+print(write_vams(netlist))
 ```
 
 ```verilog
@@ -122,26 +123,26 @@ Build circuits programmatically with the builder API, then export to any format:
 from kfnetlist import morphnet
 from kfnetlist.morphnet.netlist import write_spectre, write_spice
 
-rc = morphnet.module("rc_lowpass")
+rc = morphnet.circuit("rc_lowpass")
 for name in ("in_", "out", "gnd"):
     rc.add_terminal(name)
 rc.add(
-    morphnet.module_reference("R1", "resistor", value=1e3),
-    morphnet.module_reference("C1", "capacitor", value=100e-12),
+    morphnet.subcircuit("R1", "resistor", value=1e3),
+    morphnet.subcircuit("C1", "capacitor", value=100e-12),
 )
 rc.connect("in_", ("", "in_"), ("R1", "p"))
 rc.connect("out", ("", "out"), ("R1", "n"), ("C1", "p"))
 rc.connect("gnd", ("", "gnd"), ("C1", "n"))
 
-circuit = morphnet.circuit("rc", top_module="rc_lowpass").add(rc)
-print(write_spice(circuit))
+netlist = morphnet.Netlist(name="rc").add(rc)
+print(write_spice(netlist))
 ```
 
-Any kfnetlist `Netlist`, whether built by hand or extracted from layout, converts too:
-`morphnet.circuit_from_netlists({"rc": netlist})` gives a `Circuit` for any
-writer, and `morphnet.circuit_to_netlists(parse_spice(text))` reads any format back
-as `Netlist`s for LVS, open detection or flattening. Every `Circuit` also
-round-trips through YAML, JSON and protobuf, simulation statements included.
+Any `kfnetlist.Netlist` graph, whether built by hand or extracted from layout, converts too:
+`morphnet.from_netlists({"rc": netlist})` gives a morphnet `Netlist` for any writer, and
+`morphnet.to_netlists(parse_spice(text))` reads any format back as `kfnetlist.Netlist`
+graphs for LVS, open detection or flattening. Every morphnet `Netlist` also round-trips
+through YAML, JSON and protobuf, simulation statements included.
 See the [format conversion docs](https://gdsfactory.github.io/kfnetlist) and the
 example notebooks in [`examples/`](examples/).
 

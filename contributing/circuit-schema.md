@@ -101,3 +101,28 @@ Run `cargo test -p kfnetlist-schema` for Python-independent schema and wire test
 and `uv run --extra dev --with pydantic pytest` for the Python suite. A Python test
 blocks imports of Python schema and codec packages in a fresh interpreter to
 check that the Rust path is sufficient.
+
+## Future work: rename the proto messages
+
+`kfnetlist.morphnet` already names the hierarchy `Netlist` → `Circuit` (definition) →
+`SubCircuit` (instance) in Python, using pydantic aliases so that protobuf, JSON and
+YAML keep the current schema names. A follow-up should rename the schema itself to
+the same hierarchy:
+
+| Today | Planned |
+|---|---|
+| message `Circuit` | `Netlist` |
+| message `Module` | `Circuit` |
+| message `ModuleReference` | `SubCircuit` |
+| `Circuit.modules`, `Circuit.top_module` | `Netlist.circuits`, `Netlist.top_circuit` |
+| `Module.module_references` | `Circuit.subcircuits` |
+| `ModuleReference.module_name` | `SubCircuit.circuit_name` |
+
+- **Field numbers stay the same**, so the protobuf wire format does not change.
+  Only JSON/YAML keys and generated type names change.
+- **Rust:** update `convert.rs` and the prost type names.
+- **PyO3:** rename `ProtoCircuit`/`ProtoModule`/`ProtoModuleReference`. `ProtoCircuit`
+  would change meaning, so plan the deprecation path. Extend `upgrade_legacy` so old
+  JSON keys keep loading.
+- **morphnet:** regenerate the Python stubs (`just compile-schema-py`), then drop
+  the pydantic aliases in `kfnetlist.morphnet` once the names match.

@@ -7,9 +7,22 @@
   `pydantic-yaml`) become kfnetlist dependencies.
   It provides Lark parsers and writers for SPICE, HSPICE, Xyce, Spectre,
   Spectre-SPICE and Verilog-AMS, plus the programmatic circuit builder
-  (`morphnet.module()`, `connect()`, `circuit()`, ...).
-  `morphnet.circuit_from_netlists()` / `circuit_to_netlists()` bridge to
+  (`morphnet.circuit()`, `subcircuit()`, `connect()`, ...).
+  `morphnet.from_netlists()` / `to_netlists()` bridge to
   `Netlist`. The native netlist and schema classes still import none of these.
+- **`kfnetlist.morphnet` hierarchy renamed** to `Netlist` (container) → `Circuit`
+  (definition) → `SubCircuit` (instance), from morphnet's `Circuit` → `Module` →
+  `ModuleReference`. The fields are renamed to match: `circuits`, `top_circuit`,
+  `subcircuits`, `circuit_name`. The builders are `circuit()` and `subcircuit()`,
+  and the top container is built with `morphnet.Netlist(...)`.
+  - JSON and YAML now use the kfnetlist schema field names
+    (`modules`, `top_module`, `module_references`, `module_name`, `terminals`,
+    `terminal_name`), so `ProtoCircuit.from_json(netlist.to_json())` loads them.
+  - The old names `Module`, `ModuleReference`, `module()`, `module_reference()`,
+    `circuit_from_netlists()` and `circuit_to_netlists()` remain as deprecated
+    aliases.
+  - The proto messages keep their names for now; renaming them to the same
+    hierarchy is planned (see `contributing/circuit-schema.md`).
 - **One circuit schema** — `circuit.proto` and the new `simulation.proto` now
   follow morphnet's schema, shared by Rust and Python. It adds simulation,
   directives, external libraries and `Terminal.discipline`. It removes `uid`,

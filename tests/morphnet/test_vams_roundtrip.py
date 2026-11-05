@@ -16,13 +16,13 @@ endmodule
         output = write_vams(circuit1)
         circuit2 = parse_vams(output)
 
-        assert circuit1.top_module == circuit2.top_module
-        assert len(circuit1.modules) == len(circuit2.modules)
+        assert circuit1.top_circuit == circuit2.top_circuit
+        assert len(circuit1.circuits) == len(circuit2.circuits)
 
-        m1, m2 = circuit1.modules[0], circuit2.modules[0]
+        m1, m2 = circuit1.circuits[0], circuit2.circuits[0]
         assert m1.name == m2.name
         assert [p.name for p in m1.ports] == [p.name for p in m2.ports]
-        assert len(m1.module_references) == len(m2.module_references)
+        assert len(m1.subcircuits) == len(m2.subcircuits)
 
     def test_with_parameters(self) -> None:
         text = """\
@@ -37,8 +37,8 @@ endmodule
         output = write_vams(circuit1)
         circuit2 = parse_vams(output)
 
-        p1 = circuit1.modules[0].parameters[0]
-        p2 = circuit2.modules[0].parameters[0]
+        p1 = circuit1.circuits[0].parameters[0]
+        p2 = circuit2.circuits[0].parameters[0]
         assert p1.name == p2.name
         assert p1.properties.get("type") == p2.properties.get("type")
 
@@ -72,8 +72,8 @@ endmodule
         output = write_vams(circuit1)
         circuit2 = parse_vams(output)
 
-        dirs1 = {p.name: p.direction for p in circuit1.modules[0].ports}
-        dirs2 = {p.name: p.direction for p in circuit2.modules[0].ports}
+        dirs1 = {p.name: p.direction for p in circuit1.circuits[0].ports}
+        dirs2 = {p.name: p.direction for p in circuit2.circuits[0].ports}
         assert dirs1 == dirs2
 
     def test_disciplines_preserved(self) -> None:
@@ -87,6 +87,6 @@ endmodule
         output = write_vams(circuit1)
         circuit2 = parse_vams(output)
 
-        discs1 = {p.name: p.discipline for p in circuit1.modules[0].ports}
-        discs2 = {p.name: p.discipline for p in circuit2.modules[0].ports}
+        discs1 = {p.name: p.discipline for p in circuit1.circuits[0].ports}
+        discs2 = {p.name: p.discipline for p in circuit2.circuits[0].ports}
         assert discs1 == discs2

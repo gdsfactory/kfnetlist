@@ -3,13 +3,13 @@ from __future__ import annotations
 from kfnetlist.morphnet.morphnet_schema import (
     Analysis,
     AnalysisKind,
-    Circuit,
+    Netlist,
     Directive,
     DirectiveKind,
     ExternalModule,
     Measurement,
-    Module,
-    ModuleReference,
+    Circuit,
+    SubCircuit,
     OutputRequest,
     OutputRequestKind,
     ParameterValue,
@@ -26,7 +26,7 @@ MODULE_TO_PREFIX: dict[str, str] = {v: k for k, v in DEVICE_PREFIX_TO_MODULE.ite
 
 
 class SpiceWriter:
-    """Convert a Circuit model to SPICE netlist text.
+    """Convert a Netlist model to SPICE netlist text.
 
     All lookups use dict-based O(1) access.
     """
@@ -37,35 +37,35 @@ class SpiceWriter:
             return format_si_value(pval.prefixed_value)
         return "0"
 
-    def write(self, circuit: Circuit) -> str:
+    def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
 
         # Title line
-        title = circuit.name or "untitled"
+        title = netlist.name or "untitled"
         lines.append(f"* {title}")
 
         # Build lookups — O(e + m)
         ext_by_name: dict[str, ExternalModule] = {
-            e.name: e for e in circuit.ext_modules
+            e.name: e for e in netlist.ext_modules
         }
-        mod_by_name: dict[str, Module] = {m.name: m for m in circuit.modules}
+        circuit_by_name: dict[str, Circuit] = {m.name: m for m in netlist.circuits}
 
-        self.write_directives(circuit.directives, lines)
+        self.write_directives(netlist.directives, lines)
 
-        for ext in circuit.ext_modules:
+        for ext in netlist.ext_modules:
             model_type = ext.properties.get("model_type", "")
             if model_type:
                 self.write_model(ext, model_type, lines)
 
         # Emit subcircuit definitions
-        for module in circuit.modules:
-            if module.name == "__top__":
-                self.write_top_instances(module, ext_by_name, mod_by_name, lines)
+        for circuit in netlist.circuits:
+            if circuit.name == "__top__":
+                self.write_top_instances(circuit, ext_by_name, circuit_by_name, lines)
             else:
-                self.write_subckt(module, ext_by_name, mod_by_name, lines)
+                self.write_subckt(circuit, ext_by_name, circuit_by_name, lines)
 
-        if circuit.simulation:
-            self.write_simulation(circuit.simulation, lines)
+        if netlist.simulation:
+            self.write_simulation(netlist.simulation, lines)
 
         lines.append(".end")
         lines.append("")
@@ -105,55 +105,59 @@ class SpiceWriter:
 
     def write_subckt(
         self,
-        module: Module,
+        circuit: Circuit,
         ext_by_name: dict[str, ExternalModule],
-        mod_by_name: dict[str, Module],
+        circuit_by_name: dict[str, Circuit],
         lines: list[str],
     ) -> None:
         """Emit a .subckt / .ends block."""
-        port_names = " ".join(p.name for p in module.ports)
-        lines.append(f".subckt {module.name} {port_names}")
+        port_names = " ".join(p.name for p in circuit.ports)
+        lines.append(f".subckt {circuit.name} {port_names}")
 
-        # Emit .param for module parameters
-        for param in module.parameters:
+        # Emit .param for circuit parameters
+        for param in circuit.parameters:
             if param.default_value:
                 val = self.format_param_value(param.default_value)
                 lines.append(f".param {param.name}={val}")
 
         # Build (instance_name, port_name) → net_name — O(c)
-        inst_nets = connections_to_instance_nets(module.connections)
+        inst_nets = connections_to_instance_nets(circuit.connections)
 
         # Emit instances
-        for ref in module.module_references:
-            lines.append(self.write_instance(ref, inst_nets, ext_by_name, mod_by_name))
+        for ref in circuit.subcircuits:
+            lines.append(
+                self.write_instance(ref, inst_nets, ext_by_name, circuit_by_name)
+            )
 
-        lines.append(f".ends {module.name}")
+        lines.append(f".ends {circuit.name}")
 
     def write_top_instances(
         self,
-        module: Module,
+        circuit: Circuit,
         ext_by_name: dict[str, ExternalModule],
-        mod_by_name: dict[str, Module],
+        circuit_by_name: dict[str, Circuit],
         lines: list[str],
     ) -> None:
         """Emit top-level instances (outside any subcircuit)."""
-        inst_nets = connections_to_instance_nets(module.connections)
-        for ref in module.module_references:
-            lines.append(self.write_instance(ref, inst_nets, ext_by_name, mod_by_name))
+        inst_nets = connections_to_instance_nets(circuit.connections)
+        for ref in circuit.subcircuits:
+            lines.append(
+                self.write_instance(ref, inst_nets, ext_by_name, circuit_by_name)
+            )
 
     def write_instance(
         self,
-        ref: ModuleReference,
+        ref: SubCircuit,
         inst_nets: dict[tuple[str, str], str],
         ext_by_name: dict[str, ExternalModule],
-        mod_by_name: dict[str, Module],
+        circuit_by_name: dict[str, Circuit],
     ) -> str:
         """Emit a single instance line.
 
         Device prefix and port order determined by O(1) dict lookups.
         """
-        prefix = MODULE_TO_PREFIX.get(ref.module_name)
-        ext_mod = ext_by_name.get(ref.module_name)
+        prefix = MODULE_TO_PREFIX.get(ref.circuit_name)
+        ext_mod = ext_by_name.get(ref.circuit_name)
 
         if prefix:
             # Primitive device: R1 net1 net2 value param=val ...
@@ -183,11 +187,11 @@ class SpiceWriter:
 
         # Subcircuit instance: X1 net1 net2 ... subckt_name param=val
         inst_name = ref.name
-        subckt_name = ref.module_name
+        subckt_name = ref.circuit_name
 
-        ref_mod = mod_by_name.get(subckt_name)
-        if ref_mod is not None:
-            port_order = [p.name for p in ref_mod.ports]
+        ref_circuit = circuit_by_name.get(subckt_name)
+        if ref_circuit is not None:
+            port_order = [p.name for p in ref_circuit.ports]
         elif ext_mod is not None:
             port_order = [p.name for p in ext_mod.ports]
         else:
@@ -207,10 +211,10 @@ class SpiceWriter:
 
     def infer_port_order(
         self,
-        ref: ModuleReference,
+        ref: SubCircuit,
         inst_nets: dict[tuple[str, str], str],
     ) -> list[str]:
-        """Infer port order from the instance-net map when no module def is available."""
+        """Infer port order from the instance-net map when no circuit definition is available."""
         port_names: list[str] = []
         for iname, pname in inst_nets:
             if iname == ref.name and pname not in port_names:
@@ -289,6 +293,6 @@ _OUTPUT_REQUEST_KIND_TO_KW: dict[OutputRequestKind, str] = {
 }
 
 
-def write_spice(circuit: Circuit) -> str:
-    """Convert a Circuit model to SPICE netlist text."""
-    return SpiceWriter().write(circuit)
+def write_spice(netlist: Netlist) -> str:
+    """Convert a Netlist model to SPICE netlist text."""
+    return SpiceWriter().write(netlist)

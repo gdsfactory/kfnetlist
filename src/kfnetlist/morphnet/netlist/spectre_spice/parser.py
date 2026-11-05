@@ -2,11 +2,11 @@ from __future__ import annotations
 
 from kfnetlist.morphnet.morphnet_schema import (
     Analysis,
-    Circuit,
+    Netlist,
     ExternalModule,
     InitialCondition,
     Measurement,
-    Module,
+    Circuit,
     OutputRequest,
     Simulation,
 )
@@ -16,17 +16,17 @@ from kfnetlist.morphnet.netlist.spice.parser import parse_spice
 
 
 class SpectreSpiceParser:
-    """Parse Spectre-SPICE netlist text into a Circuit model.
+    """Parse Spectre-SPICE netlist text into a Netlist model.
 
     Splits input on `simulator lang=` directives and delegates each
     section to the appropriate sub-parser.
     """
 
     @classmethod
-    def parse(cls, text: str) -> Circuit:
+    def parse(cls, text: str) -> Netlist:
         sections = preprocess_spectre_spice(text)
 
-        all_modules: list[Module] = []
+        all_circuits: list[Circuit] = []
         all_ext_modules: dict[str, ExternalModule] = {}
         all_directives = []
         all_analyses: list[Analysis] = []
@@ -40,28 +40,28 @@ class SpectreSpiceParser:
             if not section.text.strip():
                 continue
             if section.language == "spectre":
-                circuit = parse_spectre(section.text)
+                netlist = parse_spectre(section.text)
             else:
-                circuit = parse_spice(section.text)
+                netlist = parse_spice(section.text)
 
-            all_modules.extend(circuit.modules)
-            for ext in circuit.ext_modules:
+            all_circuits.extend(netlist.circuits)
+            for ext in netlist.ext_modules:
                 all_ext_modules[ext.name] = ext
-            all_directives.extend(circuit.directives)
+            all_directives.extend(netlist.directives)
 
-            if circuit.simulation:
-                all_analyses.extend(circuit.simulation.analyses)
-                all_output_requests.extend(circuit.simulation.output_requests)
-                all_measurements.extend(circuit.simulation.measurements)
-                all_temperatures.extend(circuit.simulation.temperatures)
-                if circuit.simulation.initial_conditions:
+            if netlist.simulation:
+                all_analyses.extend(netlist.simulation.analyses)
+                all_output_requests.extend(netlist.simulation.output_requests)
+                all_measurements.extend(netlist.simulation.measurements)
+                all_temperatures.extend(netlist.simulation.temperatures)
+                if netlist.simulation.initial_conditions:
                     ic_conditions.update(
-                        circuit.simulation.initial_conditions.conditions
+                        netlist.simulation.initial_conditions.conditions
                     )
-                if circuit.simulation.node_sets:
-                    ns_conditions.update(circuit.simulation.node_sets.conditions)
+                if netlist.simulation.node_sets:
+                    ns_conditions.update(netlist.simulation.node_sets.conditions)
 
-        top_module = all_modules[-1].name if all_modules else ""
+        top_circuit = all_circuits[-1].name if all_circuits else ""
 
         has_sim = (
             all_analyses
@@ -90,17 +90,16 @@ class SpectreSpiceParser:
                 temperatures=all_temperatures,
             )
 
-        return Circuit(
+        return Netlist(
             name="",
-            domain="spectre_spice",
-            top_module=top_module,
-            modules=all_modules,
+            top_circuit=top_circuit,
+            circuits=all_circuits,
             ext_modules=list(all_ext_modules.values()),
             directives=all_directives,
             simulation=simulation,
         )
 
 
-def parse_spectre_spice(text: str) -> Circuit:
-    """Parse Spectre-SPICE netlist text into a Circuit model."""
+def parse_spectre_spice(text: str) -> Netlist:
+    """Parse Spectre-SPICE netlist text into a Netlist model."""
     return SpectreSpiceParser.parse(text)

@@ -1,7 +1,8 @@
 """
 Top-level factory functions for building circuit netlists.
 
-API mirrors gdstk: Circuit ↔ Library, Module ↔ Cell, ModuleReference ↔ Reference.
+API mirrors gdstk: Netlist ↔ Library, Circuit ↔ Cell, SubCircuit ↔ Reference.
+Build the top-level container with ``Netlist(name=..., top_circuit=...)``.
 """
 
 from __future__ import annotations
@@ -12,8 +13,6 @@ from kfnetlist.morphnet.morphnet_schema._circuit import (
     ExternalLibrary,
     ExternalModule,
     ModelInterface,
-    Module,
-    ModuleReference,
     Parameter,
     ParameterValue,
     Port,
@@ -21,6 +20,7 @@ from kfnetlist.morphnet.morphnet_schema._circuit import (
     PortReference,
     PrefixedValue,
     SignalDomain,
+    SubCircuit,
 )
 
 __all__ = [
@@ -29,10 +29,9 @@ __all__ = [
     "ext_module",
     "external_library",
     "model_interface",
-    "module",
-    "module_reference",
     "parameter",
     "port",
+    "subcircuit",
 ]
 
 # --------------------------------------------------------------------------
@@ -82,20 +81,11 @@ def _make_params(
 def circuit(
     name: str,
     *,
-    top_module: str = "",
-    properties: dict[str, str] | None = None,
-) -> Circuit:
-    return Circuit(name=name, top_module=top_module, properties=properties or {})
-
-
-def module(
-    name: str,
-    *,
     class_name: str = "",
     parameters: list[_ParamSpec] | None = None,
     properties: dict[str, str] | None = None,
-) -> Module:
-    return Module(
+) -> Circuit:
+    return Circuit(
         name=name,
         class_name=class_name,
         parameters=_make_params(parameters, {}),
@@ -103,18 +93,18 @@ def module(
     )
 
 
-def module_reference(
+def subcircuit(
     name: str,
-    module_name: str,
+    circuit_name: str,
     *,
     class_name: str = "",
     parameters: list[_ParamSpec] | None = None,
     properties: dict[str, str] | None = None,
     **param_kwargs: float,
-) -> ModuleReference:
-    return ModuleReference(
+) -> SubCircuit:
+    return SubCircuit(
         name=name,
-        module_name=module_name,
+        circuit_name=circuit_name,
         class_name=class_name,
         parameters=_make_params(parameters, param_kwargs),
         properties=properties or {},

@@ -41,14 +41,13 @@ C1 (out gnd) capacitor value=100p
 ends rc_lowpass
 """
 
-circuit = parse_spectre(text)
+netlist = parse_spectre(text)
 
-print(circuit.domain)  # "spectre"
-print(circuit.top_module)  # "rc_lowpass"
-print(len(circuit.modules))  # 1
+print(netlist.top_circuit)  # "rc_lowpass"
+print(len(netlist.circuits))  # 1
 ```
 
-The `circuit` object is a `Circuit` model — kfnetlist.morphnet's common intermediate representation. Every parser produces the same type, regardless of the input format.
+The `netlist` object is a `Netlist` model — kfnetlist.morphnet's common intermediate representation. Every parser produces the same type, regardless of the input format.
 
 ## Your First Conversion
 
@@ -65,8 +64,8 @@ C1 (out gnd) capacitor value=100p
 ends rc_lowpass
 """
 
-circuit = parse_spectre(spectre_text)
-hspice_text = write_hspice(circuit)
+netlist = parse_spectre(spectre_text)
+hspice_text = write_hspice(netlist)
 print(hspice_text)
 ```
 
@@ -81,30 +80,30 @@ C1 out gnd 100p
 
 ## YAML Roundtrip
 
-Every `Circuit` object can be serialized to and from YAML for portable interchange:
+Every `Netlist` object can be serialized to and from YAML for portable interchange:
 
 ```python
-from kfnetlist.morphnet.morphnet_schema import Circuit
+from kfnetlist.morphnet.morphnet_schema import Netlist
 from kfnetlist.morphnet.netlist.hspice.parser import parse_hspice
 
-circuit = parse_hspice("""\
+netlist = parse_hspice("""\
 .subckt rc_lowpass in_ out gnd
 R1 in_ out 1k
 C1 out gnd 100p
 .ends rc_lowpass
 """)
 
-yaml_str = circuit.to_yaml()
-restored = Circuit.from_yaml(yaml_str)
+yaml_str = netlist.to_yaml()
+restored = Netlist.from_yaml(yaml_str)
 
-assert restored == circuit
+assert restored == netlist
 ```
 
 ## Project Structure
 
 ```
 src/kfnetlist/morphnet/
-  morphnet_schema/     # Pydantic + protobuf data models (Circuit, Module, Port, etc.)
+  morphnet_schema/     # Pydantic + protobuf data models (Netlist, Circuit, Port, etc.)
   netlist/
     grammars/          # Lark EBNF grammar files for each format
     hspice/            # HSPICE parser, writer, transformer, preprocessor

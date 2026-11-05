@@ -53,15 +53,15 @@ ends test
         written = write_spectre(circuit1)
         circuit2 = parse_spectre(written)
 
-        assert circuit1.top_module == circuit2.top_module
-        assert len(circuit1.modules) == len(circuit2.modules)
+        assert circuit1.top_circuit == circuit2.top_circuit
+        assert len(circuit1.circuits) == len(circuit2.circuits)
 
-        for m1, m2 in zip(circuit1.modules, circuit2.modules):
+        for m1, m2 in zip(circuit1.circuits, circuit2.circuits):
             assert m1.name == m2.name
             assert [p.name for p in m1.ports] == [p.name for p in m2.ports]
-            assert len(m1.module_references) == len(m2.module_references)
+            assert len(m1.subcircuits) == len(m2.subcircuits)
             assert len(m1.connections) == len(m2.connections)
 
-            for r1, r2 in zip(m1.module_references, m2.module_references):
+            for r1, r2 in zip(m1.subcircuits, m2.subcircuits):
                 assert r1.name == r2.name
-                assert r1.module_name == r2.module_name
+                assert r1.circuit_name == r2.circuit_name

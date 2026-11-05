@@ -13,9 +13,9 @@ R2 vout gnd 10k
 .ends divider
 .end
 """
-        circuit = parse_hspice(text)
-        assert circuit.top_module == "divider"
-        assert len(circuit.modules) == 1
+        netlist = parse_hspice(text)
+        assert netlist.top_circuit == "divider"
+        assert len(netlist.circuits) == 1
 
     def test_macro_eom(self) -> None:
         text = """\
@@ -24,11 +24,11 @@ R1 a b 10k
 .eom mymod
 .end
 """
-        circuit = parse_hspice(text)
-        assert circuit.top_module == "mymod"
-        m = circuit.modules[0]
+        netlist = parse_hspice(text)
+        assert netlist.top_circuit == "mymod"
+        m = netlist.circuits[0]
         assert m.name == "mymod"
-        assert len(m.module_references) == 1
+        assert len(m.subcircuits) == 1
 
     def test_macro_ports(self) -> None:
         text = """\
@@ -37,8 +37,8 @@ R1 inp out 1k
 .eom amp
 .end
 """
-        circuit = parse_hspice(text)
-        m = circuit.modules[0]
+        netlist = parse_hspice(text)
+        m = netlist.circuits[0]
         assert [p.name for p in m.ports] == ["inp", "inn", "out", "vdd", "vss"]
 
     def test_macro_with_params(self) -> None:
@@ -48,8 +48,8 @@ R1 a b 1k
 .eom myres
 .end
 """
-        circuit = parse_hspice(text)
-        m = circuit.modules[0]
+        netlist = parse_hspice(text)
+        m = netlist.circuits[0]
         assert any(p.name == "r" for p in m.parameters)
 
 
@@ -62,8 +62,8 @@ R1 a b 10k
 .ends test
 .end
 """
-        circuit = parse_hspice(text)
-        m = circuit.modules[0]
+        netlist = parse_hspice(text)
+        m = netlist.circuits[0]
         rparam = next(p for p in m.parameters if p.name == "r")
         assert rparam.default_value is not None
 
@@ -75,8 +75,8 @@ R1 a b 10k
 .ends test
 .end
 """
-        circuit = parse_hspice(text)
-        m = circuit.modules[0]
+        netlist = parse_hspice(text)
+        m = netlist.circuits[0]
         nparam = next(p for p in m.parameters if p.name == "name")
         assert nparam.default_value is not None
 
@@ -88,8 +88,8 @@ R1 a b 10k
 .ends test
 .end
 """
-        circuit = parse_hspice(text)
-        m = circuit.modules[0]
+        netlist = parse_hspice(text)
+        m = netlist.circuits[0]
         gparam = next(p for p in m.parameters if p.name == "gain")
         assert gparam.default_value is not None
 
@@ -102,8 +102,8 @@ R1 a b 25mil
 .ends test
 .end
 """
-        circuit = parse_hspice(text)
-        ref = circuit.modules[0].module_references[0]
+        netlist = parse_hspice(text)
+        ref = netlist.circuits[0].subcircuits[0]
         value_param = next(p for p in ref.parameters if p.name == "value")
         pv = value_param.default_value
         assert pv.prefixed_value is not None
@@ -116,8 +116,8 @@ R1 a b 1x
 .ends test
 .end
 """
-        circuit = parse_hspice(text)
-        ref = circuit.modules[0].module_references[0]
+        netlist = parse_hspice(text)
+        ref = netlist.circuits[0].subcircuits[0]
         value_param = next(p for p in ref.parameters if p.name == "value")
         pv = value_param.default_value
         assert pv.prefixed_value is not None
@@ -132,9 +132,9 @@ M1 d g s b nch W=1u L=0.18u
 .ends test
 .end
 """
-        circuit = parse_hspice(text)
-        ref = circuit.modules[0].module_references[0]
-        assert ref.module_name == "mosfet"
+        netlist = parse_hspice(text)
+        ref = netlist.circuits[0].subcircuits[0]
+        assert ref.circuit_name == "mosfet"
         assert ref.properties.get("model_name") == "nch"
 
 
@@ -147,8 +147,8 @@ R1 a b 1k
 .ends test
 .end
 """
-        circuit = parse_hspice(text)
-        includes = [d for d in circuit.directives if d.kind.name == "INCLUDE"]
+        netlist = parse_hspice(text)
+        includes = [d for d in netlist.directives if d.kind.name == "INCLUDE"]
         assert len(includes) >= 1
         assert includes[0].value == "models.lib"
 
@@ -160,8 +160,8 @@ M1 d g s b nch W=1u L=0.18u
 .ends test
 .end
 """
-        circuit = parse_hspice(text)
-        nch = next(e for e in circuit.ext_modules if e.name == "nch")
+        netlist = parse_hspice(text)
+        nch = next(e for e in netlist.ext_modules if e.name == "nch")
         level = next(p for p in nch.parameters if p.name == "level")
         assert level.default_value is not None
         assert level.default_value.prefixed_value is not None
@@ -177,8 +177,8 @@ R2 b gnd 10k
 .ends test
 .end
 """
-        circuit = parse_hspice(text)
-        m = circuit.modules[0]
+        netlist = parse_hspice(text)
+        m = netlist.circuits[0]
         net_names = {c.name for c in m.connections}
         assert "a" in net_names
         assert "b" in net_names

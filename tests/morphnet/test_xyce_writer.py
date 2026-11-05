@@ -1,9 +1,9 @@
 from kfnetlist.morphnet.morphnet_schema import (
-    Circuit,
+    Netlist,
     Connection,
     ExternalModule,
-    Module,
-    ModuleReference,
+    Circuit,
+    SubCircuit,
     Parameter,
     ParameterValue,
     Port,
@@ -48,13 +48,13 @@ class TestXyceFormat:
             ports=[make_port("p"), make_port("n")],
             properties={"spice_prefix": "R"},
         )
-        mod = Module(
+        circ = Circuit(
             name="test",
             ports=[make_port("a"), make_port("b")],
-            module_references=[
-                ModuleReference(
+            subcircuits=[
+                SubCircuit(
                     name="R1",
-                    module_name="resistor",
+                    circuit_name="resistor",
                     parameters=[
                         Parameter(
                             name="value",
@@ -68,13 +68,13 @@ class TestXyceFormat:
                 make_conn("b", "", "b", "R1", "n"),
             ],
         )
-        circuit = Circuit(
+        netlist = Netlist(
             name="test",
-            top_module="test",
-            modules=[mod],
+            top_circuit="test",
+            circuits=[circ],
             ext_modules=[resistor],
         )
-        output = write_xyce(circuit)
+        output = write_xyce(netlist)
         assert ".subckt test a b" in output
         assert "R1 a b 10k" in output
         assert ".ends test" in output

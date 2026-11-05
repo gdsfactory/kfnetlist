@@ -12,13 +12,13 @@ module divider (vin, vout, gnd);
   resistor #(.r(10k)) R2 (.p(vout), .n(gnd));
 endmodule
 """
-        circuit = parse_vams(text)
-        assert circuit.top_module == "divider"
-        assert len(circuit.modules) == 1
-        mod = circuit.modules[0]
+        netlist = parse_vams(text)
+        assert netlist.top_circuit == "divider"
+        assert len(netlist.circuits) == 1
+        mod = netlist.circuits[0]
         assert mod.name == "divider"
         assert len(mod.ports) == 3
-        assert len(mod.module_references) == 2
+        assert len(mod.subcircuits) == 2
 
     def test_port_directions(self) -> None:
         text = """\
@@ -29,8 +29,8 @@ module amp (inp, inn, out, vdd, vss);
   electrical inp, inn, out, vdd, vss;
 endmodule
 """
-        circuit = parse_vams(text)
-        mod = circuit.modules[0]
+        netlist = parse_vams(text)
+        mod = netlist.circuits[0]
         dirs = {p.name: p.direction.name for p in mod.ports}
         assert dirs["inp"] == "INPUT"
         assert dirs["inn"] == "INPUT"
@@ -44,8 +44,8 @@ module test (a, b);
   electrical a, b;
 endmodule
 """
-        circuit = parse_vams(text)
-        mod = circuit.modules[0]
+        netlist = parse_vams(text)
+        mod = netlist.circuits[0]
         for port in mod.ports:
             assert port.discipline == "electrical"
 
@@ -58,8 +58,8 @@ module test (a);
   parameter real r = 50;
 endmodule
 """
-        circuit = parse_vams(text)
-        mod = circuit.modules[0]
+        netlist = parse_vams(text)
+        mod = netlist.circuits[0]
         assert len(mod.parameters) == 1
         p = mod.parameters[0]
         assert p.name == "r"
@@ -74,8 +74,8 @@ module test (a);
   parameter integer n = 4;
 endmodule
 """
-        circuit = parse_vams(text)
-        p = circuit.modules[0].parameters[0]
+        netlist = parse_vams(text)
+        p = netlist.circuits[0].parameters[0]
         assert p.name == "n"
         assert p.properties.get("type") == "integer"
         assert p.default_value is not None
@@ -89,8 +89,8 @@ module test (a);
   parameter x = 100;
 endmodule
 """
-        circuit = parse_vams(text)
-        p = circuit.modules[0].parameters[0]
+        netlist = parse_vams(text)
+        p = netlist.circuits[0].parameters[0]
         assert p.name == "x"
         assert p.properties.get("type", "") == ""
 
@@ -101,8 +101,8 @@ module test (a);
   localparam real pi = 3.14;
 endmodule
 """
-        circuit = parse_vams(text)
-        p = circuit.modules[0].parameters[0]
+        netlist = parse_vams(text)
+        p = netlist.circuits[0].parameters[0]
         assert p.name == "pi"
         assert p.properties.get("localparam") == "true"
         assert p.properties.get("type") == "real"
@@ -117,10 +117,10 @@ module test (a, b);
   resistor #(.r(10k)) R1 (.p(a), .n(b));
 endmodule
 """
-        circuit = parse_vams(text)
-        ref = circuit.modules[0].module_references[0]
+        netlist = parse_vams(text)
+        ref = netlist.circuits[0].subcircuits[0]
         assert ref.name == "R1"
-        assert ref.module_name == "resistor"
+        assert ref.circuit_name == "resistor"
         assert any(p.name == "r" for p in ref.parameters)
         param = next(p for p in ref.parameters if p.name == "r")
         assert param.default_value.prefixed_value is not None
@@ -133,11 +133,11 @@ module test (a, b);
   resistor #(.r(1k)) R1 (a, b);
 endmodule
 """
-        circuit = parse_vams(text)
-        ref = circuit.modules[0].module_references[0]
+        netlist = parse_vams(text)
+        ref = netlist.circuits[0].subcircuits[0]
         assert ref.name == "R1"
-        assert ref.module_name == "resistor"
-        assert len(circuit.modules[0].connections) > 0
+        assert ref.circuit_name == "resistor"
+        assert len(netlist.circuits[0].connections) > 0
 
     def test_no_param_override(self) -> None:
         text = """\
@@ -147,10 +147,10 @@ module test (a, b);
   mysubckt X1 (.p(a), .n(b));
 endmodule
 """
-        circuit = parse_vams(text)
-        ref = circuit.modules[0].module_references[0]
+        netlist = parse_vams(text)
+        ref = netlist.circuits[0].subcircuits[0]
         assert ref.name == "X1"
-        assert ref.module_name == "mysubckt"
+        assert ref.circuit_name == "mysubckt"
         assert len(ref.parameters) == 0
 
 
@@ -162,8 +162,8 @@ module test (a);
   inout a;
 endmodule
 """
-        circuit = parse_vams(text)
-        includes = [d for d in circuit.directives if d.kind == DirectiveKind.INCLUDE]
+        netlist = parse_vams(text)
+        includes = [d for d in netlist.directives if d.kind == DirectiveKind.INCLUDE]
         assert len(includes) == 1
         assert includes[0].value == "constants.vams"
 
@@ -174,8 +174,8 @@ module test (a);
   inout a;
 endmodule
 """
-        circuit = parse_vams(text)
-        ts = [d for d in circuit.directives if d.kind == DirectiveKind.TIMESCALE]
+        netlist = parse_vams(text)
+        ts = [d for d in netlist.directives if d.kind == DirectiveKind.TIMESCALE]
         assert len(ts) == 1
         assert ts[0].value == "1ns/1ps"
 
@@ -192,10 +192,10 @@ module test (a);
   inout a;
 endmodule
 """
-        circuit = parse_vams(text)
-        ext_names = {e.name for e in circuit.ext_modules}
+        netlist = parse_vams(text)
+        ext_names = {e.name for e in netlist.ext_modules}
         assert "Voltage" in ext_names
-        voltage = next(e for e in circuit.ext_modules if e.name == "Voltage")
+        voltage = next(e for e in netlist.ext_modules if e.name == "Voltage")
         assert voltage.kind == ExternalModuleKind.NATURE
         assert "nature_abstol" in voltage.properties
 
@@ -210,10 +210,10 @@ module test (a);
   inout a;
 endmodule
 """
-        circuit = parse_vams(text)
-        ext_names = {e.name for e in circuit.ext_modules}
+        netlist = parse_vams(text)
+        ext_names = {e.name for e in netlist.ext_modules}
         assert "electrical" in ext_names
-        elec = next(e for e in circuit.ext_modules if e.name == "electrical")
+        elec = next(e for e in netlist.ext_modules if e.name == "electrical")
         assert elec.kind == ExternalModuleKind.DISCIPLINE
         assert elec.properties.get("discipline_potential") == "Voltage"
         assert elec.properties.get("discipline_flow") == "Current"
@@ -229,8 +229,8 @@ module test (a);
   ground gnd;
 endmodule
 """
-        circuit = parse_vams(text)
-        mod = circuit.modules[0]
+        netlist = parse_vams(text)
+        mod = netlist.circuits[0]
         assert mod.properties.get("ground_net") == "gnd"
 
     def test_analog_block(self) -> None:
@@ -243,8 +243,8 @@ module test (a);
   end
 endmodule
 """
-        circuit = parse_vams(text)
-        mod = circuit.modules[0]
+        netlist = parse_vams(text)
+        mod = netlist.circuits[0]
         assert "analog_block" in mod.properties
         assert "V(a)" in mod.properties["analog_block"]
 
@@ -259,8 +259,8 @@ module test (a, b, gnd);
   resistor #(.r(10k)) R2 (.p(b), .n(gnd));
 endmodule
 """
-        circuit = parse_vams(text)
-        mod = circuit.modules[0]
+        netlist = parse_vams(text)
+        mod = netlist.circuits[0]
         assert len(mod.connections) > 0
         conn_nets = {c.name for c in mod.connections}
         assert "a" in conn_nets
@@ -282,9 +282,9 @@ module outer (a, b);
   inner X1 (.p(a), .n(b));
 endmodule
 """
-        circuit = parse_vams(text)
-        assert len(circuit.modules) == 2
-        assert circuit.top_module == "outer"
+        netlist = parse_vams(text)
+        assert len(netlist.circuits) == 2
+        assert netlist.top_circuit == "outer"
 
 
 class TestAnalogBlockDirectives:
@@ -299,8 +299,8 @@ module vsrc (p, n);
   end
 endmodule
 """
-        circuit = parse_vams(text)
-        mod = circuit.modules[0]
+        netlist = parse_vams(text)
+        mod = netlist.circuits[0]
         assert "analog_block" in mod.properties
         block = mod.properties["analog_block"]
         assert "V(p, n)" in block
@@ -314,8 +314,8 @@ module vsrc (p, n);
   analog V(p, n) <+ 1.0;
 endmodule
 """
-        circuit = parse_vams(text)
-        mod = circuit.modules[0]
+        netlist = parse_vams(text)
+        mod = netlist.circuits[0]
         assert "analog_block" in mod.properties
         assert "V(p, n)" in mod.properties["analog_block"]
 
@@ -331,8 +331,8 @@ module ctrl (out);
   end
 endmodule
 """
-        circuit = parse_vams(text)
-        mod = circuit.modules[0]
+        netlist = parse_vams(text)
+        mod = netlist.circuits[0]
         assert "analog_block" in mod.properties
         block = mod.properties["analog_block"]
         assert "if" in block
@@ -350,10 +350,10 @@ module amp (inp, out, vdd, gnd);
   end
 endmodule
 """
-        circuit = parse_vams(text)
-        mod = circuit.modules[0]
-        assert len(mod.module_references) == 1
-        assert mod.module_references[0].name == "R1"
+        netlist = parse_vams(text)
+        mod = netlist.circuits[0]
+        assert len(mod.subcircuits) == 1
+        assert mod.subcircuits[0].name == "R1"
         assert "analog_block" in mod.properties
         assert "gain" in mod.properties["analog_block"]
 
@@ -369,9 +369,9 @@ module test (a, b);
   electrical a, b;
 endmodule
 """
-        circuit = parse_vams(text)
-        ext_names = {e.name for e in circuit.ext_modules}
+        netlist = parse_vams(text)
+        ext_names = {e.name for e in netlist.ext_modules}
         assert "myres" in ext_names
-        myres = next(e for e in circuit.ext_modules if e.name == "myres")
+        myres = next(e for e in netlist.ext_modules if e.name == "myres")
         assert myres.kind == ExternalModuleKind.MODEL
         assert myres.properties.get("model_type") == "resistor"

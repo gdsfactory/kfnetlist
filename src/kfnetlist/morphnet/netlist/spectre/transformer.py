@@ -6,12 +6,12 @@ from lark import Token, Transformer
 
 from kfnetlist.morphnet.morphnet_schema import (
     Analysis,
-    Circuit,
+    Netlist,
     Directive,
     DirectiveKind,
     ExternalModule,
-    Module,
-    ModuleReference,
+    Circuit,
+    SubCircuit,
     OutputRequest,
     Parameter,
     ParameterValue,
@@ -90,10 +90,12 @@ class ModelData:
 
 
 class SubcktData:
-    __slots__ = ("ext_modules", "module")
+    __slots__ = ("ext_modules", "circuit")
 
-    def __init__(self, module: Module, ext_modules: dict[str, ExternalModule]) -> None:
-        self.module = module
+    def __init__(
+        self, circuit: Circuit, ext_modules: dict[str, ExternalModule]
+    ) -> None:
+        self.circuit = circuit
         self.ext_modules = ext_modules
 
 
@@ -111,12 +113,12 @@ class ParamData:
         self.params = params
 
 
-class SpectreTransformer(Transformer[Token, Circuit]):
-    """Transform a Spectre parse tree into a Circuit model."""
+class SpectreTransformer(Transformer[Token, Netlist]):
+    """Transform a Spectre parse tree into a Netlist model."""
 
     def __init__(self) -> None:
         super().__init__()
-        self.all_subckts: dict[str, Module] = {}
+        self.all_subckts: dict[str, Circuit] = {}
 
     # ── Leaf transformers ───────────────────────────────────────────────
 
@@ -249,7 +251,7 @@ class SpectreTransformer(Transformer[Token, Circuit]):
                 body_items = item
 
         result = self.build_subckt(subckt_name, port_names, subckt_params, body_items)
-        self.all_subckts[subckt_name] = result.module
+        self.all_subckts[subckt_name] = result.circuit
         return result
 
     def build_subckt(
@@ -260,7 +262,7 @@ class SpectreTransformer(Transformer[Token, Circuit]):
         body_items: list[Any],
     ) -> SubcktData:
         instances: list[InstanceData] = []
-        nested_subckts: dict[str, Module] = {}
+        nested_subckts: dict[str, Circuit] = {}
         ext_modules: dict[str, ExternalModule] = {}
         model_defs: dict[str, ModelData] = {}
         circuit_params: list[Parameter] = []
@@ -270,7 +272,7 @@ class SpectreTransformer(Transformer[Token, Circuit]):
             if isinstance(item, InstanceData):
                 instances.append(item)
             elif isinstance(item, SubcktData):
-                nested_subckts[item.module.name] = item.module
+                nested_subckts[item.circuit.name] = item.circuit
                 ext_modules.update(item.ext_modules)
             elif isinstance(item, ModelData):
                 model_defs[item.name] = item
@@ -299,7 +301,7 @@ class SpectreTransformer(Transformer[Token, Circuit]):
         ]
 
         net_map: NetMap = {}
-        module_references: list[ModuleReference] = []
+        subcircuits: list[SubCircuit] = []
 
         for port in ports:
             add_port_to_net(net_map, port.name, "", port.name)
@@ -322,10 +324,10 @@ class SpectreTransformer(Transformer[Token, Circuit]):
                 for net_name, port_name in zip(inst.net_names, inst_port_names):
                     add_port_to_net(net_map, net_name, inst.name, port_name)
 
-                module_references.append(
-                    ModuleReference(
+                subcircuits.append(
+                    SubCircuit(
                         name=inst.name,
-                        module_name=inst.cell_name,
+                        circuit_name=inst.cell_name,
                         parameters=[
                             Parameter(name=pname, default_value=pval)
                             for pname, pval in inst.params.items()
@@ -364,10 +366,10 @@ class SpectreTransformer(Transformer[Token, Circuit]):
                 if inst.cell_name and inst.cell_name != module_name:
                     props["model_name"] = inst.cell_name
 
-                module_references.append(
-                    ModuleReference(
+                subcircuits.append(
+                    SubCircuit(
                         name=inst.name,
-                        module_name=module_name,
+                        circuit_name=module_name,
                         parameters=params,
                         properties=props,
                     )
@@ -386,19 +388,19 @@ class SpectreTransformer(Transformer[Token, Circuit]):
 
         connections = net_map_to_connections(net_map)
 
-        module = Module(
+        circuit = Circuit(
             name=name,
             ports=ports,
             parameters=circuit_params,
-            module_references=module_references,
+            subcircuits=subcircuits,
             connections=connections,
             directives=directives,
         )
-        return SubcktData(module=module, ext_modules=ext_modules)
+        return SubcktData(circuit=circuit, ext_modules=ext_modules)
 
     # ── Top-level ───────────────────────────────────────────────────────
 
-    def start(self, items: list[Any]) -> Circuit:
+    def start(self, items: list[Any]) -> Netlist:
         subckt_datas: list[SubcktData] = []
         model_defs: dict[str, ModelData] = {}
         top_instances: list[InstanceData] = []
@@ -438,16 +440,16 @@ class SpectreTransformer(Transformer[Token, Circuit]):
                     elif isinstance(sub_item, OutputRequestData):
                         output_requests.append(sub_item)
 
-        modules: list[Module] = []
+        circuits: list[Circuit] = []
         all_ext_modules: dict[str, ExternalModule] = {}
 
         for sd in subckt_datas:
-            modules.append(sd.module)
+            circuits.append(sd.circuit)
             all_ext_modules.update(sd.ext_modules)
 
         if top_instances:
             top_data = self.build_subckt("__top__", [], {}, top_instances)
-            modules.insert(0, top_data.module)
+            circuits.insert(0, top_data.circuit)
             all_ext_modules.update(top_data.ext_modules)
 
         for mdata in model_defs.values():
@@ -461,7 +463,7 @@ class SpectreTransformer(Transformer[Token, Circuit]):
                     properties={"model_type": mdata.type_name},
                 )
 
-        top_module = modules[-1].name if modules else ""
+        top_circuit = circuits[-1].name if circuits else ""
 
         simulation: Simulation | None = None
         if analyses or output_requests:
@@ -485,10 +487,10 @@ class SpectreTransformer(Transformer[Token, Circuit]):
                 ],
             )
 
-        return Circuit(
+        return Netlist(
             name="",
-            top_module=top_module,
-            modules=modules,
+            top_circuit=top_circuit,
+            circuits=circuits,
             ext_modules=list(all_ext_modules.values()),
             directives=directives,
             simulation=simulation,

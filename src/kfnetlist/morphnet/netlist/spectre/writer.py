@@ -3,12 +3,12 @@ from __future__ import annotations
 from kfnetlist.morphnet.morphnet_schema import (
     Analysis,
     AnalysisKind,
-    Circuit,
+    Netlist,
     Directive,
     DirectiveKind,
     ExternalModule,
-    Module,
-    ModuleReference,
+    Circuit,
+    SubCircuit,
     OutputRequest,
     OutputRequestKind,
     ParameterValue,
@@ -24,7 +24,7 @@ MODULE_TO_PREFIX: dict[str, str] = {v: k for k, v in DEVICE_PREFIX_TO_MODULE.ite
 
 
 class SpectreWriter:
-    """Convert a Circuit model to Spectre netlist text."""
+    """Convert a Netlist model to Spectre netlist text."""
 
     def format_param_value(self, pval: ParameterValue) -> str:
         """Format any ParameterValue variant as a Spectre-compatible string."""
@@ -32,29 +32,29 @@ class SpectreWriter:
             return format_si_value(pval.prefixed_value)
         return "0"
 
-    def write(self, circuit: Circuit) -> str:
+    def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
 
         ext_by_name: dict[str, ExternalModule] = {
-            e.name: e for e in circuit.ext_modules
+            e.name: e for e in netlist.ext_modules
         }
-        mod_by_name: dict[str, Module] = {m.name: m for m in circuit.modules}
+        circuit_by_name: dict[str, Circuit] = {m.name: m for m in netlist.circuits}
 
-        self.write_directives(circuit.directives, lines)
+        self.write_directives(netlist.directives, lines)
 
-        for ext in circuit.ext_modules:
+        for ext in netlist.ext_modules:
             model_type = ext.properties.get("model_type")
             if model_type:
                 self.write_model(ext, model_type, lines)
 
-        for module in circuit.modules:
-            if module.name == "__top__":
-                self.write_top_instances(module, ext_by_name, mod_by_name, lines)
+        for circuit in netlist.circuits:
+            if circuit.name == "__top__":
+                self.write_top_instances(circuit, ext_by_name, circuit_by_name, lines)
             else:
-                self.write_subckt(module, ext_by_name, mod_by_name, lines)
+                self.write_subckt(circuit, ext_by_name, circuit_by_name, lines)
 
-        if circuit.simulation:
-            self.write_simulation(circuit.simulation, lines)
+        if netlist.simulation:
+            self.write_simulation(netlist.simulation, lines)
 
         lines.append("")
         return "\n".join(lines)
@@ -84,58 +84,62 @@ class SpectreWriter:
 
     def write_subckt(
         self,
-        module: Module,
+        circuit: Circuit,
         ext_by_name: dict[str, ExternalModule],
-        mod_by_name: dict[str, Module],
+        circuit_by_name: dict[str, Circuit],
         lines: list[str],
     ) -> None:
-        port_names = " ".join(p.name for p in module.ports)
+        port_names = " ".join(p.name for p in circuit.ports)
 
         param_strs: list[str] = []
-        for param in module.parameters:
+        for param in circuit.parameters:
             if param.default_value:
                 param_strs.append(
                     f"{param.name}={self.format_param_value(param.default_value)}"
                 )
         params_suffix = " " + " ".join(param_strs) if param_strs else ""
 
-        lines.append(f"subckt {module.name} ({port_names}){params_suffix}")
+        lines.append(f"subckt {circuit.name} ({port_names}){params_suffix}")
 
-        inst_nets = connections_to_instance_nets(module.connections)
+        inst_nets = connections_to_instance_nets(circuit.connections)
 
-        for ref in module.module_references:
-            lines.append(self.write_instance(ref, inst_nets, ext_by_name, mod_by_name))
+        for ref in circuit.subcircuits:
+            lines.append(
+                self.write_instance(ref, inst_nets, ext_by_name, circuit_by_name)
+            )
 
-        lines.append(f"ends {module.name}")
+        lines.append(f"ends {circuit.name}")
 
     def write_top_instances(
         self,
-        module: Module,
+        circuit: Circuit,
         ext_by_name: dict[str, ExternalModule],
-        mod_by_name: dict[str, Module],
+        circuit_by_name: dict[str, Circuit],
         lines: list[str],
     ) -> None:
-        inst_nets = connections_to_instance_nets(module.connections)
-        for ref in module.module_references:
-            lines.append(self.write_instance(ref, inst_nets, ext_by_name, mod_by_name))
+        inst_nets = connections_to_instance_nets(circuit.connections)
+        for ref in circuit.subcircuits:
+            lines.append(
+                self.write_instance(ref, inst_nets, ext_by_name, circuit_by_name)
+            )
 
     def write_instance(
         self,
-        ref: ModuleReference,
+        ref: SubCircuit,
         inst_nets: dict[tuple[str, str], str],
         ext_by_name: dict[str, ExternalModule],
-        mod_by_name: dict[str, Module],
+        circuit_by_name: dict[str, Circuit],
     ) -> str:
-        ext_mod = ext_by_name.get(ref.module_name)
-        prefix = MODULE_TO_PREFIX.get(ref.module_name)
+        ext_mod = ext_by_name.get(ref.circuit_name)
+        prefix = MODULE_TO_PREFIX.get(ref.circuit_name)
 
         # Determine port order
         if prefix and ext_mod:
             port_order = [p.name for p in ext_mod.ports]
         else:
-            ref_mod = mod_by_name.get(ref.module_name)
-            if ref_mod:
-                port_order = [p.name for p in ref_mod.ports]
+            ref_circuit = circuit_by_name.get(ref.circuit_name)
+            if ref_circuit:
+                port_order = [p.name for p in ref_circuit.ports]
             elif ext_mod:
                 port_order = [p.name for p in ext_mod.ports]
             else:
@@ -144,7 +148,7 @@ class SpectreWriter:
         nets = [inst_nets.get((ref.name, pn), "?") for pn in port_order]
         nets_str = " ".join(nets)
 
-        cell_name = ref.properties.get("model_name") or ref.module_name
+        cell_name = ref.properties.get("model_name") or ref.circuit_name
 
         # Params
         param_strs: list[str] = []
@@ -159,7 +163,7 @@ class SpectreWriter:
 
     def infer_port_order(
         self,
-        ref: ModuleReference,
+        ref: SubCircuit,
         inst_nets: dict[tuple[str, str], str],
     ) -> list[str]:
         port_names: list[str] = []
@@ -198,6 +202,6 @@ _ANALYSIS_KIND_TO_SPECTRE: dict[AnalysisKind, str] = {
 }
 
 
-def write_spectre(circuit: Circuit) -> str:
-    """Convert a Circuit model to Spectre netlist text."""
-    return SpectreWriter().write(circuit)
+def write_spectre(netlist: Netlist) -> str:
+    """Convert a Netlist model to Spectre netlist text."""
+    return SpectreWriter().write(netlist)
