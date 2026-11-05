@@ -178,3 +178,89 @@ fn unconnected_and_multi_net_pins_are_not_lost() {
     assert_eq!(module.ports.len(), 3);
     assert_eq!(module.to_netlist().unwrap(), nl);
 }
+
+fn pin(instance: &str, terminal: &str) -> Option<proto::TerminalReference> {
+    Some(proto::TerminalReference {
+        instance_name: instance.into(),
+        terminal_name: terminal.into(),
+    })
+}
+
+#[test]
+fn morphnet_and_legacy_encodings_decode() {
+    let star = |net: &str, inst: &str, port: &str| proto::Connection {
+        name: net.into(),
+        source: pin("", net),
+        target: pin(inst, port),
+        ..Default::default()
+    };
+    // Shape produced by morphnet's SPICE parser for `R1 in_ mid 1k` / `C1 mid 0 1p`.
+    let resistor = proto::ModuleReference {
+        name: "R1".into(),
+        module_name: "resistor".into(),
+        parameters: vec![proto::Parameter {
+            name: "value".into(),
+            default_value: serde_json::from_value(
+                json!({"prefixed_value": {"double_value": 1.0, "prefix": 15}}),
+            )
+            .unwrap(),
+            ..Default::default()
+        }],
+        ..Default::default()
+    };
+    let module = proto::Module {
+        name: "rc".into(),
+        terminals: vec![proto::Terminal {
+            name: "in_".into(),
+            ..Default::default()
+        }],
+        module_references: vec![resistor],
+        connections: vec![
+            star("in_", "R1", "p"),
+            star("mid", "R1", "n"),
+            star("mid", "C1", "p"),
+        ],
+        ..Default::default()
+    };
+    let circuit = proto::Circuit {
+        top_module: "rc".into(),
+        modules: vec![module],
+        ..Default::default()
+    };
+    let rc = &TopLevelModule::from_proto_circuit(&circuit)
+        .unwrap()
+        .modules["rc"];
+    assert_eq!(rc.nets, vec![vec!["in_", "R1,p"], vec!["R1,n", "C1,p"]]);
+    assert_eq!(rc.instances["R1"].settings["value"], json!(1000.0));
+
+    // Bytes written before the named-net encoding: port_* connections and __members__ buses.
+    let legacy = proto::Module {
+        name: "old".into(),
+        terminals: vec![proto::Terminal {
+            name: "o1".into(),
+            ..Default::default()
+        }],
+        connections: vec![proto::Connection {
+            name: "port_o1".into(),
+            source: pin("", "o1"),
+            target: pin("wg", "o1"),
+            ..Default::default()
+        }],
+        buses: vec![proto::Bus {
+            name: "net_0".into(),
+            properties: [("__members__".into(), r#"["wg,o2","wg2,o1"]"#.into())].into(),
+            ..Default::default()
+        }],
+        properties: [("__placements__".into(), "{}".into())].into(),
+        ..Default::default()
+    };
+    let circuit = proto::Circuit {
+        modules: vec![legacy],
+        ..Default::default()
+    };
+    let old = &TopLevelModule::from_proto_circuit(&circuit)
+        .unwrap()
+        .modules["old"];
+    assert_eq!(old.ports["o1"], "wg,o1");
+    assert_eq!(old.nets, vec![vec!["wg,o2", "wg2,o1"]]);
+}
