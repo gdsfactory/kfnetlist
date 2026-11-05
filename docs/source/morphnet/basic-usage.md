@@ -83,7 +83,7 @@ Every parser takes a `str` of netlist text and returns a `Netlist` model. Here i
     """)
     ```
 
-All of these produce the same `Netlist` object with one module, two external module references (resistor, capacitor), and the corresponding connections.
+All of these produce the same `Netlist` object with one circuit, two subcircuit instances of external circuits (resistor, capacitor), and the corresponding connections.
 
 ## Writing Netlists
 
@@ -232,7 +232,7 @@ Things to know:
 
 - **Pin order.** Built-in devices (`resistor`, `capacitor`, `inductor`, `diode`,
   `bjt`, `mosfet`, `vsource`, `isource`) get the same pin order the SPICE parser
-  uses. For other components, add an `ext_module(..., ports=[...])` to the circuit
+  uses. For other components, add an `ext_circuit(..., ports=[...])` to the netlist
   so positional formats (SPICE, Spectre) know their pin order.
 - **Net names.** A net that contains a top-level port is named after the port.
   Other nets are named `net_<i>`, because kfnetlist's document model does not

@@ -88,7 +88,7 @@ class MyFormatTransformer(Transformer):
 
     def start(self, items):
         # Assemble the final Circuit
-        return Netlist(circuits=..., ext_modules=...)
+        return Netlist(circuits=..., ext_circuits=...)
 ```
 
 The transformer must produce a valid `Netlist` object — the same protobuf-backed Pydantic model that all other formats use.

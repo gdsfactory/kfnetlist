@@ -109,14 +109,14 @@ Base class for all kfnetlist.morphnet data models. Extends `pydantic.BaseModel` 
 
 #### `Netlist`
 
-Top-level container (schema message `Circuit`): circuit definitions, external devices, directives and simulation.
+Top-level container: circuit definitions, external circuits, directives and simulation.
 
 | Field | Schema name | Type | Description |
 |---|---|---|---|
 | `name` | `name` | `str` | Netlist name |
-| `top_circuit` | `top_module` | `str` | Name of the top-level circuit |
-| `circuits` | `modules` | `list[Circuit]` | Circuit definitions |
-| `ext_modules` | `ext_modules` | `list[ExternalModule]` | Primitive device declarations |
+| `top_circuit` | `top_circuit` | `str` | Name of the top-level circuit |
+| `circuits` | `circuits` | `list[Circuit]` | Circuit definitions |
+| `ext_circuits` | `ext_circuits` | `list[ExternalCircuit]` | Body-less circuit definitions (devices, models, PDK cells) |
 | `properties` | `properties` | `dict[str, str]` | Arbitrary key-value properties |
 | `directives` | `directives` | `list[Directive]` | Include, lib, param directives |
 | `simulation` | `simulation` | `Simulation \| None` | Simulation configuration |
@@ -124,7 +124,7 @@ Top-level container (schema message `Circuit`): circuit definitions, external de
 
 #### `Circuit`
 
-A circuit definition (schema message `Module`): ports, parameters, subcircuit instances and connections.
+A circuit definition: ports, parameters, subcircuit instances and connections.
 
 | Field | Schema name | Type | Description |
 |---|---|---|---|
@@ -133,13 +133,13 @@ A circuit definition (schema message `Module`): ports, parameters, subcircuit in
 | `ports` | `terminals` | `list[Port]` | Port declarations |
 | `parameters` | `parameters` | `list[Parameter]` | Parameter declarations |
 | `model_interfaces` | `model_interfaces` | `list[ModelInterface]` | Model function definitions |
-| `subcircuits` | `module_references` | `list[SubCircuit]` | Instances of other circuits |
+| `subcircuits` | `subcircuits` | `list[SubCircuit]` | Instances of other circuits |
 | `connections` | `connections` | `list[Connection]` | Point-to-point connections |
 | `buses` | `buses` | `list[Bus]` | Bus definitions |
 | `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
 | `directives` | `directives` | `list[Directive]` | Circuit-level directives |
 
-#### `ExternalModule`
+#### `ExternalCircuit`
 
 A primitive or externally-defined device (resistor, mosfet, etc.).
 
@@ -152,16 +152,16 @@ A primitive or externally-defined device (resistor, mosfet, etc.).
 | `ports` | `terminals` | `list[Port]` | Port declarations |
 | `parameters` | `parameters` | `list[Parameter]` | Parameter declarations |
 | `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
-| `kind` | `kind` | `ExternalModuleKind` | Device kind (DEVICE, MODEL, etc.) |
+| `kind` | `kind` | `ExternalCircuitKind` | Device kind (DEVICE, MODEL, etc.) |
 
 #### `SubCircuit`
 
-An instance of a circuit or device inside a parent circuit (schema message `ModuleReference`).
+An instance of a circuit or external circuit inside a parent circuit.
 
 | Field | Schema name | Type | Description |
 |---|---|---|---|
 | `name` | `name` | `str` | Instance name |
-| `circuit_name` | `module_name` | `str` | Referenced circuit name |
+| `circuit_name` | `circuit_name` | `str` | Referenced circuit name |
 | `class_name` | `class_name` | `str` | Class/type name |
 | `parameters` | `parameters` | `list[Parameter]` | Parameter values for this instance |
 | `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
@@ -323,7 +323,7 @@ A oneof value — exactly one field should be set:
 
 `UNSPECIFIED` (0), `QUECTO` (1), `RONTO` (2), `YOCTO` (3), `ZEPTO` (4), `ATTO` (5), `FEMTO` (6), `PICO` (7), `NANO` (8), `MICRO` (9), `MILLI` (10), `CENTI` (11), `DECI` (12), `DECA` (13), `HECTO` (14), `KILO` (15), `MEGA` (16), `GIGA` (17), `TERA` (18), `PETA` (19), `EXA` (20), `ZETTA` (21), `YOTTA` (22), `RONNA` (23), `QUETTA` (24)
 
-#### `ExternalModuleKind`
+#### `ExternalCircuitKind`
 
 `UNSPECIFIED` (0), `DEVICE` (1), `MODEL` (2), `NATURE` (3), `DISCIPLINE` (4)
 
@@ -370,7 +370,7 @@ Check whether a token looks like an SI-prefixed number.
 | `SI_SUFFIX_TO_PREFIX` | `dict[str, SIPrefix]` | Maps suffix strings (`"k"`, `"u"`, `"meg"`, etc.) to `SIPrefix` enum values |
 | `PREFIX_TO_SI_SUFFIX` | `dict[SIPrefix, str]` | Reverse mapping from `SIPrefix` to suffix strings |
 | `DEVICE_PORT_TEMPLATES` | `dict[str, list[str]]` | Maps device prefix letters to port name lists (e.g., `"M"` -> `["d", "g", "s", "b"]`) |
-| `DEVICE_PREFIX_TO_MODULE` | `dict[str, str]` | Maps device prefix letters to module names (e.g., `"M"` -> `"mosfet"`) |
+| `DEVICE_PREFIX_TO_CIRCUIT` | `dict[str, str]` | Maps device prefix letters to external circuit names (e.g., `"M"` -> `"mosfet"`) |
 
 ---
 

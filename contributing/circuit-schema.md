@@ -11,16 +11,16 @@ a vendored `protoc`, so developers and wheel builders do not need to install it.
 Generated code is neither checked in nor written into the source tree.
 
 ```rust
-use kfnetlist_schema::{proto, TopLevelModule};
+use kfnetlist_schema::{proto, NetlistDocument};
 use prost::Message;
 
-let document = TopLevelModule::from_yaml(
+let document = NetlistDocument::from_yaml(
     "instances: {wg: {component: straight}}\nports: {in: 'wg,o1'}"
 )?;
 let netlists = document.to_netlists()?;
 let bytes = document.to_proto()?;
-let circuit = proto::Circuit::decode(bytes.as_slice())?;
-let recovered = TopLevelModule::from_proto_circuit(&circuit)?;
+let netlist = proto::Netlist::decode(bytes.as_slice())?;
+let recovered = NetlistDocument::from_proto_netlist(&netlist)?;
 assert_eq!(recovered, document);
 # Ok::<(), Box<dyn std::error::Error>>(())
 ```
@@ -30,14 +30,14 @@ re-exports and compatibility functions that delegate to the native methods.
 It does not need `protobuf`, `pydantic`, `pydantic-yaml`, or a Python YAML parser.
 
 ```python
-from kfnetlist.kfnetlist_schema import TopLevelModule, ProtoCircuit, load_pic_yaml
+from kfnetlist.kfnetlist_schema import NetlistDocument, ProtoNetlist, load_pic_yaml
 
 document = load_pic_yaml("kfnetlist-schema/schema.pic.yaml")
 netlists = document.to_netlists()
 wire = document.to_proto()  # bytes encoded by Rust/prost
-circuit = ProtoCircuit.from_proto(wire)
-assert TopLevelModule.from_proto_circuit(circuit) == document
-assert ProtoCircuit.from_proto(circuit.to_proto()) == circuit
+netlist = ProtoNetlist.from_proto(wire)
+assert NetlistDocument.from_proto_netlist(netlist) == document
+assert ProtoNetlist.from_proto(netlist.to_proto()) == netlist
 ```
 
 The schema types accept keyword arguments, nested dictionaries, and other native
@@ -61,9 +61,11 @@ old names are still accepted. One rewrite in `crates/kfnetlist-python/src/schema
 | Old field | Where the value goes |
 |---|---|
 | `uid`, `cross_section`, string `domain` | `properties["__uid__"]`, `properties["__cross_section__"]`, `properties["__domain__"]` |
-| `Module.terminal` | `terminals` |
-| `ModuleReference.parameter_values` | `parameters` entries with an empty name |
-| `ModuleReference.parameter_overrides` | `parameters` entries named by key |
+| `terminal` | `terminals` |
+| `top_module`, `modules`, `ext_modules` | `top_circuit`, `circuits`, `ext_circuits` |
+| `module_references`, `module_name` | `subcircuits`, `circuit_name` |
+| `parameter_values` (instance) | `parameters` entries with an empty name |
+| `parameter_overrides` (instance) | `parameters` entries named by key |
 
 Deprecated getters with the old names read the values back.
 `tests/data/legacy_schema_v0_3.json` pins outputs captured from the
@@ -79,7 +81,7 @@ The `Terminal_name` spelling of `TerminalReference.terminal_name` is still
 accepted in input dictionaries. `ParameterValue` validates its `oneof`
 in Rust, including when it occurs inside a nested dictionary.
 
-`TopLevelModule.from_yaml()` accepts standard YAML. Bare single-module documents
+`NetlistDocument.from_yaml()` accepts standard YAML. Bare single-module documents
 are promoted to `modules["__root__"]`. `${settings.x}` expressions remain strings;
 this layer does not evaluate them. Instance references support `inst,port`,
 zero-based `inst[n],port`, and one-based `inst<ia.ib>,port`. Explicit array sizes
@@ -102,27 +104,34 @@ and `uv run --extra dev --with pydantic pytest` for the Python suite. A Python t
 blocks imports of Python schema and codec packages in a fresh interpreter to
 check that the Rust path is sufficient.
 
-## Future work: rename the proto messages
+## Naming
 
-`kfnetlist.morphnet` already names the hierarchy `Netlist` → `Circuit` (definition) →
-`SubCircuit` (instance) in Python, using pydantic aliases so that protobuf, JSON and
-YAML keep the current schema names. A follow-up should rename the schema itself to
-the same hierarchy:
+Every layer uses one hierarchy: a **netlist** (container) holds **circuit**
+definitions, and each circuit holds **subcircuit** instances. External, body-less
+definitions (devices, models, PDK cells) are **external circuits**.
 
-| Today | Planned |
-|---|---|
-| message `Circuit` | `Netlist` |
-| message `Module` | `Circuit` |
-| message `ModuleReference` | `SubCircuit` |
-| `Circuit.modules`, `Circuit.top_module` | `Netlist.circuits`, `Netlist.top_circuit` |
-| `Module.module_references` | `Circuit.subcircuits` |
-| `ModuleReference.module_name` | `SubCircuit.circuit_name` |
+| Concept | proto message | `kfnetlist_schema` (PyO3) | PIC document | `kfnetlist.morphnet` |
+|---|---|---|---|---|
+| container | `Netlist` | `ProtoNetlist` | `NetlistDocument` | `Netlist` |
+| definition | `Circuit` | `ProtoCircuit` | `CircuitDocument` | `Circuit` |
+| instance | `SubCircuit` | `ProtoSubCircuit` | `SubCircuitDocument` | `SubCircuit` |
+| external definition | `ExternalCircuit` | `ExternalCircuit` | — | `ExternalCircuit` |
 
-- **Field numbers stay the same**, so the protobuf wire format does not change.
-  Only JSON/YAML keys and generated type names change.
-- **Rust:** update `convert.rs` and the prost type names.
-- **PyO3:** rename `ProtoCircuit`/`ProtoModule`/`ProtoModuleReference`. `ProtoCircuit`
-  would change meaning, so plan the deprecation path. Extend `upgrade_legacy` so old
-  JSON keys keep loading.
-- **morphnet:** regenerate the Python stubs (`just compile-schema-py`), then drop
-  the pydantic aliases in `kfnetlist.morphnet` once the names match.
+These are separate from the connectivity graph `kfnetlist.Netlist`, which models one
+cell's instances, nets and ports. `CircuitDocument.to_netlist()` and
+`morphnet.to_netlists()` produce it.
+
+Field numbers did not change when the messages were renamed from `Circuit` →
+`Module` → `ModuleReference`, so the wire format is the same. The pre-rename
+names stay usable with a `DeprecationWarning`:
+
+- **Classes:** `ProtoModule`, `ProtoModuleReference`, `ExternalModule`,
+  `TopLevelModule`, `Module` and `Instance` are served by `kfnetlist_schema`.
+  Rust has deprecated type aliases.
+- **Keys:** see the table above.
+- **Getters:** `top_module`, `modules`, `ext_modules`, `module_references`,
+  `module_name`.
+- **Methods:** `to_proto_circuit()` / `from_proto_circuit()`.
+
+The exception is `ProtoCircuit`, which now means the definition: container data
+passed to it fails `deny_unknown_fields` instead of loading silently.

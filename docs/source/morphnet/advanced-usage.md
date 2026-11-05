@@ -5,27 +5,31 @@
 ### Netlist Structure
 
 A `Netlist` is the top-level container. It holds `Circuit` definitions, and each
-`Circuit` holds `SubCircuit` instances. Field names on the right are the kfnetlist
-schema (`circuit.proto`) names used in protobuf, JSON and YAML:
+`Circuit` holds `SubCircuit` instances. These are the kfnetlist schema
+(`circuit.proto`) names, used unchanged in protobuf, JSON and YAML; only `ports` and
+`port_name` serialize as `terminals` and `terminal_name`:
 
 ```
-Netlist                                            # schema: Circuit
+Netlist
 ├── name: str
-├── top_circuit: str                               # schema: top_module
-├── circuits: list[Circuit]                        # schema: modules
-│   ├── name, class_name: str                      # Circuit — schema: Module
+├── top_circuit: str
+├── circuits: list[Circuit]
+│   ├── name, class_name: str
 │   ├── ports: list[Port]                          # schema: terminals
 │   ├── parameters: list[Parameter]
-│   ├── subcircuits: list[SubCircuit]              # schema: module_references
-│   │   └── name, circuit_name, class_name, parameters   # SubCircuit — schema: ModuleReference
+│   ├── subcircuits: list[SubCircuit]
+│   │   └── name, circuit_name, class_name, parameters
 │   ├── connections: list[Connection]
 │   ├── buses: list[Bus]
 │   └── directives: list[Directive]
-├── ext_modules: list[ExternalModule]              # primitive devices (resistor, mosfet, ...)
+├── ext_circuits: list[ExternalCircuit]            # body-less definitions (resistor, mosfet, PDK cells)
 ├── directives: list[Directive]                    # .include, .lib, .param, ...
 ├── libraries: dict[str, ExternalLibrary]
 └── simulation: Simulation | None                  # analyses, output requests, measurements
 ```
+
+Files written before this naming (`modules`, `top_module`, `module_references`,
+`module_name`, `ext_modules`) still load.
 
 ### Inspecting Circuits
 
@@ -256,11 +260,11 @@ print(pv.prefixed_value.prefix.name)  # "KILO"
 The module provides lookup dictionaries for standard SPICE device types:
 
 ```python
-from kfnetlist.morphnet.netlist.value_utils import DEVICE_PORT_TEMPLATES, DEVICE_PREFIX_TO_MODULE
+from kfnetlist.morphnet.netlist.value_utils import DEVICE_PORT_TEMPLATES, DEVICE_PREFIX_TO_CIRCUIT
 
 print(DEVICE_PORT_TEMPLATES["M"])  # ["d", "g", "s", "b"]
 print(DEVICE_PORT_TEMPLATES["R"])  # ["p", "n"]
 
-print(DEVICE_PREFIX_TO_MODULE["M"])  # "mosfet"
-print(DEVICE_PREFIX_TO_MODULE["R"])  # "resistor"
+print(DEVICE_PREFIX_TO_CIRCUIT["M"])  # "mosfet"
+print(DEVICE_PREFIX_TO_CIRCUIT["R"])  # "resistor"
 ```
