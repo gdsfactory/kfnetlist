@@ -1,0 +1,4 @@
+subckt cmos_inverter (in_ out vdd vss)
+M1 (out in_ vdd vdd) pmos L=0.18u W=1u
+M2 (out in_ vss vss) nmos L=0.18u W=0.5u
+ends cmos_inverter

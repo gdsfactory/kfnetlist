@@ -255,7 +255,7 @@ def gen_api_reference(out_root: Path, src_pkg: Path) -> list[Path]:
         parts = list(rel.with_suffix("").parts)
         if parts[-1] == "__main__":
             continue
-        if parts[-1].startswith("_") and parts[-1] != "__init__":
+        if parts[-1].startswith("_") and parts[-1] != "__init__" or parts[-1].endswith("_pb2"):
             continue
         is_package = parts[-1] == "__init__"
         if is_package:

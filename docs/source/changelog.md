@@ -2,6 +2,32 @@
 
 ## Unreleased
 
+- **Bidirectional netlist format conversion** — morphnet's source is vendored as
+  `kfnetlist.morphnet`. Its runtime dependencies (`lark`, `protobuf`, `pydantic`,
+  `pydantic-yaml`) become kfnetlist dependencies.
+  It provides Lark parsers and writers for SPICE, HSPICE, Xyce, Spectre,
+  Spectre-SPICE and Verilog-AMS, plus the programmatic circuit builder
+  (`morphnet.module()`, `connect()`, `circuit()`, ...).
+  `morphnet.circuit_from_netlists()` / `circuit_to_netlists()` bridge to
+  `Netlist`. The native netlist and schema classes still import none of these.
+- **One circuit schema** — `circuit.proto` and the new `simulation.proto` now
+  follow morphnet's schema, shared by Rust and Python. It adds simulation,
+  directives, external libraries and `Terminal.discipline`. It removes `uid`,
+  `Terminal.cross_section` and the string `domain` fields, renames
+  `Module.terminal` to `terminals`, and replaces
+  `ModuleReference.parameter_values`/`parameter_overrides` with `parameters`.
+  - Backward compatible: the old keyword arguments, dict and JSON keys are
+    still accepted with a `DeprecationWarning`. Removed values are kept in
+    `properties["__<field>__"]` (or in `parameters`), and deprecated getters read
+    them back.
+  - Documents encoded by earlier versions (`TopLevelModule.to_proto()`) decode
+    unchanged.
+  - Not readable: hand-built `ProtoModuleReference` bytes that use the old
+    `parameter_values` (field 10) or `parameter_overrides` (field 20).
+  - `TopLevelModule.to_proto()` now encodes nets in morphnet's named-net form,
+    which earlier versions cannot read.
+- **SI prefixes** — `PrefixedValue.prefix` is applied when converting to
+  `Netlist` settings (`1k` becomes `1000.0`).
 - **Zero Python runtime dependencies** — protobuf and YAML parsing now run
   entirely in the native extension. The duplicate Python schema converters and
   generated protobuf module were removed. Pydantic interoperability remains

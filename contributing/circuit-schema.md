@@ -2,7 +2,10 @@
 
 `kfnetlist_schema` owns the hierarchical PIC document model, YAML parsing,
 netlist elaboration, and protobuf conversion. It is usable from Rust without
-Python. `crates/kfnetlist-schema/proto/circuit.proto` is the protobuf source;
+Python. `crates/kfnetlist-schema/proto/{circuit,simulation}.proto` is the single
+protobuf source for Rust and for `kfnetlist.morphnet`. The schema follows
+morphnet's, so prefer additive changes there. `just compile-schema-py` regenerates
+the morphnet Python stubs (`src/kfnetlist/morphnet/morphnet_schema/*_pb2.py`);
 `prost-build` generates the Rust messages into Cargo's `OUT_DIR`. The build uses
 a vendored `protoc`, so developers and wheel builders do not need to install it.
 Generated code is neither checked in nor written into the source tree.
@@ -47,10 +50,33 @@ are no longer Pydantic `BaseModel` subclasses. Optional Pydantic integration use
 the same core-schema hook as the existing netlist classes.
 
 Compared with the initial schema PR, `to_proto()` and `from_proto()` exchange
-**bytes**, and the generated Python `circuit_pb2` module is removed. Protobuf
-message names, field numbers, and enum values stay unchanged. The capitalized
-`Terminal_name` protobuf field accepts both spellings in input dictionaries; its
-Rust/Python property is `terminal_name`. `ParameterValue` validates its `oneof`
+**bytes**, and the native schema classes no longer depend on Python protobuf
+(only the vendored `kfnetlist.morphnet` imports it).
+
+**Legacy fields.** The schema adopted morphnet's `circuit.proto`, which removed
+or renamed some fields. Input dictionaries, JSON and keyword arguments with the
+old names are still accepted. One rewrite in `crates/kfnetlist-python/src/schema.rs`
+(`upgrade_legacy`) handles them and emits a single `DeprecationWarning`:
+
+| Old field | Where the value goes |
+|---|---|
+| `uid`, `cross_section`, string `domain` | `properties["__uid__"]`, `properties["__cross_section__"]`, `properties["__domain__"]` |
+| `Module.terminal` | `terminals` |
+| `ModuleReference.parameter_values` | `parameters` entries with an empty name |
+| `ModuleReference.parameter_overrides` | `parameters` entries named by key |
+
+Deprecated getters with the old names read the values back.
+`tests/data/legacy_schema_v0_3.json` pins outputs captured from the
+pre-morphnet build.
+
+**Net encoding.** `convert.rs` writes nets in morphnet's form: each net is a star of
+`Connection`s named after the net, so morphnet's writers can read them.
+`__from__`/`__members__` connection properties restore the exact document. On
+read, modules without `__nets__` that carry `__placements__` use the
+pre-morphnet decoder (`port_*`/`conn_*` connections, `__members__` buses).
+
+The `Terminal_name` spelling of `TerminalReference.terminal_name` is still
+accepted in input dictionaries. `ParameterValue` validates its `oneof`
 in Rust, including when it occurs inside a nested dictionary.
 
 `TopLevelModule.from_yaml()` accepts standard YAML. Bare single-module documents
