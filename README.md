@@ -1,5 +1,10 @@
 # kfnetlist
 
+![Bidirectional netlist conversion between Spectre, Verilog-AMS and SPICE](docs/assets/netlist-conversion.gif)
+
+**Build circuit netlists in Python and convert them both ways between SPICE, HSPICE,
+Xyce, Spectre, Spectre-SPICE and Verilog-AMS.**
+
 **kfnetlist** is a standalone, Rust-backed netlist schema for
 [kfactory](https://github.com/gdsfactory/kfactory) and netlist tooling.
 
@@ -84,11 +89,67 @@ for s in shorts:
 For a complete walkthrough, see the
 [LVS Verification Guide](https://gdsfactory.github.io/kfnetlist/guides/lvs_verification/).
 
+## Netlist Format Conversion
+
+`kfnetlist.morphnet` (vendored from [morphnet](https://github.com/das-dias/morphnet))
+parses every supported format into one `Netlist` model (`Netlist` → `Circuit` definitions
+→ `SubCircuit` instances, serialized with the kfnetlist schema names) and writes it back out in
+any other. Spectre to Verilog-AMS:
+
+```python
+from kfnetlist.morphnet.netlist.spectre.parser import parse_spectre
+from kfnetlist.morphnet.netlist.vams.writer import write_vams
+
+netlist = parse_spectre("""\
+subckt rc_lowpass (in_ out gnd)
+R1 (in_ out) resistor value=1k
+C1 (out gnd) capacitor value=100p
+ends rc_lowpass
+""")
+print(write_vams(netlist))
+```
+
+```verilog
+module rc_lowpass (in_, out, gnd);
+  inout in_, out, gnd;
+  resistor #(.value(1k)) R1 (.p(in_), .n(out));
+  capacitor #(.value(100p)) C1 (.p(out), .n(gnd));
+endmodule
+```
+
+Build circuits programmatically with the builder API, then export to any format:
+
+```python
+from kfnetlist import morphnet
+from kfnetlist.morphnet.netlist import write_spectre, write_spice
+
+rc = morphnet.circuit("rc_lowpass")
+for name in ("in_", "out", "gnd"):
+    rc.add_terminal(name)
+rc.add(
+    morphnet.subcircuit("R1", "resistor", value=1e3),
+    morphnet.subcircuit("C1", "capacitor", value=100e-12),
+)
+rc.connect("in_", ("", "in_"), ("R1", "p"))
+rc.connect("out", ("", "out"), ("R1", "n"), ("C1", "p"))
+rc.connect("gnd", ("", "gnd"), ("C1", "n"))
+
+netlist = morphnet.Netlist(name="rc").add(rc)
+print(write_spice(netlist))
+```
+
+Any `kfnetlist.Netlist` graph, whether built by hand or extracted from layout, converts too:
+`morphnet.from_netlists({"rc": netlist})` gives a morphnet `Netlist` for any writer, and
+`morphnet.to_netlists(parse_spice(text))` reads any format back as `kfnetlist.Netlist`
+graphs for LVS, open detection or flattening. Every morphnet `Netlist` also round-trips
+through YAML, JSON and protobuf, simulation statements included.
+See the [format conversion docs](https://gdsfactory.github.io/kfnetlist) and the
+example notebooks in [`examples/`](examples/).
+
 ## Key Features
 
 - **Rust core** — Netlist, Net, and port types are implemented in Rust for
   speed and memory safety, exposed via PyO3
-- **Zero runtime dependencies** — the base package has no Python dependencies
 - **Full serialization** — `to_json()` / `from_json()` and `to_dict()` /
   `from_dict()` on every type
 - **Optional Pydantic v2 support** — all types implement
@@ -155,6 +216,9 @@ kfnetlist
 ├── _native          # Rust extension (PyO3): Netlist, Net, NetlistPort,
 │                    #   PortRef, PortArrayRef, NetlistInstance, NetlistArray
 ├── kfnetlist_schema  # Native circuit/PIC types and YAML loader
+├── morphnet         # Netlist format conversion + circuit builder (vendored morphnet)
+│   ├── netlist      #   Lark grammars, parsers and writers per format
+│   └── morphnet_schema  # Pydantic models over circuit.proto / simulation.proto
 ├── port_check       # PortCheck bitmask + check_connection()
 └── extract          # Netlist extraction from layout cells (requires klayout)
     ├── _algo        #   Main extraction orchestrator

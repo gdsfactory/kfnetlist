@@ -18,7 +18,7 @@ impl Default for ArraySpec {
 
 #[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
-pub struct Instance {
+pub struct SubCircuitDocument {
     pub component: String,
     #[serde(default)]
     pub settings: Map<String, Value>,
@@ -30,11 +30,11 @@ pub struct Instance {
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize, Deserialize)]
 #[serde(default, deny_unknown_fields)]
-pub struct Module {
+pub struct CircuitDocument {
     pub name: Option<String>,
     pub settings: Map<String, Value>,
     pub info: Map<String, Value>,
-    pub instances: IndexMap<String, Instance>,
+    pub instances: IndexMap<String, SubCircuitDocument>,
     pub placements: Map<String, Value>,
     pub ports: IndexMap<String, String>,
     pub connections: IndexMap<String, String>,
@@ -43,11 +43,11 @@ pub struct Module {
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
-pub struct TopLevelModule {
-    pub modules: IndexMap<String, Module>,
+pub struct NetlistDocument {
+    pub modules: IndexMap<String, CircuitDocument>,
     pub toplevel: Option<String>,
 }
-impl<'de> Deserialize<'de> for TopLevelModule {
+impl<'de> Deserialize<'de> for NetlistDocument {
     fn deserialize<D: serde::Deserializer<'de>>(
         deserializer: D,
     ) -> std::result::Result<Self, D::Error> {
@@ -158,7 +158,7 @@ fn unparse(member: &NetMember) -> String {
         NetMember::ArrayRef(p) => format!("{}<{}.{}>,{}", p.instance, p.ia, p.ib, p.port),
     }
 }
-impl Module {
+impl CircuitDocument {
     pub fn to_netlist(&self) -> Result<Netlist> {
         let mut nl = Netlist::default();
         for name in self.ports.keys() {
@@ -225,7 +225,7 @@ impl Module {
             .map(|(name, i)| {
                 (
                     name.clone(),
-                    Instance {
+                    SubCircuitDocument {
                         component: i.component.clone(),
                         settings: i.settings.as_object().cloned().unwrap_or_default(),
                         array: i.array.as_ref().map(|a| ArraySpec { na: a.na, nb: a.nb }),
@@ -262,7 +262,7 @@ impl Module {
         }
     }
 }
-impl TopLevelModule {
+impl NetlistDocument {
     pub fn from_yaml(text: &str) -> Result<Self> {
         serde_yaml_ng::from_str(text).map_err(error)
     }
@@ -287,7 +287,12 @@ impl TopLevelModule {
         Self {
             modules: netlists
                 .iter()
-                .map(|(name, nl)| (name.clone(), Module::from_netlist(name.clone(), nl)))
+                .map(|(name, nl)| {
+                    (
+                        name.clone(),
+                        CircuitDocument::from_netlist(name.clone(), nl),
+                    )
+                })
                 .collect(),
             toplevel,
         }

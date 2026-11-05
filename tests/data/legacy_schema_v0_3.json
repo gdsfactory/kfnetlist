@@ -1,0 +1,82 @@
+{
+ "doc_json": "{\"modules\":{\"child\":{\"name\":\"display name\",\"settings\":{\"width\":0.5},\"info\":{\"description\":\"test\"},\"instances\":{\"a\":{\"component\":\"coupler\",\"settings\":{\"enabled\":true,\"expr\":\"${settings.width}\",\"large\":9007199254740993,\"null\":null,\"values\":[1,\"two\"],\"width\":0.5},\"array\":{\"na\":3,\"nb\":2},\"info\":{\"source\":\"layout\"}}},\"placements\":{\"a\":{\"x\":\"pad,e4\"}},\"ports\":{\"free\":\"free\",\"in\":\"a[0],in\",\"out\":\"a<3.2>,out\"},\"connections\":{\"a<1.2>,out\":\"a<2.2>,in\"},\"nets\":[[],[\"a,in\"],[\"a,in\",\"a[2],in\",\"a<3.2>,out\"]],\"routes\":{\"optical\":{\"radius\":10}}},\"parent\":{\"name\":null,\"settings\":{},\"info\":{},\"instances\":{\"sub\":{\"component\":\"child\",\"settings\":{},\"array\":null,\"info\":{}}},\"placements\":{},\"ports\":{},\"connections\":{},\"nets\":[],\"routes\":{}}},\"toplevel\":\"parent\"}",
+ "doc_proto": "0a06706172656e741a06706172656e7452f90612056368696c645206520466726565520608015202696e5207080252036f7574a2012d52057769647468a2010b0a0909000000000000e03fc202150a0e5f5f6a736f6e5f76616c75655f5f1203302e35c202bd020a01611207636f75706c6572a201140a056c61726765120b0a09090000000000004043a201140a057769647468120b0a0909000000000000e03ff2011c0a095f5f61727261795f5f120f7b226e61223a332c226e62223a327df2011f0a085f5f696e666f5f5f12137b22736f75726365223a226c61796f7574227df2011a0a125f5f73657474696e675f5f656e61626c6564120474727565f201260a0f5f5f73657474696e675f5f65787072121322247b73657474696e67732e77696474687d22f201240a105f5f73657474696e675f5f6c61726765121039303037313939323534373430393933f201170a0f5f5f73657474696e675f5f6e756c6c12046e756c6cf2011e0a115f5f73657474696e675f5f76616c75657312095b312c2274776f225df201170a105f5f73657474696e675f5f77696474681203302e359203260a06636f6e6e5f30520d0a06613c312e323e12036f7574a2010c0a06613c322e323e1202696e92031c0a09706f72745f667265655206120466726565a2010612046672656592031c0a07706f72745f696e52041202696ea2010a0a04615b305d1202696e9203210a08706f72745f6f7574520512036f7574a2010d0a06613c332e323e12036f7574e2031b0a056e65745f30c202110a0b5f5f6d656d626572735f5f12025b5de203210a056e65745f31c202170a0b5f5f6d656d626572735f5f12085b22612c696e225de20382010a056e65745f32f2011f0a076e6574325f633052070a01611202696ea2010a0a04615b325d1202696ef201250a076e6574325f6331520a0a04615b325d1202696ea2010d0a06613c332e323e12036f7574c2022e0a0b5f5f6d656d626572735f5f121f5b22612c696e222c22615b325d2c696e222c22613c332e323e2c6f7574225db204220a085f5f696e666f5f5f12167b226465736372697074696f6e223a2274657374227db2041a0a085f5f6e616d655f5f120e22646973706c6179206e616d6522b204260a0e5f5f706c6163656d656e74735f5f12147b2261223a7b2278223a227061642c6534227d7db204270a0a5f5f726f757465735f5f12197b226f70746963616c223a7b22726164697573223a31307d7d528a011206706172656e74c202310a0373756212056368696c64f201110a095f5f61727261795f5f12046e756c6cf2010e0a085f5f696e666f5f5f12027b7db2040e0a085f5f696e666f5f5f12027b7db204100a085f5f6e616d655f5f12046e756c6cb204140a0e5f5f706c6163656d656e74735f5f12027b7db204100a0a5f5f726f757465735f5f12027b7d",
+ "pic_json": "{\"modules\":{\"my_component\":{\"name\":\"myComponent\",\"settings\":{\"length\":3},\"info\":{\"description\":\"just a demo\",\"polarization\":\"TE\"},\"instances\":{\"mzi\":{\"component\":\"mzi_phase_shifter\",\"settings\":{\"delta_length\":\"${settings.length}\",\"length_x\":50},\"array\":null,\"info\":{}},\"pads\":{\"component\":\"pad_array\",\"settings\":{\"n\":2,\"port_names\":[\"e4\"]},\"array\":null,\"info\":{}}},\"placements\":{\"mzi\":{\"x\":0},\"pads\":{\"x\":\"mzi,cc\",\"y\":200}},\"ports\":{\"o1\":\"mzi,o1\",\"o2\":\"mzi,o2\"},\"connections\":{},\"nets\":[],\"routes\":{\"electrical\":{\"links\":{\"mzi,etop_e1\":\"pads,e4_0\",\"mzi,etop_e2\":\"pads,e4_1\"},\"settings\":{\"layer\":[31,0],\"radius\":10,\"width\":10}}}},\"my_second_component\":{\"name\":\"myOtherComponent\",\"settings\":{\"length\":3},\"info\":{\"description\":\"just a demo\",\"polarization\":\"TE\"},\"instances\":{\"my_sub_module\":{\"component\":\"my_component\",\"settings\":{\"length\":50.0},\"array\":null,\"info\":{}},\"mzi\":{\"component\":\"mzi_phase_shifter\",\"settings\":{\"delta_length\":\"${settings.length}\",\"length_x\":50},\"array\":null,\"info\":{}},\"mzi_array\":{\"component\":\"mzi_phase_shifter\",\"settings\":{\"array_size\":10,\"delta_length\":\"${settings.length}\",\"length_x\":50},\"array\":null,\"info\":{}},\"pads\":{\"component\":\"pad_array\",\"settings\":{\"n\":2,\"port_names\":[\"e4\"]},\"array\":null,\"info\":{}}},\"placements\":{\"mzi\":{\"x\":0},\"mzi_array\":{\"index\":9,\"x\":\"pad,e4\",\"y\":100},\"pads\":{\"x\":\"mzi,cc\",\"y\":200}},\"ports\":{\"o1\":\"mzi,o1\",\"o2\":\"mzi,o2\",\"o3\":\"mzi_array[9],o1\"},\"connections\":{},\"nets\":[],\"routes\":{\"electrical\":{\"links\":{\"mzi,etop_e1\":\"pads,e4_0\",\"mzi,etop_e2\":\"pads,e4_1\"},\"settings\":{\"layer\":[31,0],\"radius\":10,\"width\":10}}}}},\"toplevel\":\"my_second_component\"}",
+ "pic_proto": "0a136d795f7365636f6e645f636f6d706f6e656e741a136d795f7365636f6e645f636f6d706f6e656e7452e405120c6d795f636f6d706f6e656e74520452026f315206080152026f32a2012c52066c656e677468a2010b0a09090000000000000840c202130a0e5f5f6a736f6e5f76616c75655f5f120133c202a5010a036d7a6912116d7a695f70686173655f73686966746572a201170a086c656e6774685f78120b0a09090000000000004940f201110a095f5f61727261795f5f12046e756c6cf2010e0a085f5f696e666f5f5f12027b7df2012f0a175f5f73657474696e675f5f64656c74615f6c656e677468121422247b73657474696e67732e6c656e6774687d22f201190a135f5f73657474696e675f5f6c656e6774685f7812023530c2027f0a047061647312097061645f6172726179a201100a016e120b0a09090000000000000040f201110a095f5f61727261795f5f12046e756c6cf2010e0a085f5f696e666f5f5f12027b7df201110a0c5f5f73657474696e675f5f6e120132f2011f0a155f5f73657474696e675f5f706f72745f6e616d657312065b226534225d92031b0a07706f72745f6f31520412026f31a201090a036d7a6912026f3192031b0a07706f72745f6f32520412026f32a201090a036d7a6912026f32b2043d0a085f5f696e666f5f5f12317b226465736372697074696f6e223a226a75737420612064656d6f222c22706f6c6172697a6174696f6e223a225445227db204190a085f5f6e616d655f5f120d226d79436f6d706f6e656e7422b2043f0a0e5f5f706c6163656d656e74735f5f122d7b226d7a69223a7b2278223a307d2c2270616473223a7b2278223a226d7a692c6363222c2279223a3230307d7db20490010a0a5f5f726f757465735f5f1281017b22656c656374726963616c223a7b226c696e6b73223a7b226d7a692c65746f705f6531223a22706164732c65345f30222c226d7a692c65746f705f6532223a22706164732c65345f31227d2c2273657474696e6773223a7b226c61796572223a5b33312c305d2c22726164697573223a31302c227769647468223a31307d7d7d52ae0912136d795f7365636f6e645f636f6d706f6e656e74520452026f315206080152026f325206080252026f33a2012c52066c656e677468a2010b0a09090000000000000840c202130a0e5f5f6a736f6e5f76616c75655f5f120133c202760a0d6d795f7375625f6d6f64756c65120c6d795f636f6d706f6e656e74a201150a066c656e677468120b0a09090000000000004940f201110a095f5f61727261795f5f12046e756c6cf2010e0a085f5f696e666f5f5f12027b7df201190a115f5f73657474696e675f5f6c656e677468120435302e30c202a5010a036d7a6912116d7a695f70686173655f73686966746572a201170a086c656e6774685f78120b0a09090000000000004940f201110a095f5f61727261795f5f12046e756c6cf2010e0a085f5f696e666f5f5f12027b7df2012f0a175f5f73657474696e675f5f64656c74615f6c656e677468121422247b73657474696e67732e6c656e6774687d22f201190a135f5f73657474696e675f5f6c656e6774685f7812023530c202e5010a096d7a695f617272617912116d7a695f70686173655f73686966746572a201190a0a61727261795f73697a65120b0a09090000000000002440a201170a086c656e6774685f78120b0a09090000000000004940f201110a095f5f61727261795f5f12046e756c6cf2010e0a085f5f696e666f5f5f12027b7df2011b0a155f5f73657474696e675f5f61727261795f73697a6512023130f2012f0a175f5f73657474696e675f5f64656c74615f6c656e677468121422247b73657474696e67732e6c656e6774687d22f201190a135f5f73657474696e675f5f6c656e6774685f7812023530c2027f0a047061647312097061645f6172726179a201100a016e120b0a09090000000000000040f201110a095f5f61727261795f5f12046e756c6cf2010e0a085f5f696e666f5f5f12027b7df201110a0c5f5f73657474696e675f5f6e120132f2011f0a155f5f73657474696e675f5f706f72745f6e616d657312065b226534225d92031b0a07706f72745f6f31520412026f31a201090a036d7a6912026f3192031b0a07706f72745f6f32520412026f32a201090a036d7a6912026f329203240a07706f72745f6f33520412026f33a201120a0c6d7a695f61727261795b395d12026f31b2043d0a085f5f696e666f5f5f12317b226465736372697074696f6e223a226a75737420612064656d6f222c22706f6c6172697a6174696f6e223a225445227db2041e0a085f5f6e616d655f5f1212226d794f74686572436f6d706f6e656e7422b2046c0a0e5f5f706c6163656d656e74735f5f125a7b226d7a69223a7b2278223a307d2c226d7a695f6172726179223a7b22696e646578223a392c2278223a227061642c6534222c2279223a3130307d2c2270616473223a7b2278223a226d7a692c6363222c2279223a3230307d7db20490010a0a5f5f726f757465735f5f1281017b22656c656374726963616c223a7b226c696e6b73223a7b226d7a692c65746f705f6531223a22706164732c65345f30222c226d7a692c65746f705f6532223a22706164732c65345f31227d2c2273657474696e6773223a7b226c61796572223a5b33312c305d2c22726164697573223a31302c227769647468223a31307d7d7d",
+ "circuit_dict": {
+  "name": "c",
+  "domain": "optical",
+  "top_module": "m",
+  "modules": [
+   {
+    "uid": 7,
+    "name": "m",
+    "class_name": "cls",
+    "terminal": [
+     {
+      "uid": 3,
+      "name": "o1",
+      "direction": 1,
+      "domain": 2,
+      "width": 4,
+      "cross_section": "xs_sc",
+      "properties": {}
+     }
+    ],
+    "parameters": [
+     {
+      "uid": 5,
+      "name": "w",
+      "default_value": {
+       "prefixed_value": {
+        "double_value": 2.5,
+        "prefix": 9
+       }
+      },
+      "description": "",
+      "properties": {}
+     }
+    ],
+    "model_interfaces": [],
+    "module_references": [
+     {
+      "name": "r",
+      "module_name": "wg",
+      "class_name": "",
+      "parameter_values": [
+       {
+        "prefixed_value": {
+         "double_value": 2.5,
+         "prefix": 9
+        }
+       }
+      ],
+      "parameter_overrides": {
+       "length": {
+        "prefixed_value": {
+         "double_value": 2.5,
+         "prefix": 9
+        }
+       }
+      },
+      "properties": {}
+     }
+    ],
+    "connections": [],
+    "buses": [],
+    "properties": {}
+   }
+  ],
+  "ext_modules": [
+   {
+    "name": "ext",
+    "domain": "electrical",
+    "terminals": [],
+    "parameters": [],
+    "properties": {}
+   }
+  ],
+  "properties": {}
+ },
+ "circuit_json": "{\"name\":\"c\",\"domain\":\"optical\",\"top_module\":\"m\",\"modules\":[{\"uid\":7,\"name\":\"m\",\"class_name\":\"cls\",\"terminal\":[{\"uid\":3,\"name\":\"o1\",\"direction\":1,\"domain\":2,\"width\":4,\"cross_section\":\"xs_sc\",\"properties\":{}}],\"parameters\":[{\"uid\":5,\"name\":\"w\",\"default_value\":{\"prefixed_value\":{\"double_value\":2.5,\"prefix\":9}},\"description\":\"\",\"properties\":{}}],\"model_interfaces\":[],\"module_references\":[{\"name\":\"r\",\"module_name\":\"wg\",\"class_name\":\"\",\"parameter_values\":[{\"prefixed_value\":{\"double_value\":2.5,\"prefix\":9}}],\"parameter_overrides\":{\"length\":{\"prefixed_value\":{\"double_value\":2.5,\"prefix\":9}}},\"properties\":{}}],\"connections\":[],\"buses\":[],\"properties\":{}}],\"ext_modules\":[{\"name\":\"ext\",\"domain\":\"electrical\",\"terminals\":[],\"parameters\":[],\"properties\":{}}],\"properties\":{}}"
+}

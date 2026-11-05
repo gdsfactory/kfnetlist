@@ -2,6 +2,53 @@
 
 ## Unreleased
 
+- **Bidirectional netlist format conversion** — morphnet's source is vendored as
+  `kfnetlist.morphnet`. Its runtime dependencies (`lark`, `protobuf`, `pydantic`,
+  `pydantic-yaml`) become kfnetlist dependencies.
+  It provides Lark parsers and writers for SPICE, HSPICE, Xyce, Spectre,
+  Spectre-SPICE and Verilog-AMS, plus the programmatic circuit builder
+  (`morphnet.circuit()`, `subcircuit()`, `connect()`, ...).
+  `morphnet.from_netlists()` / `to_netlists()` bridge to
+  `Netlist`. The native netlist and schema classes still import none of these.
+- **One naming everywhere: `Netlist` → `Circuit` → `SubCircuit`.** The container,
+  circuit definition and instance have the same names in `circuit.proto`, Rust,
+  the PyO3 schema classes, the PIC document model and `kfnetlist.morphnet`:
+
+  | Layer | Before | Now |
+  |---|---|---|
+  | proto messages | `Circuit`, `Module`, `ModuleReference`, `ExternalModule` | `Netlist`, `Circuit`, `SubCircuit`, `ExternalCircuit` |
+  | proto fields | `top_module`, `modules`, `ext_modules`, `module_references`, `module_name` | `top_circuit`, `circuits`, `ext_circuits`, `subcircuits`, `circuit_name` |
+  | `kfnetlist_schema` | `ProtoCircuit` (container), `ProtoModule`, `ProtoModuleReference`, `ExternalModule` | `ProtoNetlist`, `ProtoCircuit` (definition), `ProtoSubCircuit`, `ExternalCircuit` |
+  | PIC documents | `TopLevelModule`, `Module`, `Instance` | `NetlistDocument`, `CircuitDocument`, `SubCircuitDocument` (YAML keys unchanged) |
+  | conversions | `to_proto_circuit()`, `from_proto_circuit()` | `to_proto_netlist()`, `from_proto_netlist()` |
+  | morphnet | `Circuit`, `Module`, `ModuleReference`, `module()`, `module_reference()`, `ext_module()` | `Netlist`, `Circuit`, `SubCircuit`, `circuit()`, `subcircuit()`, `ext_circuit()` |
+
+  - The wire format is unchanged (same field numbers), so protobuf bytes from
+    earlier versions decode as before.
+  - Old keyword arguments, dict, JSON and YAML keys still load, with one
+    `DeprecationWarning`. Old getters and old class/function names remain as
+    deprecated aliases. `ProtoCircuit` is the exception: it now names the
+    circuit definition, and container data passed to it is rejected.
+  - morphnet JSON and YAML use the schema names, so
+    `ProtoNetlist.from_json(netlist.to_json())` loads them.
+- **One circuit schema** — `circuit.proto` and the new `simulation.proto` now
+  follow morphnet's schema (renamed as above), shared by Rust and Python. It adds simulation,
+  directives, external libraries and `Terminal.discipline`. It removes `uid`,
+  `Terminal.cross_section` and the string `domain` fields, renames
+  `terminal` to `terminals`, and replaces the instance
+  `parameter_values`/`parameter_overrides` with `parameters`.
+  - Backward compatible: the old keyword arguments, dict and JSON keys are
+    still accepted with a `DeprecationWarning`. Removed values are kept in
+    `properties["__<field>__"]` (or in `parameters`), and deprecated getters read
+    them back.
+  - Documents encoded by earlier versions (`NetlistDocument.to_proto()`) decode
+    unchanged.
+  - Not readable: hand-built `ProtoSubCircuit` bytes that use the old
+    `parameter_values` (field 10) or `parameter_overrides` (field 20).
+  - `NetlistDocument.to_proto()` now encodes nets in morphnet's named-net form,
+    which earlier versions cannot read.
+- **SI prefixes** — `PrefixedValue.prefix` is applied when converting to
+  `Netlist` settings (`1k` becomes `1000.0`).
 - **Zero Python runtime dependencies** — protobuf and YAML parsing now run
   entirely in the native extension. The duplicate Python schema converters and
   generated protobuf module were removed. Pydantic interoperability remains

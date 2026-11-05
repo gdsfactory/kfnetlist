@@ -12,7 +12,7 @@ interoperability with klayout.
 
 ## Key Features
 
-- **Zero runtime dependencies** for the core package (Rust-backed types only)
+- **Minimal runtime dependencies** — the Rust-backed netlist and schema types import no Python packages; the vendored `kfnetlist.morphnet` converter needs `lark`, `protobuf`, `pydantic` and `pydantic-yaml`
 - **Hierarchical netlists**: instances, nets, top-level ports, and array instances
 - **Full serialization**: JSON and Python dict round-trips on every type
 - **LVS-equivalent port folding**: collapse equivalent ports (e.g. multi-pad cells) into canonical names with automatic net merging

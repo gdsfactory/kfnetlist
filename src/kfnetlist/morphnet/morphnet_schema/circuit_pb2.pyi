@@ -1,0 +1,421 @@
+import kfnetlist.morphnet.morphnet_schema.simulation_pb2 as _simulation_pb2
+from google.protobuf.internal import containers as _containers
+from google.protobuf.internal import enum_type_wrapper as _enum_type_wrapper
+from google.protobuf import descriptor as _descriptor
+from google.protobuf import message as _message
+from collections.abc import Iterable as _Iterable, Mapping as _Mapping
+from typing import ClassVar as _ClassVar, Optional as _Optional, Union as _Union
+
+DESCRIPTOR: _descriptor.FileDescriptor
+
+class TerminalDirection(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    TERMINAL_DIRECTION_INOUT: _ClassVar[TerminalDirection]
+    TERMINAL_DIRECTION_INPUT: _ClassVar[TerminalDirection]
+    TERMINAL_DIRECTION_OUTPUT: _ClassVar[TerminalDirection]
+
+class SignalDomain(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SIGNAL_DOMAIN_UNSPECIFIED: _ClassVar[SignalDomain]
+    SIGNAL_DOMAIN_ELECTRICAL: _ClassVar[SignalDomain]
+    SIGNAL_DOMAIN_WAVEGUIDE: _ClassVar[SignalDomain]
+
+class SIPrefix(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    SI_PREFIX_UNSPECIFIED: _ClassVar[SIPrefix]
+    SI_PREFIX_QUECTO: _ClassVar[SIPrefix]
+    SI_PREFIX_RONTO: _ClassVar[SIPrefix]
+    SI_PREFIX_YOCTO: _ClassVar[SIPrefix]
+    SI_PREFIX_ZEPTO: _ClassVar[SIPrefix]
+    SI_PREFIX_ATTO: _ClassVar[SIPrefix]
+    SI_PREFIX_FEMTO: _ClassVar[SIPrefix]
+    SI_PREFIX_PICO: _ClassVar[SIPrefix]
+    SI_PREFIX_NANO: _ClassVar[SIPrefix]
+    SI_PREFIX_MICRO: _ClassVar[SIPrefix]
+    SI_PREFIX_MILLI: _ClassVar[SIPrefix]
+    SI_PREFIX_CENTI: _ClassVar[SIPrefix]
+    SI_PREFIX_DECI: _ClassVar[SIPrefix]
+    SI_PREFIX_DECA: _ClassVar[SIPrefix]
+    SI_PREFIX_HECTO: _ClassVar[SIPrefix]
+    SI_PREFIX_KILO: _ClassVar[SIPrefix]
+    SI_PREFIX_MEGA: _ClassVar[SIPrefix]
+    SI_PREFIX_GIGA: _ClassVar[SIPrefix]
+    SI_PREFIX_TERA: _ClassVar[SIPrefix]
+    SI_PREFIX_PETA: _ClassVar[SIPrefix]
+    SI_PREFIX_EXA: _ClassVar[SIPrefix]
+    SI_PREFIX_ZETTA: _ClassVar[SIPrefix]
+    SI_PREFIX_YOTTA: _ClassVar[SIPrefix]
+    SI_PREFIX_RONNA: _ClassVar[SIPrefix]
+    SI_PREFIX_QUETTA: _ClassVar[SIPrefix]
+
+class ExternalCircuitKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    EXTERNAL_CIRCUIT_KIND_UNSPECIFIED: _ClassVar[ExternalCircuitKind]
+    EXTERNAL_CIRCUIT_KIND_DEVICE: _ClassVar[ExternalCircuitKind]
+    EXTERNAL_CIRCUIT_KIND_MODEL: _ClassVar[ExternalCircuitKind]
+    EXTERNAL_CIRCUIT_KIND_NATURE: _ClassVar[ExternalCircuitKind]
+    EXTERNAL_CIRCUIT_KIND_DISCIPLINE: _ClassVar[ExternalCircuitKind]
+
+class DirectiveKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    DIRECTIVE_KIND_UNSPECIFIED: _ClassVar[DirectiveKind]
+    DIRECTIVE_KIND_INCLUDE: _ClassVar[DirectiveKind]
+    DIRECTIVE_KIND_LIB: _ClassVar[DirectiveKind]
+    DIRECTIVE_KIND_GLOBAL: _ClassVar[DirectiveKind]
+    DIRECTIVE_KIND_OPTION: _ClassVar[DirectiveKind]
+    DIRECTIVE_KIND_PARAM: _ClassVar[DirectiveKind]
+    DIRECTIVE_KIND_DEFINE: _ClassVar[DirectiveKind]
+    DIRECTIVE_KIND_TIMESCALE: _ClassVar[DirectiveKind]
+TERMINAL_DIRECTION_INOUT: TerminalDirection
+TERMINAL_DIRECTION_INPUT: TerminalDirection
+TERMINAL_DIRECTION_OUTPUT: TerminalDirection
+SIGNAL_DOMAIN_UNSPECIFIED: SignalDomain
+SIGNAL_DOMAIN_ELECTRICAL: SignalDomain
+SIGNAL_DOMAIN_WAVEGUIDE: SignalDomain
+SI_PREFIX_UNSPECIFIED: SIPrefix
+SI_PREFIX_QUECTO: SIPrefix
+SI_PREFIX_RONTO: SIPrefix
+SI_PREFIX_YOCTO: SIPrefix
+SI_PREFIX_ZEPTO: SIPrefix
+SI_PREFIX_ATTO: SIPrefix
+SI_PREFIX_FEMTO: SIPrefix
+SI_PREFIX_PICO: SIPrefix
+SI_PREFIX_NANO: SIPrefix
+SI_PREFIX_MICRO: SIPrefix
+SI_PREFIX_MILLI: SIPrefix
+SI_PREFIX_CENTI: SIPrefix
+SI_PREFIX_DECI: SIPrefix
+SI_PREFIX_DECA: SIPrefix
+SI_PREFIX_HECTO: SIPrefix
+SI_PREFIX_KILO: SIPrefix
+SI_PREFIX_MEGA: SIPrefix
+SI_PREFIX_GIGA: SIPrefix
+SI_PREFIX_TERA: SIPrefix
+SI_PREFIX_PETA: SIPrefix
+SI_PREFIX_EXA: SIPrefix
+SI_PREFIX_ZETTA: SIPrefix
+SI_PREFIX_YOTTA: SIPrefix
+SI_PREFIX_RONNA: SIPrefix
+SI_PREFIX_QUETTA: SIPrefix
+EXTERNAL_CIRCUIT_KIND_UNSPECIFIED: ExternalCircuitKind
+EXTERNAL_CIRCUIT_KIND_DEVICE: ExternalCircuitKind
+EXTERNAL_CIRCUIT_KIND_MODEL: ExternalCircuitKind
+EXTERNAL_CIRCUIT_KIND_NATURE: ExternalCircuitKind
+EXTERNAL_CIRCUIT_KIND_DISCIPLINE: ExternalCircuitKind
+DIRECTIVE_KIND_UNSPECIFIED: DirectiveKind
+DIRECTIVE_KIND_INCLUDE: DirectiveKind
+DIRECTIVE_KIND_LIB: DirectiveKind
+DIRECTIVE_KIND_GLOBAL: DirectiveKind
+DIRECTIVE_KIND_OPTION: DirectiveKind
+DIRECTIVE_KIND_PARAM: DirectiveKind
+DIRECTIVE_KIND_DEFINE: DirectiveKind
+DIRECTIVE_KIND_TIMESCALE: DirectiveKind
+
+class PrefixedValue(_message.Message):
+    __slots__ = ("double_value", "prefix")
+    DOUBLE_VALUE_FIELD_NUMBER: _ClassVar[int]
+    PREFIX_FIELD_NUMBER: _ClassVar[int]
+    double_value: float
+    prefix: SIPrefix
+    def __init__(self, double_value: _Optional[float] = ..., prefix: _Optional[_Union[SIPrefix, str]] = ...) -> None: ...
+
+class ParameterValue(_message.Message):
+    __slots__ = ("prefixed_value", "model_ref")
+    PREFIXED_VALUE_FIELD_NUMBER: _ClassVar[int]
+    MODEL_REF_FIELD_NUMBER: _ClassVar[int]
+    prefixed_value: PrefixedValue
+    model_ref: ModelReference
+    def __init__(self, prefixed_value: _Optional[_Union[PrefixedValue, _Mapping]] = ..., model_ref: _Optional[_Union[ModelReference, _Mapping]] = ...) -> None: ...
+
+class Parameter(_message.Message):
+    __slots__ = ("name", "default_value", "description", "properties")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DEFAULT_VALUE_FIELD_NUMBER: _ClassVar[int]
+    DESCRIPTION_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    default_value: ParameterValue
+    description: str
+    properties: _containers.ScalarMap[str, str]
+    def __init__(self, name: _Optional[str] = ..., default_value: _Optional[_Union[ParameterValue, _Mapping]] = ..., description: _Optional[str] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class Directive(_message.Message):
+    __slots__ = ("kind", "name", "value")
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    VALUE_FIELD_NUMBER: _ClassVar[int]
+    kind: DirectiveKind
+    name: str
+    value: str
+    def __init__(self, kind: _Optional[_Union[DirectiveKind, str]] = ..., name: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+
+class ModelInterface(_message.Message):
+    __slots__ = ("name", "function_name", "parameters", "properties")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    FUNCTION_NAME_FIELD_NUMBER: _ClassVar[int]
+    PARAMETERS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    function_name: str
+    parameters: _containers.RepeatedCompositeFieldContainer[Parameter]
+    properties: _containers.ScalarMap[str, str]
+    def __init__(self, name: _Optional[str] = ..., function_name: _Optional[str] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class ModelReference(_message.Message):
+    __slots__ = ("model_interface_name", "arguments")
+    class ArgumentsEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: ParameterValue
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[ParameterValue, _Mapping]] = ...) -> None: ...
+    MODEL_INTERFACE_NAME_FIELD_NUMBER: _ClassVar[int]
+    ARGUMENTS_FIELD_NUMBER: _ClassVar[int]
+    model_interface_name: str
+    arguments: _containers.MessageMap[str, ParameterValue]
+    def __init__(self, model_interface_name: _Optional[str] = ..., arguments: _Optional[_Mapping[str, ParameterValue]] = ...) -> None: ...
+
+class Terminal(_message.Message):
+    __slots__ = ("name", "direction", "domain", "width", "properties", "discipline")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    DIRECTION_FIELD_NUMBER: _ClassVar[int]
+    DOMAIN_FIELD_NUMBER: _ClassVar[int]
+    WIDTH_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    DISCIPLINE_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    direction: TerminalDirection
+    domain: SignalDomain
+    width: int
+    properties: _containers.ScalarMap[str, str]
+    discipline: str
+    def __init__(self, name: _Optional[str] = ..., direction: _Optional[_Union[TerminalDirection, str]] = ..., domain: _Optional[_Union[SignalDomain, str]] = ..., width: _Optional[int] = ..., properties: _Optional[_Mapping[str, str]] = ..., discipline: _Optional[str] = ...) -> None: ...
+
+class TerminalReference(_message.Message):
+    __slots__ = ("instance_name", "terminal_name")
+    INSTANCE_NAME_FIELD_NUMBER: _ClassVar[int]
+    TERMINAL_NAME_FIELD_NUMBER: _ClassVar[int]
+    instance_name: str
+    terminal_name: str
+    def __init__(self, instance_name: _Optional[str] = ..., terminal_name: _Optional[str] = ...) -> None: ...
+
+class Connection(_message.Message):
+    __slots__ = ("name", "source", "target", "domain", "weight", "properties")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    SOURCE_FIELD_NUMBER: _ClassVar[int]
+    TARGET_FIELD_NUMBER: _ClassVar[int]
+    DOMAIN_FIELD_NUMBER: _ClassVar[int]
+    WEIGHT_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    source: TerminalReference
+    target: TerminalReference
+    domain: SignalDomain
+    weight: int
+    properties: _containers.ScalarMap[str, str]
+    def __init__(self, name: _Optional[str] = ..., source: _Optional[_Union[TerminalReference, _Mapping]] = ..., target: _Optional[_Union[TerminalReference, _Mapping]] = ..., domain: _Optional[_Union[SignalDomain, str]] = ..., weight: _Optional[int] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class Bus(_message.Message):
+    __slots__ = ("name", "width", "domain", "connections", "properties")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    WIDTH_FIELD_NUMBER: _ClassVar[int]
+    DOMAIN_FIELD_NUMBER: _ClassVar[int]
+    CONNECTIONS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    width: int
+    domain: SignalDomain
+    connections: _containers.RepeatedCompositeFieldContainer[Connection]
+    properties: _containers.ScalarMap[str, str]
+    def __init__(self, name: _Optional[str] = ..., width: _Optional[int] = ..., domain: _Optional[_Union[SignalDomain, str]] = ..., connections: _Optional[_Iterable[_Union[Connection, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class SubCircuit(_message.Message):
+    __slots__ = ("name", "circuit_name", "class_name", "parameters", "properties")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CIRCUIT_NAME_FIELD_NUMBER: _ClassVar[int]
+    CLASS_NAME_FIELD_NUMBER: _ClassVar[int]
+    PARAMETERS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    circuit_name: str
+    class_name: str
+    parameters: _containers.RepeatedCompositeFieldContainer[Parameter]
+    properties: _containers.ScalarMap[str, str]
+    def __init__(self, name: _Optional[str] = ..., circuit_name: _Optional[str] = ..., class_name: _Optional[str] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class Circuit(_message.Message):
+    __slots__ = ("name", "class_name", "terminals", "parameters", "model_interfaces", "subcircuits", "connections", "buses", "properties", "directives")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CLASS_NAME_FIELD_NUMBER: _ClassVar[int]
+    TERMINALS_FIELD_NUMBER: _ClassVar[int]
+    PARAMETERS_FIELD_NUMBER: _ClassVar[int]
+    MODEL_INTERFACES_FIELD_NUMBER: _ClassVar[int]
+    SUBCIRCUITS_FIELD_NUMBER: _ClassVar[int]
+    CONNECTIONS_FIELD_NUMBER: _ClassVar[int]
+    BUSES_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    DIRECTIVES_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    class_name: str
+    terminals: _containers.RepeatedCompositeFieldContainer[Terminal]
+    parameters: _containers.RepeatedCompositeFieldContainer[Parameter]
+    model_interfaces: _containers.RepeatedCompositeFieldContainer[ModelInterface]
+    subcircuits: _containers.RepeatedCompositeFieldContainer[SubCircuit]
+    connections: _containers.RepeatedCompositeFieldContainer[Connection]
+    buses: _containers.RepeatedCompositeFieldContainer[Bus]
+    properties: _containers.ScalarMap[str, str]
+    directives: _containers.RepeatedCompositeFieldContainer[Directive]
+    def __init__(self, name: _Optional[str] = ..., class_name: _Optional[str] = ..., terminals: _Optional[_Iterable[_Union[Terminal, _Mapping]]] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping]]] = ..., model_interfaces: _Optional[_Iterable[_Union[ModelInterface, _Mapping]]] = ..., subcircuits: _Optional[_Iterable[_Union[SubCircuit, _Mapping]]] = ..., connections: _Optional[_Iterable[_Union[Connection, _Mapping]]] = ..., buses: _Optional[_Iterable[_Union[Bus, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ..., directives: _Optional[_Iterable[_Union[Directive, _Mapping]]] = ...) -> None: ...
+
+class ExternalCircuit(_message.Message):
+    __slots__ = ("name", "class_name", "library_name", "group_name", "terminals", "parameters", "properties", "kind")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CLASS_NAME_FIELD_NUMBER: _ClassVar[int]
+    LIBRARY_NAME_FIELD_NUMBER: _ClassVar[int]
+    GROUP_NAME_FIELD_NUMBER: _ClassVar[int]
+    TERMINALS_FIELD_NUMBER: _ClassVar[int]
+    PARAMETERS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    KIND_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    class_name: str
+    library_name: str
+    group_name: str
+    terminals: _containers.RepeatedCompositeFieldContainer[Terminal]
+    parameters: _containers.RepeatedCompositeFieldContainer[Parameter]
+    properties: _containers.ScalarMap[str, str]
+    kind: ExternalCircuitKind
+    def __init__(self, name: _Optional[str] = ..., class_name: _Optional[str] = ..., library_name: _Optional[str] = ..., group_name: _Optional[str] = ..., terminals: _Optional[_Iterable[_Union[Terminal, _Mapping]]] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ..., kind: _Optional[_Union[ExternalCircuitKind, str]] = ...) -> None: ...
+
+class ExternalLibrary(_message.Message):
+    __slots__ = ("path", "model_type", "external_model_names")
+    PATH_FIELD_NUMBER: _ClassVar[int]
+    MODEL_TYPE_FIELD_NUMBER: _ClassVar[int]
+    EXTERNAL_MODEL_NAMES_FIELD_NUMBER: _ClassVar[int]
+    path: str
+    model_type: str
+    external_model_names: _containers.RepeatedScalarFieldContainer[str]
+    def __init__(self, path: _Optional[str] = ..., model_type: _Optional[str] = ..., external_model_names: _Optional[_Iterable[str]] = ...) -> None: ...
+
+class Netlist(_message.Message):
+    __slots__ = ("name", "top_circuit", "circuits", "ext_circuits", "properties", "directives", "simulation", "libraries")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    class LibrariesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: ExternalLibrary
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[ExternalLibrary, _Mapping]] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    TOP_CIRCUIT_FIELD_NUMBER: _ClassVar[int]
+    CIRCUITS_FIELD_NUMBER: _ClassVar[int]
+    EXT_CIRCUITS_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    DIRECTIVES_FIELD_NUMBER: _ClassVar[int]
+    SIMULATION_FIELD_NUMBER: _ClassVar[int]
+    LIBRARIES_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    top_circuit: str
+    circuits: _containers.RepeatedCompositeFieldContainer[Circuit]
+    ext_circuits: _containers.RepeatedCompositeFieldContainer[ExternalCircuit]
+    properties: _containers.ScalarMap[str, str]
+    directives: _containers.RepeatedCompositeFieldContainer[Directive]
+    simulation: _simulation_pb2.Simulation
+    libraries: _containers.MessageMap[str, ExternalLibrary]
+    def __init__(self, name: _Optional[str] = ..., top_circuit: _Optional[str] = ..., circuits: _Optional[_Iterable[_Union[Circuit, _Mapping]]] = ..., ext_circuits: _Optional[_Iterable[_Union[ExternalCircuit, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ..., directives: _Optional[_Iterable[_Union[Directive, _Mapping]]] = ..., simulation: _Optional[_Union[_simulation_pb2.Simulation, _Mapping]] = ..., libraries: _Optional[_Mapping[str, ExternalLibrary]] = ...) -> None: ...
+
+class CircuitReference(_message.Message):
+    __slots__ = ("circuit_name", "properties")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    CIRCUIT_NAME_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    circuit_name: str
+    properties: _containers.ScalarMap[str, str]
+    def __init__(self, circuit_name: _Optional[str] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
+
+class Library(_message.Message):
+    __slots__ = ("name", "circuit_reference", "properties")
+    class PropertiesEntry(_message.Message):
+        __slots__ = ("key", "value")
+        KEY_FIELD_NUMBER: _ClassVar[int]
+        VALUE_FIELD_NUMBER: _ClassVar[int]
+        key: str
+        value: str
+        def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    CIRCUIT_REFERENCE_FIELD_NUMBER: _ClassVar[int]
+    PROPERTIES_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    circuit_reference: CircuitReference
+    properties: _containers.ScalarMap[str, str]
+    def __init__(self, name: _Optional[str] = ..., circuit_reference: _Optional[_Union[CircuitReference, _Mapping]] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...

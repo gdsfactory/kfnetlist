@@ -1,0 +1,265 @@
+circuits:
+- buses: []
+  class_name: ''
+  connections:
+  - domain: 0
+    name: in_
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: in_
+    target:
+      instance_name: M1
+      terminal_name: g
+    weight: 0
+  - domain: 0
+    name: in_
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: in_
+    target:
+      instance_name: M2
+      terminal_name: g
+    weight: 0
+  - domain: 0
+    name: out
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: out
+    target:
+      instance_name: M1
+      terminal_name: d
+    weight: 0
+  - domain: 0
+    name: out
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: out
+    target:
+      instance_name: M2
+      terminal_name: d
+    weight: 0
+  - domain: 0
+    name: vdd
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: vdd
+    target:
+      instance_name: M1
+      terminal_name: s
+    weight: 0
+  - domain: 0
+    name: vdd
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: vdd
+    target:
+      instance_name: M1
+      terminal_name: b
+    weight: 0
+  - domain: 0
+    name: vss
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: vss
+    target:
+      instance_name: M2
+      terminal_name: s
+    weight: 0
+  - domain: 0
+    name: vss
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: vss
+    target:
+      instance_name: M2
+      terminal_name: b
+    weight: 0
+  directives: []
+  model_interfaces: []
+  name: cmos_inverter
+  parameters: []
+  properties: {}
+  subcircuits:
+  - circuit_name: mosfet
+    class_name: ''
+    name: M1
+    parameters:
+    - default_value:
+        model_ref: null
+        prefixed_value:
+          double_value: 0.18
+          prefix: 9
+      description: ''
+      name: L
+      properties: {}
+    - default_value:
+        model_ref: null
+        prefixed_value:
+          double_value: 1.0
+          prefix: 9
+      description: ''
+      name: W
+      properties: {}
+    properties:
+      model_name: pch
+  - circuit_name: mosfet
+    class_name: ''
+    name: M2
+    parameters:
+    - default_value:
+        model_ref: null
+        prefixed_value:
+          double_value: 0.18
+          prefix: 9
+      description: ''
+      name: L
+      properties: {}
+    - default_value:
+        model_ref: null
+        prefixed_value:
+          double_value: 0.5
+          prefix: 9
+      description: ''
+      name: W
+      properties: {}
+    properties:
+      model_name: nch
+  terminals:
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: in_
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: out
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: vdd
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: vss
+    properties: {}
+    width: 0
+directives: []
+ext_circuits:
+- class_name: ''
+  group_name: ''
+  kind: 0
+  library_name: ''
+  name: mosfet
+  parameters: []
+  properties:
+    spice_prefix: M
+  terminals:
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: d
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: g
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: s
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: b
+    properties: {}
+    width: 0
+- class_name: ''
+  group_name: ''
+  kind: 0
+  library_name: ''
+  name: nch
+  parameters:
+  - default_value:
+      model_ref: null
+      prefixed_value:
+        double_value: 49.0
+        prefix: 0
+    description: ''
+    name: level
+    properties: {}
+  - default_value:
+      model_ref: null
+      prefixed_value:
+        double_value: 9.0
+        prefix: 8
+    description: ''
+    name: tox
+    properties: {}
+  - default_value:
+      model_ref: null
+      prefixed_value:
+        double_value: 0.4
+        prefix: 0
+    description: ''
+    name: vth0
+    properties: {}
+  properties:
+    model_type: nmos
+  terminals: []
+- class_name: ''
+  group_name: ''
+  kind: 0
+  library_name: ''
+  name: pch
+  parameters:
+  - default_value:
+      model_ref: null
+      prefixed_value:
+        double_value: 49.0
+        prefix: 0
+    description: ''
+    name: level
+    properties: {}
+  - default_value:
+      model_ref: null
+      prefixed_value:
+        double_value: 9.0
+        prefix: 8
+    description: ''
+    name: tox
+    properties: {}
+  - default_value:
+      model_ref: null
+      prefixed_value:
+        double_value: -0.4
+        prefix: 0
+    description: ''
+    name: vth0
+    properties: {}
+  properties:
+    model_type: pmos
+  terminals: []
+libraries: {}
+name: ''
+properties: {}
+simulation: null
+top_circuit: cmos_inverter
