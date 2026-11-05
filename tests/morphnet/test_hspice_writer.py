@@ -1,7 +1,7 @@
 from kfnetlist.morphnet.morphnet_schema import (
     Netlist,
     Connection,
-    ExternalModule,
+    ExternalCircuit,
     Circuit,
     SubCircuit,
     Parameter,
@@ -36,7 +36,7 @@ def make_conn(
 
 class TestBasicOutput:
     def test_simple_circuit(self) -> None:
-        resistor = ExternalModule(
+        resistor = ExternalCircuit(
             name="resistor",
             ports=[make_port("p"), make_port("n")],
             properties={"spice_prefix": "R"},
@@ -69,7 +69,7 @@ class TestBasicOutput:
             name="test",
             top_circuit="test",
             circuits=[circ],
-            ext_modules=[resistor],
+            ext_circuits=[resistor],
         )
         output = write_hspice(netlist)
         assert "R1 a b 10k" in output

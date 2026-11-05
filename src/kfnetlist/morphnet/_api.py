@@ -11,7 +11,7 @@ from kfnetlist.morphnet.morphnet_schema._circuit import (
     Circuit,
     Connection,
     ExternalLibrary,
-    ExternalModule,
+    ExternalCircuit,
     ModelInterface,
     Parameter,
     ParameterValue,
@@ -26,7 +26,7 @@ from kfnetlist.morphnet.morphnet_schema._circuit import (
 __all__ = [
     "circuit",
     "connection",
-    "ext_module",
+    "ext_circuit",
     "external_library",
     "model_interface",
     "parameter",
@@ -111,7 +111,7 @@ def subcircuit(
     )
 
 
-def ext_module(
+def ext_circuit(
     name: str,
     *,
     class_name: str = "",
@@ -120,8 +120,8 @@ def ext_module(
     ports: list[Port] | None = None,
     parameters: list[_ParamSpec] | None = None,
     properties: dict[str, str] | None = None,
-) -> ExternalModule:
-    return ExternalModule(
+) -> ExternalCircuit:
+    return ExternalCircuit(
         name=name,
         class_name=class_name,
         library_name=library_name,

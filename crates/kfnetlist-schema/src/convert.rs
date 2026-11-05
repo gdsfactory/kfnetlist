@@ -1,4 +1,4 @@
-use super::{error, proto as p, Instance, Module, Result, TopLevelModule};
+use super::{error, proto as p, CircuitDocument, NetlistDocument, Result, SubCircuitDocument};
 use indexmap::IndexMap;
 use prost::Message;
 use serde::{de::DeserializeOwned, Serialize};
@@ -66,8 +66,8 @@ fn connection(name: String, source: &str, target: &str) -> p::Connection {
         ..Default::default()
     }
 }
-impl Instance {
-    fn to_proto_ref(&self, name: &str) -> Result<p::ModuleReference> {
+impl SubCircuitDocument {
+    fn to_proto_subcircuit(&self, name: &str) -> Result<p::SubCircuit> {
         let mut properties = Properties::new();
         put(&mut properties, "__array__", &self.array)?;
         put(&mut properties, "__info__", &self.info)?;
@@ -83,15 +83,15 @@ impl Instance {
             // Keep exact JSON types/integers alongside the numeric protobuf representation.
             put(&mut properties, &format!("__setting__{key}"), value)?;
         }
-        Ok(p::ModuleReference {
+        Ok(p::SubCircuit {
             name: name.into(),
-            module_name: self.component.clone(),
+            circuit_name: self.component.clone(),
             parameters,
             properties,
             ..Default::default()
         })
     }
-    fn from_proto_ref(r: &p::ModuleReference) -> Result<Self> {
+    fn from_proto_subcircuit(r: &p::SubCircuit) -> Result<Self> {
         let mut settings: Map<String, Value> = r
             .parameters
             .iter()
@@ -104,15 +104,15 @@ impl Instance {
             }
         }
         Ok(Self {
-            component: r.module_name.clone(),
+            component: r.circuit_name.clone(),
             settings,
             array: get(&r.properties, "__array__")?,
             info: get(&r.properties, "__info__")?,
         })
     }
 }
-impl Module {
-    fn to_proto_module(&self, name: &str) -> Result<p::Module> {
+impl CircuitDocument {
+    fn to_proto_circuit(&self, name: &str) -> Result<p::Circuit> {
         let mut properties = Properties::new();
         put(&mut properties, "__name__", &self.name)?;
         put(&mut properties, "__placements__", &self.placements)?;
@@ -130,10 +130,10 @@ impl Module {
                 ..Default::default()
             });
         }
-        let module_references = self
+        let subcircuits = self
             .instances
             .iter()
-            .map(|(name, i)| i.to_proto_ref(name))
+            .map(|(name, i)| i.to_proto_subcircuit(name))
             .collect::<Result<_>>()?;
         let terminals = self
             .ports
@@ -161,7 +161,7 @@ impl Module {
         let mut connections = Vec::new();
         for (i, (from, members)) in groups.enumerate() {
             // ponytail: document nets carry no names, so Netlist net names become the port
-            // name or net_<i>; add names to document::Module to keep them.
+            // name or net_<i>; add names to document::CircuitDocument to keep them.
             let port = members.iter().find(|m| !m.contains(','));
             let net = port.cloned().unwrap_or_else(|| format!("net_{i}"));
             let source = port
@@ -186,17 +186,17 @@ impl Module {
             put(&mut star[0].properties, "__members__", &members)?;
             connections.extend(star);
         }
-        Ok(p::Module {
+        Ok(p::Circuit {
             name: name.into(),
             terminals,
             parameters,
-            module_references,
+            subcircuits,
             connections,
             properties,
             ..Default::default()
         })
     }
-    fn read_named_nets(&mut self, pm: &p::Module) -> Result<()> {
+    fn read_named_nets(&mut self, pm: &p::Circuit) -> Result<()> {
         let terminals: HashSet<&str> = pm.terminals.iter().map(|t| t.name.as_str()).collect();
         let mut foreign: IndexMap<&str, Vec<String>> = IndexMap::new();
         for c in &pm.connections {
@@ -233,7 +233,7 @@ impl Module {
             .extend(foreign.into_values().filter(|m| !m.is_empty()));
         Ok(())
     }
-    fn from_proto_module(pm: &p::Module) -> Result<Self> {
+    fn from_proto_circuit(pm: &p::Circuit) -> Result<Self> {
         let mut settings = Map::new();
         for p in &pm.parameters {
             if let Some(v) = p.properties.get("__json_value__") {
@@ -253,9 +253,14 @@ impl Module {
             placements: get(&pm.properties, "__placements__")?,
             routes: get(&pm.properties, "__routes__")?,
             instances: pm
-                .module_references
+                .subcircuits
                 .iter()
-                .map(|r| Ok((r.name.clone(), Instance::from_proto_ref(r)?)))
+                .map(|r| {
+                    Ok((
+                        r.name.clone(),
+                        SubCircuitDocument::from_proto_subcircuit(r)?,
+                    ))
+                })
                 .collect::<Result<_>>()?,
             ..Default::default()
         };
@@ -298,37 +303,45 @@ impl Module {
         Ok(module)
     }
 }
-impl TopLevelModule {
-    pub fn to_proto_circuit(&self) -> Result<p::Circuit> {
-        Ok(p::Circuit {
+impl NetlistDocument {
+    pub fn to_proto_netlist(&self) -> Result<p::Netlist> {
+        Ok(p::Netlist {
             name: self.toplevel.clone().unwrap_or_default(),
-            top_module: self.toplevel.clone().unwrap_or_default(),
-            modules: self
+            top_circuit: self.toplevel.clone().unwrap_or_default(),
+            circuits: self
                 .modules
                 .iter()
-                .map(|(name, m)| m.to_proto_module(name))
+                .map(|(name, m)| m.to_proto_circuit(name))
                 .collect::<Result<_>>()?,
             ..Default::default()
         })
     }
-    pub fn from_proto_circuit(c: &p::Circuit) -> Result<Self> {
+    pub fn from_proto_netlist(c: &p::Netlist) -> Result<Self> {
         Ok(Self {
             modules: c
-                .modules
+                .circuits
                 .iter()
-                .map(|m| Ok((m.name.clone(), Module::from_proto_module(m)?)))
+                .map(|m| Ok((m.name.clone(), CircuitDocument::from_proto_circuit(m)?)))
                 .collect::<Result<_>>()?,
-            toplevel: if c.top_module.is_empty() {
+            toplevel: if c.top_circuit.is_empty() {
                 None
             } else {
-                Some(c.top_module.clone())
+                Some(c.top_circuit.clone())
             },
         })
     }
+    #[deprecated(note = "renamed to to_proto_netlist")]
+    pub fn to_proto_circuit(&self) -> Result<p::Netlist> {
+        self.to_proto_netlist()
+    }
+    #[deprecated(note = "renamed to from_proto_netlist")]
+    pub fn from_proto_circuit(c: &p::Netlist) -> Result<Self> {
+        Self::from_proto_netlist(c)
+    }
     pub fn to_proto(&self) -> Result<Vec<u8>> {
-        Ok(self.to_proto_circuit()?.encode_to_vec())
+        Ok(self.to_proto_netlist()?.encode_to_vec())
     }
     pub fn from_proto(data: &[u8]) -> Result<Self> {
-        Self::from_proto_circuit(&p::Circuit::decode(data).map_err(error)?)
+        Self::from_proto_netlist(&p::Netlist::decode(data).map_err(error)?)
     }
 }

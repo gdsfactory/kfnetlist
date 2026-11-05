@@ -48,13 +48,13 @@ class SIPrefix(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     SI_PREFIX_RONNA: _ClassVar[SIPrefix]
     SI_PREFIX_QUETTA: _ClassVar[SIPrefix]
 
-class ExternalModuleKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+class ExternalCircuitKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
-    EXTERNAL_MODULE_KIND_UNSPECIFIED: _ClassVar[ExternalModuleKind]
-    EXTERNAL_MODULE_KIND_DEVICE: _ClassVar[ExternalModuleKind]
-    EXTERNAL_MODULE_KIND_MODEL: _ClassVar[ExternalModuleKind]
-    EXTERNAL_MODULE_KIND_NATURE: _ClassVar[ExternalModuleKind]
-    EXTERNAL_MODULE_KIND_DISCIPLINE: _ClassVar[ExternalModuleKind]
+    EXTERNAL_CIRCUIT_KIND_UNSPECIFIED: _ClassVar[ExternalCircuitKind]
+    EXTERNAL_CIRCUIT_KIND_DEVICE: _ClassVar[ExternalCircuitKind]
+    EXTERNAL_CIRCUIT_KIND_MODEL: _ClassVar[ExternalCircuitKind]
+    EXTERNAL_CIRCUIT_KIND_NATURE: _ClassVar[ExternalCircuitKind]
+    EXTERNAL_CIRCUIT_KIND_DISCIPLINE: _ClassVar[ExternalCircuitKind]
 
 class DirectiveKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     __slots__ = ()
@@ -97,11 +97,11 @@ SI_PREFIX_ZETTA: SIPrefix
 SI_PREFIX_YOTTA: SIPrefix
 SI_PREFIX_RONNA: SIPrefix
 SI_PREFIX_QUETTA: SIPrefix
-EXTERNAL_MODULE_KIND_UNSPECIFIED: ExternalModuleKind
-EXTERNAL_MODULE_KIND_DEVICE: ExternalModuleKind
-EXTERNAL_MODULE_KIND_MODEL: ExternalModuleKind
-EXTERNAL_MODULE_KIND_NATURE: ExternalModuleKind
-EXTERNAL_MODULE_KIND_DISCIPLINE: ExternalModuleKind
+EXTERNAL_CIRCUIT_KIND_UNSPECIFIED: ExternalCircuitKind
+EXTERNAL_CIRCUIT_KIND_DEVICE: ExternalCircuitKind
+EXTERNAL_CIRCUIT_KIND_MODEL: ExternalCircuitKind
+EXTERNAL_CIRCUIT_KIND_NATURE: ExternalCircuitKind
+EXTERNAL_CIRCUIT_KIND_DISCIPLINE: ExternalCircuitKind
 DIRECTIVE_KIND_UNSPECIFIED: DirectiveKind
 DIRECTIVE_KIND_INCLUDE: DirectiveKind
 DIRECTIVE_KIND_LIB: DirectiveKind
@@ -265,8 +265,8 @@ class Bus(_message.Message):
     properties: _containers.ScalarMap[str, str]
     def __init__(self, name: _Optional[str] = ..., width: _Optional[int] = ..., domain: _Optional[_Union[SignalDomain, str]] = ..., connections: _Optional[_Iterable[_Union[Connection, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
-class ModuleReference(_message.Message):
-    __slots__ = ("name", "module_name", "class_name", "parameters", "properties")
+class SubCircuit(_message.Message):
+    __slots__ = ("name", "circuit_name", "class_name", "parameters", "properties")
     class PropertiesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -275,19 +275,19 @@ class ModuleReference(_message.Message):
         value: str
         def __init__(self, key: _Optional[str] = ..., value: _Optional[str] = ...) -> None: ...
     NAME_FIELD_NUMBER: _ClassVar[int]
-    MODULE_NAME_FIELD_NUMBER: _ClassVar[int]
+    CIRCUIT_NAME_FIELD_NUMBER: _ClassVar[int]
     CLASS_NAME_FIELD_NUMBER: _ClassVar[int]
     PARAMETERS_FIELD_NUMBER: _ClassVar[int]
     PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     name: str
-    module_name: str
+    circuit_name: str
     class_name: str
     parameters: _containers.RepeatedCompositeFieldContainer[Parameter]
     properties: _containers.ScalarMap[str, str]
-    def __init__(self, name: _Optional[str] = ..., module_name: _Optional[str] = ..., class_name: _Optional[str] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., circuit_name: _Optional[str] = ..., class_name: _Optional[str] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
-class Module(_message.Message):
-    __slots__ = ("name", "class_name", "terminals", "parameters", "model_interfaces", "module_references", "connections", "buses", "properties", "directives")
+class Circuit(_message.Message):
+    __slots__ = ("name", "class_name", "terminals", "parameters", "model_interfaces", "subcircuits", "connections", "buses", "properties", "directives")
     class PropertiesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -300,7 +300,7 @@ class Module(_message.Message):
     TERMINALS_FIELD_NUMBER: _ClassVar[int]
     PARAMETERS_FIELD_NUMBER: _ClassVar[int]
     MODEL_INTERFACES_FIELD_NUMBER: _ClassVar[int]
-    MODULE_REFERENCES_FIELD_NUMBER: _ClassVar[int]
+    SUBCIRCUITS_FIELD_NUMBER: _ClassVar[int]
     CONNECTIONS_FIELD_NUMBER: _ClassVar[int]
     BUSES_FIELD_NUMBER: _ClassVar[int]
     PROPERTIES_FIELD_NUMBER: _ClassVar[int]
@@ -310,14 +310,14 @@ class Module(_message.Message):
     terminals: _containers.RepeatedCompositeFieldContainer[Terminal]
     parameters: _containers.RepeatedCompositeFieldContainer[Parameter]
     model_interfaces: _containers.RepeatedCompositeFieldContainer[ModelInterface]
-    module_references: _containers.RepeatedCompositeFieldContainer[ModuleReference]
+    subcircuits: _containers.RepeatedCompositeFieldContainer[SubCircuit]
     connections: _containers.RepeatedCompositeFieldContainer[Connection]
     buses: _containers.RepeatedCompositeFieldContainer[Bus]
     properties: _containers.ScalarMap[str, str]
     directives: _containers.RepeatedCompositeFieldContainer[Directive]
-    def __init__(self, name: _Optional[str] = ..., class_name: _Optional[str] = ..., terminals: _Optional[_Iterable[_Union[Terminal, _Mapping]]] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping]]] = ..., model_interfaces: _Optional[_Iterable[_Union[ModelInterface, _Mapping]]] = ..., module_references: _Optional[_Iterable[_Union[ModuleReference, _Mapping]]] = ..., connections: _Optional[_Iterable[_Union[Connection, _Mapping]]] = ..., buses: _Optional[_Iterable[_Union[Bus, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ..., directives: _Optional[_Iterable[_Union[Directive, _Mapping]]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., class_name: _Optional[str] = ..., terminals: _Optional[_Iterable[_Union[Terminal, _Mapping]]] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping]]] = ..., model_interfaces: _Optional[_Iterable[_Union[ModelInterface, _Mapping]]] = ..., subcircuits: _Optional[_Iterable[_Union[SubCircuit, _Mapping]]] = ..., connections: _Optional[_Iterable[_Union[Connection, _Mapping]]] = ..., buses: _Optional[_Iterable[_Union[Bus, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ..., directives: _Optional[_Iterable[_Union[Directive, _Mapping]]] = ...) -> None: ...
 
-class ExternalModule(_message.Message):
+class ExternalCircuit(_message.Message):
     __slots__ = ("name", "class_name", "library_name", "group_name", "terminals", "parameters", "properties", "kind")
     class PropertiesEntry(_message.Message):
         __slots__ = ("key", "value")
@@ -341,8 +341,8 @@ class ExternalModule(_message.Message):
     terminals: _containers.RepeatedCompositeFieldContainer[Terminal]
     parameters: _containers.RepeatedCompositeFieldContainer[Parameter]
     properties: _containers.ScalarMap[str, str]
-    kind: ExternalModuleKind
-    def __init__(self, name: _Optional[str] = ..., class_name: _Optional[str] = ..., library_name: _Optional[str] = ..., group_name: _Optional[str] = ..., terminals: _Optional[_Iterable[_Union[Terminal, _Mapping]]] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ..., kind: _Optional[_Union[ExternalModuleKind, str]] = ...) -> None: ...
+    kind: ExternalCircuitKind
+    def __init__(self, name: _Optional[str] = ..., class_name: _Optional[str] = ..., library_name: _Optional[str] = ..., group_name: _Optional[str] = ..., terminals: _Optional[_Iterable[_Union[Terminal, _Mapping]]] = ..., parameters: _Optional[_Iterable[_Union[Parameter, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ..., kind: _Optional[_Union[ExternalCircuitKind, str]] = ...) -> None: ...
 
 class ExternalLibrary(_message.Message):
     __slots__ = ("path", "model_type", "external_model_names")
@@ -354,8 +354,8 @@ class ExternalLibrary(_message.Message):
     external_model_names: _containers.RepeatedScalarFieldContainer[str]
     def __init__(self, path: _Optional[str] = ..., model_type: _Optional[str] = ..., external_model_names: _Optional[_Iterable[str]] = ...) -> None: ...
 
-class Circuit(_message.Message):
-    __slots__ = ("name", "top_module", "modules", "ext_modules", "properties", "directives", "simulation", "libraries")
+class Netlist(_message.Message):
+    __slots__ = ("name", "top_circuit", "circuits", "ext_circuits", "properties", "directives", "simulation", "libraries")
     class PropertiesEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -371,22 +371,22 @@ class Circuit(_message.Message):
         value: ExternalLibrary
         def __init__(self, key: _Optional[str] = ..., value: _Optional[_Union[ExternalLibrary, _Mapping]] = ...) -> None: ...
     NAME_FIELD_NUMBER: _ClassVar[int]
-    TOP_MODULE_FIELD_NUMBER: _ClassVar[int]
-    MODULES_FIELD_NUMBER: _ClassVar[int]
-    EXT_MODULES_FIELD_NUMBER: _ClassVar[int]
+    TOP_CIRCUIT_FIELD_NUMBER: _ClassVar[int]
+    CIRCUITS_FIELD_NUMBER: _ClassVar[int]
+    EXT_CIRCUITS_FIELD_NUMBER: _ClassVar[int]
     PROPERTIES_FIELD_NUMBER: _ClassVar[int]
     DIRECTIVES_FIELD_NUMBER: _ClassVar[int]
     SIMULATION_FIELD_NUMBER: _ClassVar[int]
     LIBRARIES_FIELD_NUMBER: _ClassVar[int]
     name: str
-    top_module: str
-    modules: _containers.RepeatedCompositeFieldContainer[Module]
-    ext_modules: _containers.RepeatedCompositeFieldContainer[ExternalModule]
+    top_circuit: str
+    circuits: _containers.RepeatedCompositeFieldContainer[Circuit]
+    ext_circuits: _containers.RepeatedCompositeFieldContainer[ExternalCircuit]
     properties: _containers.ScalarMap[str, str]
     directives: _containers.RepeatedCompositeFieldContainer[Directive]
     simulation: _simulation_pb2.Simulation
     libraries: _containers.MessageMap[str, ExternalLibrary]
-    def __init__(self, name: _Optional[str] = ..., top_module: _Optional[str] = ..., modules: _Optional[_Iterable[_Union[Module, _Mapping]]] = ..., ext_modules: _Optional[_Iterable[_Union[ExternalModule, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ..., directives: _Optional[_Iterable[_Union[Directive, _Mapping]]] = ..., simulation: _Optional[_Union[_simulation_pb2.Simulation, _Mapping]] = ..., libraries: _Optional[_Mapping[str, ExternalLibrary]] = ...) -> None: ...
+    def __init__(self, name: _Optional[str] = ..., top_circuit: _Optional[str] = ..., circuits: _Optional[_Iterable[_Union[Circuit, _Mapping]]] = ..., ext_circuits: _Optional[_Iterable[_Union[ExternalCircuit, _Mapping]]] = ..., properties: _Optional[_Mapping[str, str]] = ..., directives: _Optional[_Iterable[_Union[Directive, _Mapping]]] = ..., simulation: _Optional[_Union[_simulation_pb2.Simulation, _Mapping]] = ..., libraries: _Optional[_Mapping[str, ExternalLibrary]] = ...) -> None: ...
 
 class CircuitReference(_message.Message):
     __slots__ = ("circuit_name", "properties")

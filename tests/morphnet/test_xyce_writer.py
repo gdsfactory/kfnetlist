@@ -1,7 +1,7 @@
 from kfnetlist.morphnet.morphnet_schema import (
     Netlist,
     Connection,
-    ExternalModule,
+    ExternalCircuit,
     Circuit,
     SubCircuit,
     Parameter,
@@ -43,7 +43,7 @@ def make_conn(
 class TestXyceFormat:
     def test_basic_output(self) -> None:
         """Xyce output matches SPICE format."""
-        resistor = ExternalModule(
+        resistor = ExternalCircuit(
             name="resistor",
             ports=[make_port("p"), make_port("n")],
             properties={"spice_prefix": "R"},
@@ -72,7 +72,7 @@ class TestXyceFormat:
             name="test",
             top_circuit="test",
             circuits=[circ],
-            ext_modules=[resistor],
+            ext_circuits=[resistor],
         )
         output = write_xyce(netlist)
         assert ".subckt test a b" in output

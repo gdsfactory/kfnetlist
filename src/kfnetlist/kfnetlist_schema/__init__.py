@@ -15,16 +15,16 @@ from .models import (
     TerminalReference,
     Connection,
     Bus,
-    ExternalModule,
-    # Proto-backed module/circuit models
-    ProtoModuleReference,
-    ProtoModule,
+    ExternalCircuit,
+    # Proto-backed hierarchy: Netlist → Circuit → SubCircuit
+    ProtoNetlist,
     ProtoCircuit,
-    # YAML-level models
+    ProtoSubCircuit,
+    # YAML-level (PIC document) models
     ArraySpec,
-    Instance,
-    Module,
-    TopLevelModule,
+    NetlistDocument,
+    CircuitDocument,
+    SubCircuitDocument,
     # Rust-native type aliases
     Net,
     Netlist,
@@ -36,6 +36,7 @@ from .models import (
     ModuleNetlist,
     InstanceRef,
 )
+from .models import __getattr__ as __getattr__  # deprecated pre-rename names
 
 __all__ = [
     # Enums
@@ -52,16 +53,16 @@ __all__ = [
     "TerminalReference",
     "Connection",
     "Bus",
-    "ExternalModule",
-    # Proto-backed module/circuit models
-    "ProtoModuleReference",
-    "ProtoModule",
+    "ExternalCircuit",
+    # Proto-backed hierarchy: Netlist → Circuit → SubCircuit
+    "ProtoNetlist",
     "ProtoCircuit",
-    # YAML-level models
+    "ProtoSubCircuit",
+    # YAML-level (PIC document) models
     "ArraySpec",
-    "Instance",
-    "Module",
-    "TopLevelModule",
+    "NetlistDocument",
+    "CircuitDocument",
+    "SubCircuitDocument",
     # Rust-native type aliases
     "Net",
     "Netlist",

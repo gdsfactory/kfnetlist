@@ -26,7 +26,7 @@
 #
 # - Each delay arm now sits *between* the couplers (`inp`, then `out`); the
 #   original wired the arm input and the next coupler to the same net.
-# - The external modules declare their ports.
+# - The external circuits declare their ports.
 # - Nets that reach a circuit terminal are named after it.
 # - Instance names start with `X`, SPICE's prefix for subcircuit calls, so the
 #   SPICE export is valid.
@@ -92,13 +92,13 @@ ckt.add_library(
     ),
 )
 ckt.add_ext(
-    morphnet.ext_module(
+    morphnet.ext_circuit(
         "wg_directional_coupler",
         class_name="dc",
         library_name="photonic_pdk",
         ports=[morphnet.port(p, domain=WG) for p in ("i1", "i2", "o1", "o2")],
     ),
-    morphnet.ext_module(
+    morphnet.ext_circuit(
         "wg_delay",
         class_name="delay_line",
         library_name="photonic_pdk",
@@ -138,11 +138,11 @@ print("instances:", flat.instance_names())
 # ## And back out, in any format
 #
 # `from_netlists` turns the flat `kfnetlist.Netlist` back into a morphnet `Netlist`. The
-# external modules are declared again so the positional formats keep the pin order.
+# external circuits are declared again so the positional formats keep the pin order.
 
 # %%
 flat_ckt = morphnet.from_netlists({"mzi_flat": flat}, "mzi_flat")
-flat_ckt.add_ext(*ckt.ext_modules)
+flat_ckt.add_ext(*ckt.ext_circuits)
 print(write_vams(flat_ckt))
 print(write_spectre(flat_ckt))
 print(write_spice(flat_ckt))

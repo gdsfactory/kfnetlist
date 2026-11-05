@@ -4,7 +4,7 @@ from __future__ import annotations
 from enum import IntEnum
 from typing import ClassVar
 
-from pydantic import Field, model_validator
+from pydantic import AliasChoices, Field, model_validator
 
 from kfnetlist.morphnet.morphnet_schema import circuit_pb2 as pb
 from kfnetlist.morphnet.morphnet_schema._base import ProtoModel
@@ -17,8 +17,8 @@ __all__ = [
     "Directive",
     "DirectiveKind",
     "ExternalLibrary",
-    "ExternalModule",
-    "ExternalModuleKind",
+    "ExternalCircuit",
+    "ExternalCircuitKind",
     "ModelInterface",
     "ModelReference",
     "Netlist",
@@ -79,7 +79,7 @@ class SIPrefix(IntEnum):
     QUETTA = 24
 
 
-class ExternalModuleKind(IntEnum):
+class ExternalCircuitKind(IntEnum):
     UNSPECIFIED = 0
     DEVICE = 1
     MODEL = 2
@@ -214,35 +214,39 @@ class Bus(ProtoModel):
 
 
 # ======================================================================
-# Circuit hierarchy: Netlist → Circuit (definition) → SubCircuit (instance)
-# Python names differ from the kfnetlist schema (circuit.proto) names; the
-# aliases are the schema names, used for protobuf, JSON and YAML.
+# Circuit hierarchy: Netlist → Circuit (definition) → SubCircuit (instance),
+# the same names as the kfnetlist schema (circuit.proto). Pre-rename keys
+# (modules, top_module, ext_modules, module_references, module_name) still load.
 # ======================================================================
 
 
 class SubCircuit(ProtoModel):
-    """An instance of a circuit (schema message ``ModuleReference``)."""
+    """An instance of a circuit or external circuit."""
 
-    _proto_type: ClassVar[type] = pb.ModuleReference
+    _proto_type: ClassVar[type] = pb.SubCircuit
 
     name: str = ""
-    circuit_name: str = Field(default="", alias="module_name")
+    circuit_name: str = Field(
+        default="", validation_alias=AliasChoices("circuit_name", "module_name")
+    )
     class_name: str = ""
     parameters: list[Parameter] = []
     properties: dict[str, str] = {}
 
 
 class Circuit(ProtoModel):
-    """A circuit definition (schema message ``Module``)."""
+    """A circuit definition: ports, parameters, subcircuit instances, connections."""
 
-    _proto_type: ClassVar[type] = pb.Module
+    _proto_type: ClassVar[type] = pb.Circuit
 
     name: str = ""
     class_name: str = ""
     ports: list[Port] = Field(default=[], alias="terminals")
     parameters: list[Parameter] = []
     model_interfaces: list[ModelInterface] = []
-    subcircuits: list[SubCircuit] = Field(default=[], alias="module_references")
+    subcircuits: list[SubCircuit] = Field(
+        default=[], validation_alias=AliasChoices("subcircuits", "module_references")
+    )
     connections: list[Connection] = []
     buses: list[Bus] = []
     properties: dict[str, str] = {}
@@ -306,8 +310,10 @@ class Circuit(ProtoModel):
         return self
 
 
-class ExternalModule(ProtoModel):
-    _proto_type: ClassVar[type] = pb.ExternalModule
+class ExternalCircuit(ProtoModel):
+    """A body-less circuit definition provided externally (device, model, PDK cell)."""
+
+    _proto_type: ClassVar[type] = pb.ExternalCircuit
 
     name: str = ""
     class_name: str = ""
@@ -316,7 +322,7 @@ class ExternalModule(ProtoModel):
     ports: list[Port] = Field(default=[], alias="terminals")
     parameters: list[Parameter] = []
     properties: dict[str, str] = {}
-    kind: ExternalModuleKind = ExternalModuleKind.UNSPECIFIED
+    kind: ExternalCircuitKind = ExternalCircuitKind.UNSPECIFIED
 
 
 # ======================================================================
@@ -338,14 +344,20 @@ class ExternalLibrary(ProtoModel):
 
 
 class Netlist(ProtoModel):
-    """The top-level container (schema message ``Circuit``)."""
+    """The top-level container: circuit definitions, external circuits, simulation."""
 
-    _proto_type: ClassVar[type] = pb.Circuit
+    _proto_type: ClassVar[type] = pb.Netlist
 
     name: str = ""
-    top_circuit: str = Field(default="", alias="top_module")
-    circuits: list[Circuit] = Field(default=[], alias="modules")
-    ext_modules: list[ExternalModule] = []
+    top_circuit: str = Field(
+        default="", validation_alias=AliasChoices("top_circuit", "top_module")
+    )
+    circuits: list[Circuit] = Field(
+        default=[], validation_alias=AliasChoices("circuits", "modules")
+    )
+    ext_circuits: list[ExternalCircuit] = Field(
+        default=[], validation_alias=AliasChoices("ext_circuits", "ext_modules")
+    )
     properties: dict[str, str] = {}
     directives: list[Directive] = []
     simulation: Simulation | None = None
@@ -357,8 +369,8 @@ class Netlist(ProtoModel):
             self.top_circuit = circuits[0].name
         return self
 
-    def add_ext(self, *ext: ExternalModule) -> "Netlist":
-        self.ext_modules.extend(ext)
+    def add_ext(self, *ext: ExternalCircuit) -> "Netlist":
+        self.ext_circuits.extend(ext)
         return self
 
     def add_library(self, name: str, lib: ExternalLibrary) -> "Netlist":

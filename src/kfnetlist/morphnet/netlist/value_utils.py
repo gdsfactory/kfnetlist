@@ -43,7 +43,7 @@ DEVICE_PORT_TEMPLATES: dict[str, list[str]] = {
     "I": ["p", "n"],
 }
 
-DEVICE_PREFIX_TO_MODULE: dict[str, str] = {
+DEVICE_PREFIX_TO_CIRCUIT: dict[str, str] = {
     "R": "resistor",
     "C": "capacitor",
     "L": "inductor",
@@ -53,6 +53,9 @@ DEVICE_PREFIX_TO_MODULE: dict[str, str] = {
     "V": "vsource",
     "I": "isource",
 }
+
+# Deprecated name, kept for code written before the ExternalCircuit rename.
+DEVICE_PREFIX_TO_MODULE = DEVICE_PREFIX_TO_CIRCUIT
 
 # Regex: optional sign, digits with optional decimal, optional SI suffix
 SI_NUMBER_RE: re.Pattern[str] = re.compile(

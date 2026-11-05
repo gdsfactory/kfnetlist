@@ -6,7 +6,7 @@ from pathlib import Path
 import pytest
 
 from kfnetlist import Netlist, NetlistPort, PortRef, morphnet
-from kfnetlist.kfnetlist_schema import ProtoCircuit
+from kfnetlist.kfnetlist_schema import ProtoNetlist
 from kfnetlist.morphnet.morphnet_schema import circuit_pb2 as pb
 from kfnetlist.morphnet.netlist import (
     parse_spectre,
@@ -115,10 +115,10 @@ def _schema_netlists() -> list[morphnet.Netlist]:
 
 @pytest.mark.parametrize("netlist", _schema_netlists())
 def test_json_matches_the_kfnetlist_schema(netlist):
-    assert ProtoCircuit.from_json(netlist.to_json()) == ProtoCircuit.from_proto(
+    assert ProtoNetlist.from_json(netlist.to_json()) == ProtoNetlist.from_proto(
         netlist.to_proto_bytes()
     )
-    _assert_schema_keys(json.loads(netlist.to_json()), pb.Circuit.DESCRIPTOR)
+    _assert_schema_keys(json.loads(netlist.to_json()), pb.Netlist.DESCRIPTOR)
 
 
 @pytest.mark.parametrize(
@@ -130,8 +130,28 @@ def test_json_matches_the_kfnetlist_schema(netlist):
         ("module_reference", "subcircuit"),
         ("circuit_from_netlists", "from_netlists"),
         ("circuit_to_netlists", "to_netlists"),
+        ("ExternalModule", "ExternalCircuit"),
+        ("ExternalModuleKind", "ExternalCircuitKind"),
+        ("ext_module", "ext_circuit"),
     ],
 )
 def test_pre_rename_names_warn(old, new):
     with pytest.warns(DeprecationWarning, match=f"use {new}"):
         assert getattr(morphnet, old) is getattr(morphnet, new)
+
+
+def test_pre_rename_yaml_keys_still_load():
+    old = """\
+top_module: rc
+modules:
+- name: rc
+  module_references:
+  - name: R1
+    module_name: resistor
+ext_modules:
+- name: resistor
+"""
+    netlist = morphnet.Netlist.from_yaml(old)
+    assert netlist.top_circuit == "rc"
+    assert netlist.circuits[0].subcircuits[0].circuit_name == "resistor"
+    assert netlist.ext_circuits[0].name == "resistor"

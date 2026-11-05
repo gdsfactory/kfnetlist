@@ -2,7 +2,7 @@ from kfnetlist.morphnet._bridge import from_netlists, to_netlists
 from kfnetlist.morphnet._api import (
     circuit,
     connection,
-    ext_module,
+    ext_circuit,
     external_library,
     model_interface,
     parameter,
@@ -18,8 +18,8 @@ from kfnetlist.morphnet.morphnet_schema import (
     Directive,
     DirectiveKind,
     ExternalLibrary,
-    ExternalModule,
-    ExternalModuleKind,
+    ExternalCircuit,
+    ExternalCircuitKind,
     InitialCondition,
     Measurement,
     ModelInterface,
@@ -46,7 +46,7 @@ __all__ = [
     # Factory functions
     "circuit",
     "connection",
-    "ext_module",
+    "ext_circuit",
     "external_library",
     "model_interface",
     "parameter",
@@ -61,8 +61,8 @@ __all__ = [
     "Directive",
     "DirectiveKind",
     "ExternalLibrary",
-    "ExternalModule",
-    "ExternalModuleKind",
+    "ExternalCircuit",
+    "ExternalCircuitKind",
     "InitialCondition",
     "Measurement",
     "ModelInterface",
@@ -91,6 +91,9 @@ _DEPRECATED = {
     "module_reference": "subcircuit",
     "circuit_from_netlists": "from_netlists",
     "circuit_to_netlists": "to_netlists",
+    "ExternalModule": "ExternalCircuit",
+    "ExternalModuleKind": "ExternalCircuitKind",
+    "ext_module": "ext_circuit",
 }
 
 

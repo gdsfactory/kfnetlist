@@ -4,8 +4,8 @@ from kfnetlist.morphnet.morphnet_schema import (
     Netlist,
     Directive,
     DirectiveKind,
-    ExternalModule,
-    ExternalModuleKind,
+    ExternalCircuit,
+    ExternalCircuitKind,
     Circuit,
     SubCircuit,
 )
@@ -19,17 +19,17 @@ class VamsWriter:
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
 
-        ext_by_name: dict[str, ExternalModule] = {
-            e.name: e for e in netlist.ext_modules
+        ext_by_name: dict[str, ExternalCircuit] = {
+            e.name: e for e in netlist.ext_circuits
         }
         circuit_by_name: dict[str, Circuit] = {m.name: m for m in netlist.circuits}
 
         self.write_directives(netlist.directives, lines)
 
-        for ext in netlist.ext_modules:
-            if ext.kind == ExternalModuleKind.NATURE:
+        for ext in netlist.ext_circuits:
+            if ext.kind == ExternalCircuitKind.NATURE:
                 self.write_nature(ext, lines)
-            elif ext.kind == ExternalModuleKind.DISCIPLINE:
+            elif ext.kind == ExternalCircuitKind.DISCIPLINE:
                 self.write_discipline(ext, lines)
 
         for circuit in netlist.circuits:
@@ -48,7 +48,7 @@ class VamsWriter:
             elif d.kind == DirectiveKind.TIMESCALE:
                 lines.append(f"`timescale {d.value}")
 
-    def write_nature(self, ext: ExternalModule, lines: list[str]) -> None:
+    def write_nature(self, ext: ExternalCircuit, lines: list[str]) -> None:
         lines.append(f"nature {ext.name};")
         for key, val in ext.properties.items():
             if key.startswith("nature_"):
@@ -56,7 +56,7 @@ class VamsWriter:
                 lines.append(f"  {attr} = {val};")
         lines.append("endnature")
 
-    def write_discipline(self, ext: ExternalModule, lines: list[str]) -> None:
+    def write_discipline(self, ext: ExternalCircuit, lines: list[str]) -> None:
         lines.append(f"discipline {ext.name};")
         domain = ext.properties.get("discipline_domain")
         if domain:
@@ -70,7 +70,7 @@ class VamsWriter:
     def write_module(
         self,
         circuit: Circuit,
-        ext_by_name: dict[str, ExternalModule],
+        ext_by_name: dict[str, ExternalCircuit],
         circuit_by_name: dict[str, Circuit],
         lines: list[str],
     ) -> None:
@@ -121,7 +121,7 @@ class VamsWriter:
         self,
         ref: SubCircuit,
         inst_nets: dict[tuple[str, str], str],
-        ext_by_name: dict[str, ExternalModule],
+        ext_by_name: dict[str, ExternalCircuit],
         circuit_by_name: dict[str, Circuit],
     ) -> str:
         params_str = ""
@@ -134,11 +134,11 @@ class VamsWriter:
             params_str = f" #({', '.join(param_parts)})"
 
         ref_circuit = circuit_by_name.get(ref.circuit_name)
-        ext_mod = ext_by_name.get(ref.circuit_name)
+        ext_circuit = ext_by_name.get(ref.circuit_name)
         if ref_circuit is not None:
             port_order = [p.name for p in ref_circuit.ports]
-        elif ext_mod is not None:
-            port_order = [p.name for p in ext_mod.ports]
+        elif ext_circuit is not None:
+            port_order = [p.name for p in ext_circuit.ports]
         else:
             port_order = self.infer_port_order(ref, inst_nets)
 

@@ -86,7 +86,7 @@ C1 b c 100p
 
         assert circuit1.top_circuit == circuit2.top_circuit
         assert len(circuit1.circuits) == len(circuit2.circuits)
-        assert len(circuit1.ext_modules) == len(circuit2.ext_modules)
+        assert len(circuit1.ext_circuits) == len(circuit2.ext_circuits)
 
         for m1, m2 in zip(circuit1.circuits, circuit2.circuits):
             assert m1.name == m2.name

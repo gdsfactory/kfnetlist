@@ -1,5 +1,164 @@
+circuits:
+- buses: []
+  class_name: ''
+  connections:
+  - domain: 0
+    name: in_
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: in_
+    target:
+      instance_name: M1
+      terminal_name: g
+    weight: 0
+  - domain: 0
+    name: in_
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: in_
+    target:
+      instance_name: M2
+      terminal_name: g
+    weight: 0
+  - domain: 0
+    name: out
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: out
+    target:
+      instance_name: M1
+      terminal_name: d
+    weight: 0
+  - domain: 0
+    name: out
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: out
+    target:
+      instance_name: M2
+      terminal_name: d
+    weight: 0
+  - domain: 0
+    name: vdd
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: vdd
+    target:
+      instance_name: M1
+      terminal_name: s
+    weight: 0
+  - domain: 0
+    name: vdd
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: vdd
+    target:
+      instance_name: M1
+      terminal_name: b
+    weight: 0
+  - domain: 0
+    name: vss
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: vss
+    target:
+      instance_name: M2
+      terminal_name: s
+    weight: 0
+  - domain: 0
+    name: vss
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: vss
+    target:
+      instance_name: M2
+      terminal_name: b
+    weight: 0
+  directives: []
+  model_interfaces: []
+  name: cmos_inverter
+  parameters: []
+  properties: {}
+  subcircuits:
+  - circuit_name: mosfet
+    class_name: ''
+    name: M1
+    parameters:
+    - default_value:
+        model_ref: null
+        prefixed_value:
+          double_value: 0.18
+          prefix: 9
+      description: ''
+      name: L
+      properties: {}
+    - default_value:
+        model_ref: null
+        prefixed_value:
+          double_value: 1.0
+          prefix: 9
+      description: ''
+      name: W
+      properties: {}
+    properties:
+      model_name: pch
+  - circuit_name: mosfet
+    class_name: ''
+    name: M2
+    parameters:
+    - default_value:
+        model_ref: null
+        prefixed_value:
+          double_value: 0.18
+          prefix: 9
+      description: ''
+      name: L
+      properties: {}
+    - default_value:
+        model_ref: null
+        prefixed_value:
+          double_value: 0.5
+          prefix: 9
+      description: ''
+      name: W
+      properties: {}
+    properties:
+      model_name: nch
+  terminals:
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: in_
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: out
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: vdd
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: vss
+    properties: {}
+    width: 0
 directives: []
-ext_modules:
+ext_circuits:
 - class_name: ''
   group_name: ''
   kind: 0
@@ -100,166 +259,7 @@ ext_modules:
     model_type: pmos
   terminals: []
 libraries: {}
-modules:
-- buses: []
-  class_name: ''
-  connections:
-  - domain: 0
-    name: in_
-    properties: {}
-    source:
-      instance_name: ''
-      terminal_name: in_
-    target:
-      instance_name: M1
-      terminal_name: g
-    weight: 0
-  - domain: 0
-    name: in_
-    properties: {}
-    source:
-      instance_name: ''
-      terminal_name: in_
-    target:
-      instance_name: M2
-      terminal_name: g
-    weight: 0
-  - domain: 0
-    name: out
-    properties: {}
-    source:
-      instance_name: ''
-      terminal_name: out
-    target:
-      instance_name: M1
-      terminal_name: d
-    weight: 0
-  - domain: 0
-    name: out
-    properties: {}
-    source:
-      instance_name: ''
-      terminal_name: out
-    target:
-      instance_name: M2
-      terminal_name: d
-    weight: 0
-  - domain: 0
-    name: vdd
-    properties: {}
-    source:
-      instance_name: ''
-      terminal_name: vdd
-    target:
-      instance_name: M1
-      terminal_name: s
-    weight: 0
-  - domain: 0
-    name: vdd
-    properties: {}
-    source:
-      instance_name: ''
-      terminal_name: vdd
-    target:
-      instance_name: M1
-      terminal_name: b
-    weight: 0
-  - domain: 0
-    name: vss
-    properties: {}
-    source:
-      instance_name: ''
-      terminal_name: vss
-    target:
-      instance_name: M2
-      terminal_name: s
-    weight: 0
-  - domain: 0
-    name: vss
-    properties: {}
-    source:
-      instance_name: ''
-      terminal_name: vss
-    target:
-      instance_name: M2
-      terminal_name: b
-    weight: 0
-  directives: []
-  model_interfaces: []
-  module_references:
-  - class_name: ''
-    module_name: mosfet
-    name: M1
-    parameters:
-    - default_value:
-        model_ref: null
-        prefixed_value:
-          double_value: 0.18
-          prefix: 9
-      description: ''
-      name: L
-      properties: {}
-    - default_value:
-        model_ref: null
-        prefixed_value:
-          double_value: 1.0
-          prefix: 9
-      description: ''
-      name: W
-      properties: {}
-    properties:
-      model_name: pch
-  - class_name: ''
-    module_name: mosfet
-    name: M2
-    parameters:
-    - default_value:
-        model_ref: null
-        prefixed_value:
-          double_value: 0.18
-          prefix: 9
-      description: ''
-      name: L
-      properties: {}
-    - default_value:
-        model_ref: null
-        prefixed_value:
-          double_value: 0.5
-          prefix: 9
-      description: ''
-      name: W
-      properties: {}
-    properties:
-      model_name: nch
-  name: cmos_inverter
-  parameters: []
-  properties: {}
-  terminals:
-  - direction: 0
-    discipline: ''
-    domain: 1
-    name: in_
-    properties: {}
-    width: 0
-  - direction: 0
-    discipline: ''
-    domain: 1
-    name: out
-    properties: {}
-    width: 0
-  - direction: 0
-    discipline: ''
-    domain: 1
-    name: vdd
-    properties: {}
-    width: 0
-  - direction: 0
-    discipline: ''
-    domain: 1
-    name: vss
-    properties: {}
-    width: 0
 name: ''
 properties: {}
 simulation: null
-top_module: cmos_inverter
+top_circuit: cmos_inverter

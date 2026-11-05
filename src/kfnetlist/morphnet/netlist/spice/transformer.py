@@ -10,7 +10,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Connection,
     Directive,
     DirectiveKind,
-    ExternalModule,
+    ExternalCircuit,
     InitialCondition,
     Measurement,
     Circuit,
@@ -40,7 +40,7 @@ from kfnetlist.morphnet.netlist.simulation_data import (
 )
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PORT_TEMPLATES,
-    DEVICE_PREFIX_TO_MODULE,
+    DEVICE_PREFIX_TO_CIRCUIT,
     is_si_number,
     parse_parameter_number,
     parse_si_number,
@@ -104,15 +104,15 @@ class ModelData:
 class SubcktData:
     """Intermediate representation of a fully parsed subcircuit."""
 
-    __slots__ = ("ext_modules", "circuit")
+    __slots__ = ("ext_circuits", "circuit")
 
     def __init__(
         self,
         circuit: Circuit,
-        ext_modules: dict[str, ExternalModule],
+        ext_circuits: dict[str, ExternalCircuit],
     ) -> None:
         self.circuit = circuit
-        self.ext_modules = ext_modules
+        self.ext_circuits = ext_circuits
 
 
 class IncludeData:
@@ -536,7 +536,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
         """
         instances: list[InstanceData] = []
         nested_subckts: dict[str, Circuit] = {}
-        ext_modules: dict[str, ExternalModule] = {}
+        ext_circuits: dict[str, ExternalCircuit] = {}
         model_defs: dict[str, ModelData] = {}
         circuit_params: list[Parameter] = []
         directives: list[Directive] = []
@@ -547,7 +547,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
                 instances.append(item)
             elif isinstance(item, SubcktData):
                 nested_subckts[item.circuit.name] = item.circuit
-                ext_modules.update(item.ext_modules)
+                ext_circuits.update(item.ext_circuits)
             elif isinstance(item, ModelData):
                 model_defs[item.name] = item
             elif isinstance(item, ParamData):
@@ -619,15 +619,15 @@ class SpiceTransformer(Transformer[Token, Netlist]):
                 )
             elif port_template is not None:
                 # Primitive device instance
-                module_name = DEVICE_PREFIX_TO_MODULE.get(
+                module_name = DEVICE_PREFIX_TO_CIRCUIT.get(
                     device_prefix, device_prefix.lower()
                 )
 
                 for net_name, port_name in zip(inst.net_names, port_template):
                     add_port_to_net(net_map, net_name, inst.name, port_name)
 
-                # Build ExternalModule if not yet seen — O(1) amortized
-                if module_name not in ext_modules:
+                # Build ExternalCircuit if not yet seen — O(1) amortized
+                if module_name not in ext_circuits:
                     ext_ports = [
                         Port(
                             name=pn,
@@ -636,7 +636,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
                         )
                         for pn in port_template
                     ]
-                    ext_modules[module_name] = ExternalModule(
+                    ext_circuits[module_name] = ExternalCircuit(
                         name=module_name,
                         ports=ext_ports,
                         properties={"spice_prefix": device_prefix},
@@ -680,14 +680,14 @@ class SpiceTransformer(Transformer[Token, Netlist]):
                     )
                 )
 
-        # Convert model definitions to ExternalModules
+        # Convert model definitions to ExternalCircuits
         for mdata in model_defs.values():
-            if mdata.name not in ext_modules:
+            if mdata.name not in ext_circuits:
                 ext_params = [
                     Parameter(name=pn, default_value=pv)
                     for pn, pv in mdata.params.items()
                 ]
-                ext_modules[mdata.name] = ExternalModule(
+                ext_circuits[mdata.name] = ExternalCircuit(
                     name=mdata.name,
                     parameters=ext_params,
                     properties={"model_type": mdata.type_name},
@@ -705,7 +705,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
             directives=directives,
         )
 
-        return SubcktData(circuit=circuit, ext_modules=ext_modules)
+        return SubcktData(circuit=circuit, ext_circuits=ext_circuits)
 
     # ── Top-level: start ────────────────────────────────────────────────
 
@@ -775,13 +775,13 @@ class SpiceTransformer(Transformer[Token, Netlist]):
 
         # Collect all circuits and ext_modules from subcircuit definitions
         circuits: list[Circuit] = []
-        all_ext_modules: dict[str, ExternalModule] = {}
+        all_ext_circuits: dict[str, ExternalCircuit] = {}
         subckt_by_name: dict[str, Circuit] = {}
 
         for sd in subckt_datas:
             circuits.append(sd.circuit)
             subckt_by_name[sd.circuit.name] = sd.circuit
-            all_ext_modules.update(sd.ext_modules)
+            all_ext_circuits.update(sd.ext_circuits)
 
         # If there are top-level instances, create a synthetic top circuit
         if top_instances:
@@ -792,16 +792,16 @@ class SpiceTransformer(Transformer[Token, Netlist]):
                 body_items=top_instances,
             )
             circuits.insert(0, top_data.circuit)
-            all_ext_modules.update(top_data.ext_modules)
+            all_ext_circuits.update(top_data.ext_circuits)
 
-        # Convert model definitions to ExternalModules
+        # Convert model definitions to ExternalCircuits
         for mdata in model_defs.values():
-            if mdata.name not in all_ext_modules:
+            if mdata.name not in all_ext_circuits:
                 ext_params = [
                     Parameter(name=pn, default_value=pv)
                     for pn, pv in mdata.params.items()
                 ]
-                all_ext_modules[mdata.name] = ExternalModule(
+                all_ext_circuits[mdata.name] = ExternalCircuit(
                     name=mdata.name,
                     parameters=ext_params,
                     properties={"model_type": mdata.type_name},
@@ -869,7 +869,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
             name="",
             top_circuit=top_circuit,
             circuits=circuits,
-            ext_modules=list(all_ext_modules.values()),
+            ext_circuits=list(all_ext_circuits.values()),
             directives=directives,
             simulation=simulation,
         )

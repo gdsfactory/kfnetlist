@@ -6,7 +6,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Netlist,
     Directive,
     DirectiveKind,
-    ExternalModule,
+    ExternalCircuit,
     Measurement,
     Circuit,
     SubCircuit,
@@ -17,12 +17,12 @@ from kfnetlist.morphnet.morphnet_schema import (
 )
 from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
 from kfnetlist.morphnet.netlist.value_utils import (
-    DEVICE_PREFIX_TO_MODULE,
+    DEVICE_PREFIX_TO_CIRCUIT,
     format_si_value,
 )
 
 # Reverse lookup: module name → SPICE device prefix letter — O(1) per instance
-MODULE_TO_PREFIX: dict[str, str] = {v: k for k, v in DEVICE_PREFIX_TO_MODULE.items()}
+CIRCUIT_TO_PREFIX: dict[str, str] = {v: k for k, v in DEVICE_PREFIX_TO_CIRCUIT.items()}
 
 
 class SpiceWriter:
@@ -45,14 +45,14 @@ class SpiceWriter:
         lines.append(f"* {title}")
 
         # Build lookups — O(e + m)
-        ext_by_name: dict[str, ExternalModule] = {
-            e.name: e for e in netlist.ext_modules
+        ext_by_name: dict[str, ExternalCircuit] = {
+            e.name: e for e in netlist.ext_circuits
         }
         circuit_by_name: dict[str, Circuit] = {m.name: m for m in netlist.circuits}
 
         self.write_directives(netlist.directives, lines)
 
-        for ext in netlist.ext_modules:
+        for ext in netlist.ext_circuits:
             model_type = ext.properties.get("model_type", "")
             if model_type:
                 self.write_model(ext, model_type, lines)
@@ -86,7 +86,7 @@ class SpiceWriter:
 
     def write_model(
         self,
-        ext: ExternalModule,
+        ext: ExternalCircuit,
         model_type: str,
         lines: list[str],
     ) -> None:
@@ -106,7 +106,7 @@ class SpiceWriter:
     def write_subckt(
         self,
         circuit: Circuit,
-        ext_by_name: dict[str, ExternalModule],
+        ext_by_name: dict[str, ExternalCircuit],
         circuit_by_name: dict[str, Circuit],
         lines: list[str],
     ) -> None:
@@ -134,7 +134,7 @@ class SpiceWriter:
     def write_top_instances(
         self,
         circuit: Circuit,
-        ext_by_name: dict[str, ExternalModule],
+        ext_by_name: dict[str, ExternalCircuit],
         circuit_by_name: dict[str, Circuit],
         lines: list[str],
     ) -> None:
@@ -149,20 +149,22 @@ class SpiceWriter:
         self,
         ref: SubCircuit,
         inst_nets: dict[tuple[str, str], str],
-        ext_by_name: dict[str, ExternalModule],
+        ext_by_name: dict[str, ExternalCircuit],
         circuit_by_name: dict[str, Circuit],
     ) -> str:
         """Emit a single instance line.
 
         Device prefix and port order determined by O(1) dict lookups.
         """
-        prefix = MODULE_TO_PREFIX.get(ref.circuit_name)
-        ext_mod = ext_by_name.get(ref.circuit_name)
+        prefix = CIRCUIT_TO_PREFIX.get(ref.circuit_name)
+        ext_circuit = ext_by_name.get(ref.circuit_name)
 
         if prefix:
             # Primitive device: R1 net1 net2 value param=val ...
             inst_name = ref.name
-            port_order = [p.name for p in ext_mod.ports] if ext_mod else ["p", "n"]
+            port_order = (
+                [p.name for p in ext_circuit.ports] if ext_circuit else ["p", "n"]
+            )
             nets = [inst_nets.get((inst_name, pn), "?") for pn in port_order]
             nets_str = " ".join(nets)
 
@@ -192,8 +194,8 @@ class SpiceWriter:
         ref_circuit = circuit_by_name.get(subckt_name)
         if ref_circuit is not None:
             port_order = [p.name for p in ref_circuit.ports]
-        elif ext_mod is not None:
-            port_order = [p.name for p in ext_mod.ports]
+        elif ext_circuit is not None:
+            port_order = [p.name for p in ext_circuit.ports]
         else:
             port_order = self.infer_port_order(ref, inst_nets)
 

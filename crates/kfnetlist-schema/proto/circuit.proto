@@ -48,13 +48,13 @@ enum SIPrefix {
     SI_PREFIX_QUETTA      = 24;
 }
 
-// Kept for backwards compatibility — no longer used on ExternalModule.
-enum ExternalModuleKind {
-    EXTERNAL_MODULE_KIND_UNSPECIFIED = 0;
-    EXTERNAL_MODULE_KIND_DEVICE      = 1;
-    EXTERNAL_MODULE_KIND_MODEL       = 2;
-    EXTERNAL_MODULE_KIND_NATURE      = 3;
-    EXTERNAL_MODULE_KIND_DISCIPLINE  = 4;
+// Kind of an ExternalCircuit.
+enum ExternalCircuitKind {
+    EXTERNAL_CIRCUIT_KIND_UNSPECIFIED = 0;
+    EXTERNAL_CIRCUIT_KIND_DEVICE      = 1;
+    EXTERNAL_CIRCUIT_KIND_MODEL       = 2;
+    EXTERNAL_CIRCUIT_KIND_NATURE      = 3;
+    EXTERNAL_CIRCUIT_KIND_DISCIPLINE  = 4;
 }
 
 enum DirectiveKind {
@@ -155,33 +155,36 @@ message Bus {
 }
 
 // ======================================================================
-// Module hierarchy
+// Circuit hierarchy: Netlist → Circuit (definition) → SubCircuit (instance)
+// Field numbers are unchanged from the earlier Circuit → Module →
+// ModuleReference naming, so the wire format is compatible.
 // ======================================================================
 
-message ModuleReference {
-    string              name        = 1;
-    string              module_name = 2;
-    string              class_name  = 3;
-    repeated Parameter  parameters  = 10;
-    map<string, string> properties  = 30;
+message SubCircuit {
+    string              name         = 1;
+    string              circuit_name = 2;
+    string              class_name   = 3;
+    repeated Parameter  parameters   = 10;
+    map<string, string> properties   = 30;
 }
 
-message Module {
+message Circuit {
     reserved 1;
     reserved "uid";
-    string                    name              = 2;
-    string                    class_name        = 3;
-    repeated Terminal         terminals         = 10;
-    repeated Parameter        parameters        = 20;
-    repeated ModelInterface   model_interfaces  = 30;
-    repeated ModuleReference  module_references = 40;
-    repeated Connection       connections       = 50;
-    repeated Bus              buses             = 60;
-    map<string, string>       properties        = 70;
-    repeated Directive        directives        = 71;
+    string                    name             = 2;
+    string                    class_name       = 3;
+    repeated Terminal         terminals        = 10;
+    repeated Parameter        parameters       = 20;
+    repeated ModelInterface   model_interfaces = 30;
+    repeated SubCircuit       subcircuits      = 40;
+    repeated Connection       connections      = 50;
+    repeated Bus              buses            = 60;
+    map<string, string>       properties       = 70;
+    repeated Directive        directives       = 71;
 }
 
-message ExternalModule {
+// A body-less circuit definition provided externally (device, model, PDK cell).
+message ExternalCircuit {
     string              name         = 1;
     string              class_name   = 3;
     string              library_name = 4;
@@ -189,7 +192,7 @@ message ExternalModule {
     repeated Terminal   terminals    = 10;
     repeated Parameter  parameters   = 20;
     map<string, string> properties   = 30;
-    ExternalModuleKind  kind         = 31;
+    ExternalCircuitKind kind         = 31;
 }
 
 // ======================================================================
@@ -205,18 +208,18 @@ message ExternalLibrary {
 }
 
 // ======================================================================
-// Circuit (top-level container)
+// Netlist (top-level container)
 // ======================================================================
 
-message Circuit {
-    string                       name        = 1;
-    string                       top_module  = 3;
-    repeated Module              modules     = 10;
-    repeated ExternalModule      ext_modules = 20;
-    map<string, string>          properties  = 30;
-    repeated Directive           directives  = 31;
-    Simulation                   simulation  = 40;
-    map<string, ExternalLibrary> libraries   = 45;
+message Netlist {
+    string                       name         = 1;
+    string                       top_circuit  = 3;
+    repeated Circuit             circuits     = 10;
+    repeated ExternalCircuit     ext_circuits = 20;
+    map<string, string>          properties   = 30;
+    repeated Directive           directives   = 31;
+    Simulation                   simulation   = 40;
+    map<string, ExternalLibrary> libraries    = 45;
 }
 
 // Kept for backwards compatibility.

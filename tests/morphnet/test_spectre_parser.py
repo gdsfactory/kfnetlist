@@ -83,7 +83,7 @@ M1 (d g s b) nch w=1u l=0.18u
 ends test
 """
         netlist = parse_spectre(text)
-        ext_names = {e.name for e in netlist.ext_modules}
+        ext_names = {e.name for e in netlist.ext_circuits}
         assert "nch" in ext_names
 
 

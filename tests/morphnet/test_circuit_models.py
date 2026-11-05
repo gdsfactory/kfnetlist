@@ -6,7 +6,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Bus,
     Netlist,
     Connection,
-    ExternalModule,
+    ExternalCircuit,
     ModelInterface,
     ModelReference,
     Circuit,
@@ -79,7 +79,7 @@ class TestDefaults:
             Bus,
             SubCircuit,
             Circuit,
-            ExternalModule,
+            ExternalCircuit,
             Netlist,
         ],
     )
@@ -334,20 +334,20 @@ class TestCircuit:
 
 
 class TestExternalModule:
-    def test_roundtrip_proto_binary(self, external_module):
-        data = external_module.to_proto_bytes()
-        restored = ExternalModule.from_proto_bytes(data)
-        assert restored == external_module
+    def test_roundtrip_proto_binary(self, external_circuit):
+        data = external_circuit.to_proto_bytes()
+        restored = ExternalCircuit.from_proto_bytes(data)
+        assert restored == external_circuit
 
-    def test_roundtrip_json(self, external_module):
-        json_str = external_module.to_json()
-        restored = ExternalModule.from_json(json_str)
-        assert restored == external_module
+    def test_roundtrip_json(self, external_circuit):
+        json_str = external_circuit.to_json()
+        restored = ExternalCircuit.from_json(json_str)
+        assert restored == external_circuit
 
-    def test_roundtrip_yaml(self, external_module):
-        yaml_str = external_module.to_yaml()
-        restored = ExternalModule.from_yaml(yaml_str)
-        assert restored == external_module
+    def test_roundtrip_yaml(self, external_circuit):
+        yaml_str = external_circuit.to_yaml()
+        restored = ExternalCircuit.from_yaml(yaml_str)
+        assert restored == external_circuit
 
 
 # ======================================================================
@@ -375,11 +375,11 @@ class TestNetlistIntegration:
         proto_msg = netlist.to_proto()
         assert proto_msg.name == "mzi_circuit"
         # The protobuf message uses the kfnetlist schema names.
-        assert proto_msg.top_module == "top"
-        assert len(proto_msg.modules) == 1
-        assert len(proto_msg.ext_modules) == 1
-        assert proto_msg.modules[0].name == "top"
-        assert proto_msg.modules[0].terminals[0].name == "o1"
+        assert proto_msg.top_circuit == "top"
+        assert len(proto_msg.circuits) == 1
+        assert len(proto_msg.ext_circuits) == 1
+        assert proto_msg.circuits[0].name == "top"
+        assert proto_msg.circuits[0].terminals[0].name == "o1"
 
         restored = Netlist.from_proto(proto_msg)
         assert restored == netlist

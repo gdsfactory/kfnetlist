@@ -6,8 +6,8 @@ from kfnetlist.morphnet.morphnet_schema._circuit import (
     Directive,
     DirectiveKind,
     ExternalLibrary,
-    ExternalModule,
-    ExternalModuleKind,
+    ExternalCircuit,
+    ExternalCircuitKind,
     ModelInterface,
     ModelReference,
     Netlist,
@@ -40,8 +40,8 @@ __all__ = [
     "Directive",
     "DirectiveKind",
     "ExternalLibrary",
-    "ExternalModule",
-    "ExternalModuleKind",
+    "ExternalCircuit",
+    "ExternalCircuitKind",
     "InitialCondition",
     "Measurement",
     "ModelInterface",
@@ -63,7 +63,12 @@ __all__ = [
 ]
 
 # Names before the Netlist → Circuit → SubCircuit rename.
-_DEPRECATED = {"Module": "Circuit", "ModuleReference": "SubCircuit"}
+_DEPRECATED = {
+    "Module": "Circuit",
+    "ModuleReference": "SubCircuit",
+    "ExternalModule": "ExternalCircuit",
+    "ExternalModuleKind": "ExternalCircuitKind",
+}
 
 
 def __getattr__(name: str) -> object:

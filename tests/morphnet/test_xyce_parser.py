@@ -76,5 +76,5 @@ M1 d g s b nch W=1u L=0.18u
 .END
 """
         netlist = parse_xyce(text)
-        ext_names = {e.name for e in netlist.ext_modules}
+        ext_names = {e.name for e in netlist.ext_circuits}
         assert "nch" in ext_names

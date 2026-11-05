@@ -3,8 +3,8 @@ from kfnetlist.morphnet.morphnet_schema import (
     Connection,
     Directive,
     DirectiveKind,
-    ExternalModule,
-    ExternalModuleKind,
+    ExternalCircuit,
+    ExternalCircuitKind,
     Circuit,
     SubCircuit,
     Parameter,
@@ -113,28 +113,28 @@ class TestParameterOutput:
 
 class TestNatureAndDisciplineOutput:
     def test_nature(self) -> None:
-        ext = ExternalModule(
+        ext = ExternalCircuit(
             name="Voltage",
-            kind=ExternalModuleKind.NATURE,
+            kind=ExternalCircuitKind.NATURE,
             properties={"nature_units": "V", "nature_access": "V"},
         )
-        netlist = Netlist(name="", ext_modules=[ext])
+        netlist = Netlist(name="", ext_circuits=[ext])
         output = write_vams(netlist)
         assert "nature Voltage;" in output
         assert "endnature" in output
         assert "units = V;" in output
 
     def test_discipline(self) -> None:
-        ext = ExternalModule(
+        ext = ExternalCircuit(
             name="electrical",
-            kind=ExternalModuleKind.DISCIPLINE,
+            kind=ExternalCircuitKind.DISCIPLINE,
             properties={
                 "discipline_potential": "Voltage",
                 "discipline_flow": "Current",
                 "discipline_domain": "continuous",
             },
         )
-        netlist = Netlist(name="", ext_modules=[ext])
+        netlist = Netlist(name="", ext_circuits=[ext])
         output = write_vams(netlist)
         assert "discipline electrical;" in output
         assert "enddiscipline" in output

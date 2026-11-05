@@ -40,7 +40,7 @@ class HspiceParser:
             name=netlist.name,
             top_circuit=netlist.top_circuit,
             circuits=netlist.circuits,
-            ext_modules=netlist.ext_modules,
+            ext_circuits=netlist.ext_circuits,
             directives=netlist.directives,
             simulation=netlist.simulation,
         )

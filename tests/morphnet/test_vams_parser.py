@@ -1,4 +1,4 @@
-from kfnetlist.morphnet.morphnet_schema import DirectiveKind, ExternalModuleKind
+from kfnetlist.morphnet.morphnet_schema import DirectiveKind, ExternalCircuitKind
 from kfnetlist.morphnet.netlist.vams.parser import parse_vams
 
 
@@ -193,10 +193,10 @@ module test (a);
 endmodule
 """
         netlist = parse_vams(text)
-        ext_names = {e.name for e in netlist.ext_modules}
+        ext_names = {e.name for e in netlist.ext_circuits}
         assert "Voltage" in ext_names
-        voltage = next(e for e in netlist.ext_modules if e.name == "Voltage")
-        assert voltage.kind == ExternalModuleKind.NATURE
+        voltage = next(e for e in netlist.ext_circuits if e.name == "Voltage")
+        assert voltage.kind == ExternalCircuitKind.NATURE
         assert "nature_abstol" in voltage.properties
 
     def test_discipline(self) -> None:
@@ -211,10 +211,10 @@ module test (a);
 endmodule
 """
         netlist = parse_vams(text)
-        ext_names = {e.name for e in netlist.ext_modules}
+        ext_names = {e.name for e in netlist.ext_circuits}
         assert "electrical" in ext_names
-        elec = next(e for e in netlist.ext_modules if e.name == "electrical")
-        assert elec.kind == ExternalModuleKind.DISCIPLINE
+        elec = next(e for e in netlist.ext_circuits if e.name == "electrical")
+        assert elec.kind == ExternalCircuitKind.DISCIPLINE
         assert elec.properties.get("discipline_potential") == "Voltage"
         assert elec.properties.get("discipline_flow") == "Current"
         assert elec.properties.get("discipline_domain") == "continuous"
@@ -370,8 +370,8 @@ module test (a, b);
 endmodule
 """
         netlist = parse_vams(text)
-        ext_names = {e.name for e in netlist.ext_modules}
+        ext_names = {e.name for e in netlist.ext_circuits}
         assert "myres" in ext_names
-        myres = next(e for e in netlist.ext_modules if e.name == "myres")
-        assert myres.kind == ExternalModuleKind.MODEL
+        myres = next(e for e in netlist.ext_circuits if e.name == "myres")
+        assert myres.kind == ExternalCircuitKind.MODEL
         assert myres.properties.get("model_type") == "resistor"

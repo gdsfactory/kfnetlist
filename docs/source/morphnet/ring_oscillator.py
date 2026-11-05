@@ -21,7 +21,7 @@
 #
 # Adapted from morphnet's `examples/inverter.py`. The changes:
 #
-# - The `nfet`/`pfet` external modules declare their ports, so positional
+# - The `nfet`/`pfet` external circuits declare their ports, so positional
 #   formats (SPICE, Spectre) know the pin order.
 # - Nets that reach a circuit terminal are named after it. A subcircuit port is
 #   wired to the node with the same name.
@@ -97,7 +97,7 @@ ring.connect("gnd", ("", "gnd"), ("Xinv1", "gnd"), ("Xinv2", "gnd"), ("Xinv3", "
 # %% [markdown]
 # ## Netlist: PDK library, device models, circuits
 #
-# `external_library()` points at the model file, and `ext_module()` declares the
+# `external_library()` points at the model file, and `ext_circuit()` declares the
 # devices it provides, including their pin order.
 
 # %%
@@ -111,8 +111,8 @@ ckt.add_library(
     ),
 )
 ckt.add_ext(
-    morphnet.ext_module("nfet", class_name="nmos", library_name="tt", ports=fet_ports),
-    morphnet.ext_module("pfet", class_name="pmos", library_name="tt", ports=fet_ports),
+    morphnet.ext_circuit("nfet", class_name="nmos", library_name="tt", ports=fet_ports),
+    morphnet.ext_circuit("pfet", class_name="pmos", library_name="tt", ports=fet_ports),
 )
 ckt.add(ring, inv)
 
@@ -163,7 +163,7 @@ PARSERS = {
     "Spectre": parse_spectre,
     "Verilog-AMS": parse_vams,
 }
-pin_order = {m.name: [p.name for p in m.ports] for m in [*ckt.circuits, *ckt.ext_modules]}
+pin_order = {m.name: [p.name for p in m.ports] for m in [*ckt.circuits, *ckt.ext_circuits]}
 cell_of = {r.name: r.circuit_name for m in ckt.circuits for r in m.subcircuits}
 
 

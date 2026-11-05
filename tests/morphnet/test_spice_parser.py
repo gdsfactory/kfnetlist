@@ -14,8 +14,8 @@ R2 vout gnd 10k
         netlist = parse_spice(text)
         assert netlist.top_circuit == "divider"
         assert len(netlist.circuits) == 1
-        assert len(netlist.ext_modules) == 1
-        assert netlist.ext_modules[0].name == "resistor"
+        assert len(netlist.ext_circuits) == 1
+        assert netlist.ext_circuits[0].name == "resistor"
 
     def test_subcircuit_ports(self) -> None:
         text = """\
@@ -152,9 +152,9 @@ M1 d g s b nch W=1u L=0.18u
 .end
 """
         netlist = parse_spice(text)
-        ext_names = {e.name for e in netlist.ext_modules}
+        ext_names = {e.name for e in netlist.ext_circuits}
         assert "nch" in ext_names
-        nch = next(e for e in netlist.ext_modules if e.name == "nch")
+        nch = next(e for e in netlist.ext_circuits if e.name == "nch")
         assert nch.properties.get("model_type") == "nmos"
 
     def test_model_integer_param(self) -> None:
@@ -166,7 +166,7 @@ M1 d g s b nch
 .end
 """
         netlist = parse_spice(text)
-        nch = next(e for e in netlist.ext_modules if e.name == "nch")
+        nch = next(e for e in netlist.ext_circuits if e.name == "nch")
         level_param = next(p for p in nch.parameters if p.name == "level")
         assert level_param.default_value is not None
         assert level_param.default_value.prefixed_value is not None

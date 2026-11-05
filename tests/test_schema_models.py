@@ -1,10 +1,10 @@
 """
 Tests for kfnetlist.kfnetlist_schema:
-  - JSON round-trips (TopLevelModule)
-  - YAML round-trips (TopLevelModule)
+  - JSON round-trips (NetlistDocument)
+  - YAML round-trips (NetlistDocument)
   - schema.pic.yaml parsing
-  - Forward elaboration: TopLevelModule → Netlist
-  - Reverse elaboration: Netlist → TopLevelModule
+  - Forward elaboration: NetlistDocument → Netlist
+  - Reverse elaboration: Netlist → NetlistDocument
   - Full structural round-trip
   - Type alias identity
   - Protobuf byte round-trips through the Rust schema crate
@@ -20,16 +20,16 @@ import pytest
 import kfnetlist
 from kfnetlist.kfnetlist_schema import (
     ArraySpec,
-    Instance,
-    Module,
+    SubCircuitDocument,
+    CircuitDocument,
     ModuleNetlist,
     Netlist,
     NetlistPort,
     PortRef,
+    ProtoNetlist,
     ProtoCircuit,
-    ProtoModule,
     Terminal,
-    TopLevelModule,
+    NetlistDocument,
     InstanceRef,
     load_pic_yaml,
 )
@@ -44,12 +44,12 @@ SCHEMA_YAML = (
 # ---------------------------------------------------------------------------
 
 
-def _simple_doc() -> TopLevelModule:
-    return TopLevelModule(
+def _simple_doc() -> NetlistDocument:
+    return NetlistDocument(
         modules={
-            "buf": Module(
+            "buf": CircuitDocument(
                 instances={
-                    "mzi": Instance(
+                    "mzi": SubCircuitDocument(
                         component="mzi_phase_shifter", settings={"delta_length": 3}
                     )
                 },
@@ -60,17 +60,21 @@ def _simple_doc() -> TopLevelModule:
     )
 
 
-def _multi_module_doc() -> TopLevelModule:
-    return TopLevelModule(
+def _multi_module_doc() -> NetlistDocument:
+    return NetlistDocument(
         modules={
-            "child": Module(
-                instances={"mzi": Instance(component="mzi", settings={"length": 10.0})},
+            "child": CircuitDocument(
+                instances={
+                    "mzi": SubCircuitDocument(
+                        component="mzi", settings={"length": 10.0}
+                    )
+                },
                 ports={"in": "mzi,o1", "out": "mzi,o2"},
             ),
-            "parent": Module(
+            "parent": CircuitDocument(
                 instances={
-                    "sub": Instance(component="child"),
-                    "pad": Instance(component="pad_array", settings={"n": 2}),
+                    "sub": SubCircuitDocument(component="child"),
+                    "pad": SubCircuitDocument(component="pad_array", settings={"n": 2}),
                 },
                 ports={"o1": "sub,in"},
                 nets=[["sub,out", "pad,e4"]],
@@ -89,7 +93,7 @@ class TestJsonRoundTrip:
     def test_simple(self):
         doc = _simple_doc()
         serialized = doc.model_dump_json()
-        recovered = TopLevelModule.model_validate_json(serialized)
+        recovered = NetlistDocument.model_validate_json(serialized)
         assert recovered.toplevel == doc.toplevel
         assert list(recovered.modules) == list(doc.modules)
         assert recovered.modules["buf"].ports == doc.modules["buf"].ports
@@ -97,23 +101,25 @@ class TestJsonRoundTrip:
     def test_multi_module(self):
         doc = _multi_module_doc()
         serialized = doc.model_dump_json()
-        recovered = TopLevelModule.model_validate_json(serialized)
+        recovered = NetlistDocument.model_validate_json(serialized)
         assert recovered.toplevel == "parent"
         assert set(recovered.modules) == {"child", "parent"}
         assert recovered.modules["parent"].nets == [["sub,out", "pad,e4"]]
 
     def test_instance_with_array(self):
-        doc = TopLevelModule(
+        doc = NetlistDocument(
             modules={
-                "top": Module(
+                "top": CircuitDocument(
                     instances={
-                        "arr": Instance(component="mzi", array=ArraySpec(na=3, nb=2))
+                        "arr": SubCircuitDocument(
+                            component="mzi", array=ArraySpec(na=3, nb=2)
+                        )
                     }
                 )
             },
             toplevel="top",
         )
-        recovered = TopLevelModule.model_validate_json(doc.model_dump_json())
+        recovered = NetlistDocument.model_validate_json(doc.model_dump_json())
         arr_inst = recovered.modules["top"].instances["arr"]
         assert arr_inst.array is not None
         assert arr_inst.array.na == 3
@@ -126,8 +132,8 @@ class TestJsonRoundTrip:
 
 
 class TestYamlRoundTrip:
-    def _yaml_rt(self, doc: TopLevelModule) -> TopLevelModule:
-        return TopLevelModule.from_yaml(doc.to_yaml())
+    def _yaml_rt(self, doc: NetlistDocument) -> NetlistDocument:
+        return NetlistDocument.from_yaml(doc.to_yaml())
 
     def test_simple(self):
         doc = _simple_doc()
@@ -151,7 +157,7 @@ class TestYamlRoundTrip:
 
 class TestSchemaPicYaml:
     @pytest.fixture
-    def doc(self) -> TopLevelModule:
+    def doc(self) -> NetlistDocument:
         return load_pic_yaml(SCHEMA_YAML)
 
     def test_module_count(self, doc):
@@ -198,7 +204,7 @@ class TestSchemaPicYaml:
 
 
 # ---------------------------------------------------------------------------
-# 4. Forward elaboration: TopLevelModule → Netlist
+# 4. Forward elaboration: NetlistDocument → Netlist
 # ---------------------------------------------------------------------------
 
 
@@ -227,12 +233,12 @@ class TestForwardElaboration:
         assert "o2" in port_names
 
     def test_explicit_net(self):
-        doc = TopLevelModule(
+        doc = NetlistDocument(
             modules={
-                "top": Module(
+                "top": CircuitDocument(
                     instances={
-                        "a": Instance(component="comp_a"),
-                        "b": Instance(component="comp_b"),
+                        "a": SubCircuitDocument(component="comp_a"),
+                        "b": SubCircuitDocument(component="comp_b"),
                     },
                     nets=[["a,out", "b,in"]],
                 )
@@ -243,11 +249,13 @@ class TestForwardElaboration:
         assert nl.nets is not None
 
     def test_array_instance(self):
-        doc = TopLevelModule(
+        doc = NetlistDocument(
             modules={
-                "top": Module(
+                "top": CircuitDocument(
                     instances={
-                        "arr": Instance(component="mzi", array=ArraySpec(na=3, nb=1))
+                        "arr": SubCircuitDocument(
+                            component="mzi", array=ArraySpec(na=3, nb=1)
+                        )
                     }
                 )
             },
@@ -269,7 +277,7 @@ class TestForwardElaboration:
 
 
 # ---------------------------------------------------------------------------
-# 5. Reverse elaboration: Netlist → TopLevelModule
+# 5. Reverse elaboration: Netlist → NetlistDocument
 # ---------------------------------------------------------------------------
 
 
@@ -285,7 +293,7 @@ class TestReverseElaboration:
 
     def test_round_trip_single(self):
         nl = self._make_nl()
-        doc = TopLevelModule.from_netlists({"buf": nl}, toplevel="buf")
+        doc = NetlistDocument.from_netlists({"buf": nl}, toplevel="buf")
         assert doc.toplevel == "buf"
         assert "buf" in doc.modules
         mod = doc.modules["buf"]
@@ -294,20 +302,20 @@ class TestReverseElaboration:
 
     def test_ports_recovered(self):
         nl = self._make_nl()
-        mod = Module.from_netlist("buf", nl)
+        mod = CircuitDocument.from_netlist("buf", nl)
         assert "o1" in mod.ports
         assert mod.ports["o1"] == "mzi,o1"
 
     def test_settings_preserved(self):
         nl = self._make_nl()
-        mod = Module.from_netlist("buf", nl)
+        mod = CircuitDocument.from_netlist("buf", nl)
         assert mod.instances["mzi"].settings.get("delta_length") == 3
 
     def test_multi_module(self):
         nl1, nl2 = Netlist(), Netlist()
         nl1.create_inst("sub_a", kcl="", component="comp_a")
         nl2.create_inst("sub_b", kcl="", component="comp_b")
-        doc = TopLevelModule.from_netlists(
+        doc = NetlistDocument.from_netlists(
             {"mod_a": nl1, "mod_b": nl2}, toplevel="mod_b"
         )
         assert set(doc.modules) == {"mod_a", "mod_b"}
@@ -323,7 +331,7 @@ class TestFullRoundTrip:
     def test_doc_to_netlists_and_back(self):
         original = _multi_module_doc()
         netlists = original.to_netlists()
-        recovered = TopLevelModule.from_netlists(netlists, toplevel=original.toplevel)
+        recovered = NetlistDocument.from_netlists(netlists, toplevel=original.toplevel)
         for mod_name, orig_mod in original.modules.items():
             assert mod_name in recovered.modules
             rec_mod = recovered.modules[mod_name]
@@ -337,7 +345,7 @@ class TestFullRoundTrip:
     def test_schema_pic_yaml_full_round_trip(self):
         doc = load_pic_yaml(SCHEMA_YAML)
         netlists = doc.to_netlists()
-        recovered = TopLevelModule.from_netlists(netlists, toplevel=doc.toplevel)
+        recovered = NetlistDocument.from_netlists(netlists, toplevel=doc.toplevel)
         assert recovered.toplevel == doc.toplevel
         for mod_name in doc.modules:
             assert mod_name in recovered.modules
@@ -377,34 +385,32 @@ class TestTypeAliases:
 
 
 class TestProtoRoundTrip:
-    def test_proto_circuit_model_round_trip(self):
-        model = ProtoCircuit(
+    def test_proto_netlist_model_round_trip(self):
+        model = ProtoNetlist(
             name="test_circuit",
-            top_module="mod_a",
-            modules=[ProtoModule(name="mod_a", uid=1, terminal=[Terminal(name="o1")])],
+            top_circuit="mod_a",
+            circuits=[ProtoCircuit(name="mod_a", terminals=[Terminal(name="o1")])],
         )
         wire = model.to_proto()
         assert isinstance(wire, bytes)
-        back = ProtoCircuit.from_proto(wire)
+        back = ProtoNetlist.from_proto(wire)
         assert back == model
-        assert back.modules[0].terminal[0].name == "o1"
+        assert back.circuits[0].terminals[0].name == "o1"
 
-    def test_top_level_module_to_proto_circuit(self):
+    def test_netlist_document_to_proto_netlist(self):
         doc = _simple_doc()
-        circuit = doc.to_proto_circuit()
-        assert circuit.top_module == "buf"
-        assert len(circuit.modules) == 1
-        assert circuit.modules[0].name == "buf"
-        # Instances → module_references
-        assert len(circuit.modules[0].module_references) == 1
-        assert (
-            circuit.modules[0].module_references[0].module_name == "mzi_phase_shifter"
-        )
+        netlist = doc.to_proto_netlist()
+        assert netlist.top_circuit == "buf"
+        assert len(netlist.circuits) == 1
+        assert netlist.circuits[0].name == "buf"
+        # Document instances → subcircuits
+        assert len(netlist.circuits[0].subcircuits) == 1
+        assert netlist.circuits[0].subcircuits[0].circuit_name == "mzi_phase_shifter"
 
-    def test_proto_circuit_to_top_level_module(self):
+    def test_proto_netlist_to_netlist_document(self):
         doc = _simple_doc()
-        circuit = doc.to_proto_circuit()
-        recovered = TopLevelModule.from_proto_circuit(circuit)
+        circuit = doc.to_proto_netlist()
+        recovered = NetlistDocument.from_proto_netlist(circuit)
         assert recovered.toplevel == doc.toplevel
         assert "buf" in recovered.modules
         assert "mzi" in recovered.modules["buf"].instances
@@ -412,12 +418,12 @@ class TestProtoRoundTrip:
             recovered.modules["buf"].instances["mzi"].component == "mzi_phase_shifter"
         )
 
-    def test_proto_circuit_settings_round_trip(self):
-        doc = TopLevelModule(
+    def test_proto_netlist_settings_round_trip(self):
+        doc = NetlistDocument(
             modules={
-                "m": Module(
+                "m": CircuitDocument(
                     instances={
-                        "inst": Instance(
+                        "inst": SubCircuitDocument(
                             component="comp", settings={"width": 4.5, "n": 2}
                         )
                     }
@@ -425,25 +431,27 @@ class TestProtoRoundTrip:
             },
             toplevel="m",
         )
-        circuit = doc.to_proto_circuit()
-        recovered = TopLevelModule.from_proto_circuit(circuit)
+        circuit = doc.to_proto_netlist()
+        recovered = NetlistDocument.from_proto_netlist(circuit)
         inst = recovered.modules["m"].instances["inst"]
         assert inst.settings.get("width") == 4.5
         assert inst.settings.get("n") == 2
 
-    def test_proto_circuit_array_round_trip(self):
-        doc = TopLevelModule(
+    def test_proto_netlist_array_round_trip(self):
+        doc = NetlistDocument(
             modules={
-                "m": Module(
+                "m": CircuitDocument(
                     instances={
-                        "arr": Instance(component="mzi", array=ArraySpec(na=5, nb=2))
+                        "arr": SubCircuitDocument(
+                            component="mzi", array=ArraySpec(na=5, nb=2)
+                        )
                     }
                 )
             },
             toplevel="m",
         )
-        circuit = doc.to_proto_circuit()
-        recovered = TopLevelModule.from_proto_circuit(circuit)
+        circuit = doc.to_proto_netlist()
+        recovered = NetlistDocument.from_proto_netlist(circuit)
         arr = recovered.modules["m"].instances["arr"].array
         assert arr is not None
         assert arr.na == 5
@@ -461,7 +469,7 @@ class TestBareModuleBackwardCompat:
             "instances": {"mzi": {"component": "mzi_phase_shifter"}},
             "ports": {"o1": "mzi,o1"},
         }
-        doc = TopLevelModule.model_validate(raw)
+        doc = NetlistDocument.model_validate(raw)
         assert "__root__" in doc.modules
         assert doc.toplevel == "__root__"
         assert "mzi" in doc.modules["__root__"].instances
@@ -471,7 +479,7 @@ class TestBareModuleBackwardCompat:
             "instances": {"inst": {"component": "comp"}},
             "ports": {"p": "inst,port"},
         }
-        doc = TopLevelModule.model_validate(raw)
+        doc = NetlistDocument.model_validate(raw)
         nl = doc.to_netlists()["__root__"]
         assert nl.has_instance("inst")
 
@@ -480,7 +488,7 @@ class TestBareModuleBackwardCompat:
             "modules": {"m": {"instances": {"inst": {"component": "comp"}}}},
             "toplevel": "m",
         }
-        doc = TopLevelModule.model_validate(raw)
+        doc = NetlistDocument.model_validate(raw)
         assert "__root__" not in doc.modules
         assert "m" in doc.modules
 
@@ -501,14 +509,14 @@ class BlockPythonCodecs:
         if fullname.split(".")[0] in {"google", "pydantic", "pydantic_yaml", "yaml"}:
             raise AssertionError(f"Schema tried to import {fullname}")
 sys.meta_path.insert(0, BlockPythonCodecs())
-from kfnetlist.kfnetlist_schema import TopLevelModule, ProtoCircuit
+from kfnetlist.kfnetlist_schema import NetlistDocument, ProtoNetlist
 from kfnetlist import _native
-assert TopLevelModule is _native.TopLevelModule
-doc = TopLevelModule.from_yaml("instances: {a: {component: coupler}}")
+assert NetlistDocument is _native.NetlistDocument
+doc = NetlistDocument.from_yaml("instances: {a: {component: coupler}}")
 wire = doc.to_proto()
 assert isinstance(wire, bytes)
-assert TopLevelModule.from_proto(wire) == doc
-assert ProtoCircuit.from_proto(wire).top_module == "__root__"
+assert NetlistDocument.from_proto(wire) == doc
+assert ProtoNetlist.from_proto(wire).top_circuit == "__root__"
 assert doc.to_netlists()["__root__"].has_instance("a")
 """,
         ],
@@ -561,10 +569,10 @@ def test_nested_proto_values_and_terminal_alias():
 
 
 def test_proto_bytes_keep_exact_settings_and_metadata():
-    original = Module(
+    original = CircuitDocument(
         name="display name",
         instances={
-            "a": Instance(
+            "a": SubCircuitDocument(
                 component="x",
                 settings={
                     "large": 2**53 + 1,
@@ -580,8 +588,8 @@ def test_proto_bytes_keep_exact_settings_and_metadata():
         placements={"a": {"x": 10}},
         routes={"optical": {"radius": 5}},
     )
-    doc = TopLevelModule(modules={"m": original}, toplevel="m")
-    assert TopLevelModule.from_proto(doc.to_proto()) == doc
+    doc = NetlistDocument(modules={"m": original}, toplevel="m")
+    assert NetlistDocument.from_proto(doc.to_proto()) == doc
     inst = doc.to_netlists()["m"].instances["a"]
     assert inst.info == {"source": "layout"}
     assert type(inst.settings["enabled"]) is bool
@@ -599,14 +607,14 @@ def test_native_fields_return_owned_snapshots():
 
 def test_invalid_wire_and_yaml_raise_value_error():
     with pytest.raises(ValueError):
-        ProtoCircuit.from_proto(b"\xff")
+        ProtoNetlist.from_proto(b"\xff")
     with pytest.raises(ValueError):
-        TopLevelModule.from_yaml("modules: [")
+        NetlistDocument.from_yaml("modules: [")
 
 
 def test_optional_pydantic_adapter_delegates_to_native_model():
     pydantic = pytest.importorskip("pydantic")
-    adapter = pydantic.TypeAdapter(TopLevelModule)
+    adapter = pydantic.TypeAdapter(NetlistDocument)
     doc = _simple_doc()
     assert adapter.validate_python(doc.to_dict()) == doc
     assert adapter.validate_json(adapter.dump_json(doc)) == doc

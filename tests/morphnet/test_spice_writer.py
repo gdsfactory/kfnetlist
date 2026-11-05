@@ -3,7 +3,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Connection,
     Directive,
     DirectiveKind,
-    ExternalModule,
+    ExternalCircuit,
     Circuit,
     SubCircuit,
     Parameter,
@@ -44,7 +44,7 @@ def make_conn(
 
 class TestResistorOutput:
     def test_basic_resistor(self) -> None:
-        resistor = ExternalModule(
+        resistor = ExternalCircuit(
             name="resistor",
             ports=[make_port("p"), make_port("n")],
             properties={"spice_prefix": "R"},
@@ -73,7 +73,7 @@ class TestResistorOutput:
             name="test_circuit",
             top_circuit="test",
             circuits=[circ],
-            ext_modules=[resistor],
+            ext_circuits=[resistor],
         )
         output = write_spice(netlist)
         assert ".subckt test a b" in output
@@ -84,7 +84,7 @@ class TestResistorOutput:
 
 class TestMosfetOutput:
     def test_mosfet_with_model(self) -> None:
-        mosfet = ExternalModule(
+        mosfet = ExternalCircuit(
             name="mosfet",
             ports=[
                 make_port("d"),
@@ -126,7 +126,7 @@ class TestMosfetOutput:
             name="test",
             top_circuit="inv",
             circuits=[circ],
-            ext_modules=[mosfet],
+            ext_circuits=[mosfet],
         )
         output = write_spice(netlist)
         assert "M1 out in_ vdd vdd pch W=1u L=0.18u" in output
@@ -176,7 +176,7 @@ class TestDirectiveOutput:
         assert ".global VDD VSS" in output
 
     def test_model(self) -> None:
-        nch = ExternalModule(
+        nch = ExternalCircuit(
             name="nch",
             parameters=[
                 Parameter(name="level", default_value=make_pv(49.0)),
@@ -184,7 +184,7 @@ class TestDirectiveOutput:
             ],
             properties={"model_type": "nmos"},
         )
-        netlist = Netlist(name="test", ext_modules=[nch])
+        netlist = Netlist(name="test", ext_circuits=[nch])
         output = write_spice(netlist)
         assert ".model nch nmos" in output
         assert "level=49" in output

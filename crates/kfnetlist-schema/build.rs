@@ -9,7 +9,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .message_attribute(".", "#[serde(default, deny_unknown_fields)]")
         .enum_attribute("circuit.ParameterValue.value", "#[serde(rename_all = \"snake_case\")]")
         .field_attribute("circuit.TerminalReference.terminal_name", "#[serde(alias = \"Terminal_name\")]")
-        .field_attribute("circuit.Module.terminals", "#[serde(alias = \"terminal\")]")
+        .field_attribute("circuit.Circuit.terminals", "#[serde(alias = \"terminal\")]")
         .compile_protos(&["proto/circuit.proto", "proto/simulation.proto"], &["proto"])?;
     Ok(())
 }

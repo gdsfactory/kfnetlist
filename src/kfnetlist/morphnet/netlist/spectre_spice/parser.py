@@ -3,7 +3,7 @@ from __future__ import annotations
 from kfnetlist.morphnet.morphnet_schema import (
     Analysis,
     Netlist,
-    ExternalModule,
+    ExternalCircuit,
     InitialCondition,
     Measurement,
     Circuit,
@@ -27,7 +27,7 @@ class SpectreSpiceParser:
         sections = preprocess_spectre_spice(text)
 
         all_circuits: list[Circuit] = []
-        all_ext_modules: dict[str, ExternalModule] = {}
+        all_ext_circuits: dict[str, ExternalCircuit] = {}
         all_directives = []
         all_analyses: list[Analysis] = []
         all_output_requests: list[OutputRequest] = []
@@ -45,8 +45,8 @@ class SpectreSpiceParser:
                 netlist = parse_spice(section.text)
 
             all_circuits.extend(netlist.circuits)
-            for ext in netlist.ext_modules:
-                all_ext_modules[ext.name] = ext
+            for ext in netlist.ext_circuits:
+                all_ext_circuits[ext.name] = ext
             all_directives.extend(netlist.directives)
 
             if netlist.simulation:
@@ -94,7 +94,7 @@ class SpectreSpiceParser:
             name="",
             top_circuit=top_circuit,
             circuits=all_circuits,
-            ext_modules=list(all_ext_modules.values()),
+            ext_circuits=list(all_ext_circuits.values()),
             directives=all_directives,
             simulation=simulation,
         )

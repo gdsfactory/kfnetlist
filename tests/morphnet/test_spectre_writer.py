@@ -1,7 +1,7 @@
 from kfnetlist.morphnet.morphnet_schema import (
     Netlist,
     Connection,
-    ExternalModule,
+    ExternalCircuit,
     Circuit,
     SubCircuit,
     Parameter,
@@ -52,7 +52,7 @@ class TestSpectreFormat:
         assert "ends test" in output
 
     def test_instance_with_parens(self) -> None:
-        resistor = ExternalModule(
+        resistor = ExternalCircuit(
             name="resistor",
             ports=[make_port("p"), make_port("n")],
             properties={"spice_prefix": "R"},
@@ -78,7 +78,7 @@ class TestSpectreFormat:
             name="test",
             top_circuit="test",
             circuits=[circ],
-            ext_modules=[resistor],
+            ext_circuits=[resistor],
         )
         output = write_spectre(netlist)
         assert "R1 (a b) resistor r=10k" in output

@@ -6,7 +6,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Netlist,
     Directive,
     DirectiveKind,
-    ExternalModule,
+    ExternalCircuit,
     Circuit,
     SubCircuit,
     OutputRequest,
@@ -16,11 +16,11 @@ from kfnetlist.morphnet.morphnet_schema import (
 )
 from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
 from kfnetlist.morphnet.netlist.value_utils import (
-    DEVICE_PREFIX_TO_MODULE,
+    DEVICE_PREFIX_TO_CIRCUIT,
     format_si_value,
 )
 
-MODULE_TO_PREFIX: dict[str, str] = {v: k for k, v in DEVICE_PREFIX_TO_MODULE.items()}
+CIRCUIT_TO_PREFIX: dict[str, str] = {v: k for k, v in DEVICE_PREFIX_TO_CIRCUIT.items()}
 
 
 class SpectreWriter:
@@ -35,14 +35,14 @@ class SpectreWriter:
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
 
-        ext_by_name: dict[str, ExternalModule] = {
-            e.name: e for e in netlist.ext_modules
+        ext_by_name: dict[str, ExternalCircuit] = {
+            e.name: e for e in netlist.ext_circuits
         }
         circuit_by_name: dict[str, Circuit] = {m.name: m for m in netlist.circuits}
 
         self.write_directives(netlist.directives, lines)
 
-        for ext in netlist.ext_modules:
+        for ext in netlist.ext_circuits:
             model_type = ext.properties.get("model_type")
             if model_type:
                 self.write_model(ext, model_type, lines)
@@ -71,7 +71,7 @@ class SpectreWriter:
             lines.append(f"parameters {assigns}")
 
     def write_model(
-        self, ext: ExternalModule, model_type: str, lines: list[str]
+        self, ext: ExternalCircuit, model_type: str, lines: list[str]
     ) -> None:
         param_strs: list[str] = []
         for p in ext.parameters:
@@ -85,7 +85,7 @@ class SpectreWriter:
     def write_subckt(
         self,
         circuit: Circuit,
-        ext_by_name: dict[str, ExternalModule],
+        ext_by_name: dict[str, ExternalCircuit],
         circuit_by_name: dict[str, Circuit],
         lines: list[str],
     ) -> None:
@@ -113,7 +113,7 @@ class SpectreWriter:
     def write_top_instances(
         self,
         circuit: Circuit,
-        ext_by_name: dict[str, ExternalModule],
+        ext_by_name: dict[str, ExternalCircuit],
         circuit_by_name: dict[str, Circuit],
         lines: list[str],
     ) -> None:
@@ -127,21 +127,21 @@ class SpectreWriter:
         self,
         ref: SubCircuit,
         inst_nets: dict[tuple[str, str], str],
-        ext_by_name: dict[str, ExternalModule],
+        ext_by_name: dict[str, ExternalCircuit],
         circuit_by_name: dict[str, Circuit],
     ) -> str:
-        ext_mod = ext_by_name.get(ref.circuit_name)
-        prefix = MODULE_TO_PREFIX.get(ref.circuit_name)
+        ext_circuit = ext_by_name.get(ref.circuit_name)
+        prefix = CIRCUIT_TO_PREFIX.get(ref.circuit_name)
 
         # Determine port order
-        if prefix and ext_mod:
-            port_order = [p.name for p in ext_mod.ports]
+        if prefix and ext_circuit:
+            port_order = [p.name for p in ext_circuit.ports]
         else:
             ref_circuit = circuit_by_name.get(ref.circuit_name)
             if ref_circuit:
                 port_order = [p.name for p in ref_circuit.ports]
-            elif ext_mod:
-                port_order = [p.name for p in ext_mod.ports]
+            elif ext_circuit:
+                port_order = [p.name for p in ext_circuit.ports]
             else:
                 port_order = self.infer_port_order(ref, inst_nets)
 

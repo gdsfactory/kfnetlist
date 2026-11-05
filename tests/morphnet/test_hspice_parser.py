@@ -161,7 +161,7 @@ M1 d g s b nch W=1u L=0.18u
 .end
 """
         netlist = parse_hspice(text)
-        nch = next(e for e in netlist.ext_modules if e.name == "nch")
+        nch = next(e for e in netlist.ext_circuits if e.name == "nch")
         level = next(p for p in nch.parameters if p.name == "level")
         assert level.default_value is not None
         assert level.default_value.prefixed_value is not None

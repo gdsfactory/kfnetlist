@@ -6,8 +6,8 @@ from lark import Token, Transformer
 
 from kfnetlist.morphnet.morphnet_schema import (
     Netlist,
-    ExternalModule,
-    ExternalModuleKind,
+    ExternalCircuit,
+    ExternalCircuitKind,
     Circuit,
     SubCircuit,
     Parameter,
@@ -404,7 +404,7 @@ class VamsTransformer(Transformer[Token, Netlist]):
 
     def module_def(
         self, items: list[Any]
-    ) -> tuple[str, Circuit, dict[str, ExternalModule]]:
+    ) -> tuple[str, Circuit, dict[str, ExternalCircuit]]:
         module_name = str(items[0])
 
         port_names: list[str] = []
@@ -483,7 +483,7 @@ class VamsTransformer(Transformer[Token, Netlist]):
 
         net_map: NetMap = {}
         subcircuits: list[SubCircuit] = []
-        ext_modules: dict[str, ExternalModule] = {}
+        ext_circuits: dict[str, ExternalCircuit] = {}
 
         for port in ports:
             add_port_to_net(net_map, port.name, "", port.name)
@@ -527,13 +527,13 @@ class VamsTransformer(Transformer[Token, Netlist]):
             properties=properties,
         )
 
-        return (module_name, circuit, ext_modules)
+        return (module_name, circuit, ext_circuits)
 
     # ── Top-level ──────────────────────────────────────────────────────
 
     def start(self, items: list[Any]) -> Netlist:
         circuits: list[Circuit] = []
-        ext_modules: dict[str, ExternalModule] = {}
+        ext_circuits: dict[str, ExternalCircuit] = {}
 
         for item in items:
             if item is None:
@@ -542,7 +542,7 @@ class VamsTransformer(Transformer[Token, Netlist]):
                 _, mod, ext = item
                 if isinstance(mod, Circuit):
                     circuits.append(mod)
-                    ext_modules.update(ext)
+                    ext_circuits.update(ext)
             elif isinstance(item, NatureData):
                 props: dict[str, str] = {"ext_kind": "nature"}
                 for k, v in item.attrs.items():
@@ -554,9 +554,9 @@ class VamsTransformer(Transformer[Token, Netlist]):
                         props[f"nature_{k}"] = format_si_value(v.prefixed_value)
                     else:
                         props[f"nature_{k}"] = ""
-                ext_modules[item.name] = ExternalModule(
+                ext_circuits[item.name] = ExternalCircuit(
                     name=item.name,
-                    kind=ExternalModuleKind.NATURE,
+                    kind=ExternalCircuitKind.NATURE,
                     properties=props,
                 )
             elif isinstance(item, DisciplineData):
@@ -565,9 +565,9 @@ class VamsTransformer(Transformer[Token, Netlist]):
                     props[f"discipline_{role}"] = nature_name
                 if item.domain:
                     props["discipline_domain"] = item.domain
-                ext_modules[item.name] = ExternalModule(
+                ext_circuits[item.name] = ExternalCircuit(
                     name=item.name,
-                    kind=ExternalModuleKind.DISCIPLINE,
+                    kind=ExternalCircuitKind.DISCIPLINE,
                     properties=props,
                 )
             elif isinstance(item, ParamsetData):
@@ -575,9 +575,9 @@ class VamsTransformer(Transformer[Token, Netlist]):
                     Parameter(name=pn, default_value=pv)
                     for pn, pv in item.params.items()
                 ]
-                ext_modules[item.name] = ExternalModule(
+                ext_circuits[item.name] = ExternalCircuit(
                     name=item.name,
-                    kind=ExternalModuleKind.MODEL,
+                    kind=ExternalCircuitKind.MODEL,
                     parameters=params,
                     properties={"ext_kind": "model", "model_type": item.base_type},
                 )
@@ -588,5 +588,5 @@ class VamsTransformer(Transformer[Token, Netlist]):
             name="",
             top_circuit=top_circuit,
             circuits=circuits,
-            ext_modules=list(ext_modules.values()),
+            ext_circuits=list(ext_circuits.values()),
         )

@@ -4,7 +4,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Bus,
     Netlist,
     Connection,
-    ExternalModule,
+    ExternalCircuit,
     ModelInterface,
     ModelReference,
     Circuit,
@@ -145,8 +145,8 @@ def circuit(port, parameter, model_interface, subcircuit, connection, bus):
 
 
 @pytest.fixture
-def external_module(port, parameter):
-    return ExternalModule(
+def external_circuit(port, parameter):
+    return ExternalCircuit(
         name="pd_model",
         ports=[port],
         parameters=[parameter],
@@ -155,11 +155,11 @@ def external_module(port, parameter):
 
 
 @pytest.fixture
-def netlist(circuit, external_module):
+def netlist(circuit, external_circuit):
     return Netlist(
         name="mzi_circuit",
         top_circuit="top",
         circuits=[circuit],
-        ext_modules=[external_module],
+        ext_circuits=[external_circuit],
         properties={"pdk": "gf45spclo"},
     )

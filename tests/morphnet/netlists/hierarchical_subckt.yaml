@@ -1,28 +1,4 @@
-directives: []
-ext_modules:
-- class_name: ''
-  group_name: ''
-  kind: 0
-  library_name: ''
-  name: resistor
-  parameters: []
-  properties:
-    spice_prefix: R
-  terminals:
-  - direction: 0
-    discipline: ''
-    domain: 1
-    name: p
-    properties: {}
-    width: 0
-  - direction: 0
-    discipline: ''
-    domain: 1
-    name: n
-    properties: {}
-    width: 0
-libraries: {}
-modules:
+circuits:
 - buses: []
   class_name: ''
   connections:
@@ -68,9 +44,12 @@ modules:
     weight: 0
   directives: []
   model_interfaces: []
-  module_references:
-  - class_name: ''
-    module_name: resistor
+  name: inverter
+  parameters: []
+  properties: {}
+  subcircuits:
+  - circuit_name: resistor
+    class_name: ''
     name: R1
     parameters:
     - default_value:
@@ -82,8 +61,8 @@ modules:
       name: value
       properties: {}
     properties: {}
-  - class_name: ''
-    module_name: resistor
+  - circuit_name: resistor
+    class_name: ''
     name: R2
     parameters:
     - default_value:
@@ -95,9 +74,6 @@ modules:
       name: value
       properties: {}
     properties: {}
-  name: inverter
-  parameters: []
-  properties: {}
   terminals:
   - direction: 0
     discipline: ''
@@ -198,20 +174,20 @@ modules:
     weight: 0
   directives: []
   model_interfaces: []
-  module_references:
-  - class_name: ''
-    module_name: inverter
-    name: X1
-    parameters: []
-    properties: {}
-  - class_name: ''
-    module_name: inverter
-    name: X2
-    parameters: []
-    properties: {}
   name: buffer
   parameters: []
   properties: {}
+  subcircuits:
+  - circuit_name: inverter
+    class_name: ''
+    name: X1
+    parameters: []
+    properties: {}
+  - circuit_name: inverter
+    class_name: ''
+    name: X2
+    parameters: []
+    properties: {}
   terminals:
   - direction: 0
     discipline: ''
@@ -237,7 +213,31 @@ modules:
     name: vss
     properties: {}
     width: 0
+directives: []
+ext_circuits:
+- class_name: ''
+  group_name: ''
+  kind: 0
+  library_name: ''
+  name: resistor
+  parameters: []
+  properties:
+    spice_prefix: R
+  terminals:
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: p
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: n
+    properties: {}
+    width: 0
+libraries: {}
 name: ''
 properties: {}
 simulation: null
-top_module: buffer
+top_circuit: buffer
