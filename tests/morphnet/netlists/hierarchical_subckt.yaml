@@ -1,0 +1,243 @@
+directives: []
+ext_modules:
+- class_name: ''
+  group_name: ''
+  kind: 0
+  library_name: ''
+  name: resistor
+  parameters: []
+  ports:
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: p
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: n
+    properties: {}
+    width: 0
+  properties:
+    spice_prefix: R
+libraries: {}
+modules:
+- buses: []
+  class_name: ''
+  connections:
+  - domain: 0
+    name: in_
+    properties: {}
+    source:
+      instance_name: ''
+      port_name: in_
+    target:
+      instance_name: R1
+      port_name: p
+    weight: 0
+  - domain: 0
+    name: out
+    properties: {}
+    source:
+      instance_name: ''
+      port_name: out
+    target:
+      instance_name: R1
+      port_name: n
+    weight: 0
+  - domain: 0
+    name: out
+    properties: {}
+    source:
+      instance_name: ''
+      port_name: out
+    target:
+      instance_name: R2
+      port_name: p
+    weight: 0
+  - domain: 0
+    name: vss
+    properties: {}
+    source:
+      instance_name: ''
+      port_name: vss
+    target:
+      instance_name: R2
+      port_name: n
+    weight: 0
+  directives: []
+  model_interfaces: []
+  module_references:
+  - class_name: ''
+    module_name: resistor
+    name: R1
+    parameters:
+    - default_value:
+        model_ref: null
+        prefixed_value:
+          double_value: 1.0
+          prefix: 15
+      description: ''
+      name: value
+      properties: {}
+    properties: {}
+  - class_name: ''
+    module_name: resistor
+    name: R2
+    parameters:
+    - default_value:
+        model_ref: null
+        prefixed_value:
+          double_value: 1.0
+          prefix: 15
+      description: ''
+      name: value
+      properties: {}
+    properties: {}
+  name: inverter
+  parameters: []
+  ports:
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: in_
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: out
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: vdd
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: vss
+    properties: {}
+    width: 0
+  properties: {}
+- buses: []
+  class_name: ''
+  connections:
+  - domain: 0
+    name: a
+    properties: {}
+    source:
+      instance_name: ''
+      port_name: a
+    target:
+      instance_name: X1
+      port_name: in_
+    weight: 0
+  - domain: 0
+    name: b
+    properties: {}
+    source:
+      instance_name: ''
+      port_name: b
+    target:
+      instance_name: X2
+      port_name: out
+    weight: 0
+  - domain: 0
+    name: vdd
+    properties: {}
+    source:
+      instance_name: ''
+      port_name: vdd
+    target:
+      instance_name: X1
+      port_name: vdd
+    weight: 0
+  - domain: 0
+    name: vdd
+    properties: {}
+    source:
+      instance_name: ''
+      port_name: vdd
+    target:
+      instance_name: X2
+      port_name: vdd
+    weight: 0
+  - domain: 0
+    name: vss
+    properties: {}
+    source:
+      instance_name: ''
+      port_name: vss
+    target:
+      instance_name: X1
+      port_name: vss
+    weight: 0
+  - domain: 0
+    name: vss
+    properties: {}
+    source:
+      instance_name: ''
+      port_name: vss
+    target:
+      instance_name: X2
+      port_name: vss
+    weight: 0
+  - domain: 0
+    name: mid
+    properties: {}
+    source:
+      instance_name: X1
+      port_name: out
+    target:
+      instance_name: X2
+      port_name: in_
+    weight: 0
+  directives: []
+  model_interfaces: []
+  module_references:
+  - class_name: ''
+    module_name: inverter
+    name: X1
+    parameters: []
+    properties: {}
+  - class_name: ''
+    module_name: inverter
+    name: X2
+    parameters: []
+    properties: {}
+  name: buffer
+  parameters: []
+  ports:
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: a
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: b
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: vdd
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: vss
+    properties: {}
+    width: 0
+  properties: {}
+name: ''
+properties: {}
+simulation: null
+top_module: buffer

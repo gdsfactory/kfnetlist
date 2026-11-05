@@ -3,6 +3,7 @@
 from collections.abc import Callable, Mapping, Sequence
 from os import PathLike
 from typing import Any, ClassVar, Self
+from typing_extensions import deprecated
 
 class NetlistPort:
     name: str
@@ -389,6 +390,7 @@ class ParameterValue(_ProtoModel):
 
 class Parameter(_ProtoModel):
     @property
+    @deprecated("Removed from the schema; read properties['__uid__'].")
     def uid(self) -> int: ...
     @property
     def name(self) -> str: ...
@@ -440,6 +442,7 @@ class ModelReference(_ProtoModel):
 
 class Terminal(_ProtoModel):
     @property
+    @deprecated("Removed from the schema; read properties['__uid__'].")
     def uid(self) -> int: ...
     @property
     def name(self) -> str: ...
@@ -450,9 +453,12 @@ class Terminal(_ProtoModel):
     @property
     def width(self) -> int: ...
     @property
+    @deprecated("Removed from the schema; read properties['__cross_section__'].")
     def cross_section(self) -> str: ...
     @property
     def properties(self) -> dict[str, str]: ...
+    @property
+    def discipline(self) -> str: ...
     def __init__(
         self,
         *,
@@ -463,6 +469,7 @@ class Terminal(_ProtoModel):
         width: int = ...,
         cross_section: str = ...,
         properties: dict[str, str] = ...,
+        discipline: str = ...,
     ) -> None: ...
 
 class TerminalReference(_ProtoModel):
@@ -523,21 +530,34 @@ class ExternalModule(_ProtoModel):
     @property
     def name(self) -> str: ...
     @property
+    @deprecated("Removed from the schema; read properties['__domain__'].")
     def domain(self) -> str: ...
+    @property
+    def class_name(self) -> str: ...
+    @property
+    def library_name(self) -> str: ...
+    @property
+    def group_name(self) -> str: ...
     @property
     def terminals(self) -> list[Terminal]: ...
     @property
     def parameters(self) -> list[Parameter]: ...
     @property
     def properties(self) -> dict[str, str]: ...
+    @property
+    def kind(self) -> int: ...
     def __init__(
         self,
         *,
         name: str = ...,
         domain: str = ...,
+        class_name: str = ...,
+        library_name: str = ...,
+        group_name: str = ...,
         terminals: list[Terminal] = ...,
         parameters: list[Parameter] = ...,
         properties: dict[str, str] = ...,
+        kind: int = ...,
     ) -> None: ...
 
 class ProtoModuleReference(_ProtoModel):
@@ -548,9 +568,13 @@ class ProtoModuleReference(_ProtoModel):
     @property
     def class_name(self) -> str: ...
     @property
+    @deprecated("Use `parameters` (unnamed entries).")
     def parameter_values(self) -> list[ParameterValue]: ...
     @property
+    @deprecated("Use `parameters`.")
     def parameter_overrides(self) -> dict[str, ParameterValue]: ...
+    @property
+    def parameters(self) -> list[Parameter]: ...
     @property
     def properties(self) -> dict[str, str]: ...
     def __init__(
@@ -559,6 +583,7 @@ class ProtoModuleReference(_ProtoModel):
         name: str = ...,
         module_name: str = ...,
         class_name: str = ...,
+        parameters: list[Parameter] = ...,
         parameter_values: list[ParameterValue] = ...,
         parameter_overrides: dict[str, ParameterValue] = ...,
         properties: dict[str, str] = ...,
@@ -566,13 +591,17 @@ class ProtoModuleReference(_ProtoModel):
 
 class ProtoModule(_ProtoModel):
     @property
+    @deprecated("Removed from the schema; read properties['__uid__'].")
     def uid(self) -> int: ...
     @property
     def name(self) -> str: ...
     @property
     def class_name(self) -> str: ...
     @property
+    @deprecated("Use `terminals`.")
     def terminal(self) -> list[Terminal]: ...
+    @property
+    def terminals(self) -> list[Terminal]: ...
     @property
     def parameters(self) -> list[Parameter]: ...
     @property
@@ -585,12 +614,15 @@ class ProtoModule(_ProtoModel):
     def buses(self) -> list[Bus]: ...
     @property
     def properties(self) -> dict[str, str]: ...
+    @property
+    def directives(self) -> list[dict[str, Any]]: ...
     def __init__(
         self,
         *,
         uid: int = ...,
         name: str = ...,
         class_name: str = ...,
+        terminals: list[Terminal] = ...,
         terminal: list[Terminal] = ...,
         parameters: list[Parameter] = ...,
         model_interfaces: list[ModelInterface] = ...,
@@ -598,12 +630,14 @@ class ProtoModule(_ProtoModel):
         connections: list[Connection] = ...,
         buses: list[Bus] = ...,
         properties: dict[str, str] = ...,
+        directives: list[dict[str, Any]] = ...,
     ) -> None: ...
 
 class ProtoCircuit(_ProtoModel):
     @property
     def name(self) -> str: ...
     @property
+    @deprecated("Removed from the schema; read properties['__domain__'].")
     def domain(self) -> str: ...
     @property
     def top_module(self) -> str: ...
@@ -613,6 +647,12 @@ class ProtoCircuit(_ProtoModel):
     def ext_modules(self) -> list[ExternalModule]: ...
     @property
     def properties(self) -> dict[str, str]: ...
+    @property
+    def directives(self) -> list[dict[str, Any]]: ...
+    @property
+    def simulation(self) -> dict[str, Any] | None: ...
+    @property
+    def libraries(self) -> dict[str, dict[str, Any]]: ...
     def __init__(
         self,
         *,
@@ -622,6 +662,9 @@ class ProtoCircuit(_ProtoModel):
         modules: list[ProtoModule] = ...,
         ext_modules: list[ExternalModule] = ...,
         properties: dict[str, str] = ...,
+        directives: list[dict[str, Any]] = ...,
+        simulation: dict[str, Any] | None = ...,
+        libraries: dict[str, dict[str, Any]] = ...,
     ) -> None: ...
 
 class ArraySpec(_SchemaModel):

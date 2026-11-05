@@ -1,0 +1,123 @@
+directives: []
+ext_modules:
+- class_name: ''
+  group_name: ''
+  kind: 0
+  library_name: ''
+  name: resistor
+  parameters: []
+  ports:
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: p
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: n
+    properties: {}
+    width: 0
+  properties:
+    spice_prefix: R
+libraries: {}
+modules:
+- buses: []
+  class_name: ''
+  connections:
+  - domain: 0
+    name: vin
+    properties: {}
+    source:
+      instance_name: ''
+      port_name: vin
+    target:
+      instance_name: R1
+      port_name: p
+    weight: 0
+  - domain: 0
+    name: vout
+    properties: {}
+    source:
+      instance_name: ''
+      port_name: vout
+    target:
+      instance_name: R1
+      port_name: n
+    weight: 0
+  - domain: 0
+    name: vout
+    properties: {}
+    source:
+      instance_name: ''
+      port_name: vout
+    target:
+      instance_name: R2
+      port_name: p
+    weight: 0
+  - domain: 0
+    name: gnd
+    properties: {}
+    source:
+      instance_name: ''
+      port_name: gnd
+    target:
+      instance_name: R2
+      port_name: n
+    weight: 0
+  directives: []
+  model_interfaces: []
+  module_references:
+  - class_name: ''
+    module_name: resistor
+    name: R1
+    parameters:
+    - default_value:
+        model_ref: null
+        prefixed_value:
+          double_value: 10.0
+          prefix: 15
+      description: ''
+      name: value
+      properties: {}
+    properties: {}
+  - class_name: ''
+    module_name: resistor
+    name: R2
+    parameters:
+    - default_value:
+        model_ref: null
+        prefixed_value:
+          double_value: 10.0
+          prefix: 15
+      description: ''
+      name: value
+      properties: {}
+    properties: {}
+  name: divider
+  parameters: []
+  ports:
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: vin
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: vout
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: gnd
+    properties: {}
+    width: 0
+  properties: {}
+name: ''
+properties: {}
+simulation: null
+top_module: divider
