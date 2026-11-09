@@ -1,7 +1,10 @@
 # Changelog
 
-## Unreleased
+## 0.4.0
 
+- **macOS 27 wheels** — the release workflow fails a macOS build whose
+  `_native.abi3.so` string pool is not 8-byte aligned, which macOS 27's dyld
+  rejects ([#31](https://github.com/gdsfactory/kfnetlist/issues/31)).
 - **Bidirectional netlist format conversion** — morphnet's source is vendored as
   `kfnetlist.morphnet`. Its runtime dependencies (`lark`, `protobuf`, `pydantic`,
   `pydantic-yaml`) become kfnetlist dependencies.

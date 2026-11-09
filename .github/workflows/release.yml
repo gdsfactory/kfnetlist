@@ -39,6 +39,14 @@ jobs:
           args: --release --out dist
           manylinux: auto
 
+      # macOS 27's dyld rejects a misaligned LINKEDIT string pool (#31)
+      - name: Check Mach-O string pool alignment
+        if: runner.os == 'macOS'
+        run: |
+          unzip -o -q dist/*.whl -d wheel
+          stroff=$(otool -l wheel/kfnetlist/_native.abi3.so | awk '/cmd LC_SYMTAB/{f=1} f&&/stroff/{print $2; exit}')
+          test $((stroff % 8)) -eq 0 || { echo "::error::stroff $stroff is not 8-byte aligned"; exit 1; }
+
       - name: Upload wheels
         uses: actions/upload-artifact@v4
         with:
