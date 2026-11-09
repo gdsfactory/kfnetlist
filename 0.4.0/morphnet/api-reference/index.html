@@ -1,0 +1,5947 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://gdsfactory.github.io/0.4.0/morphnet/api-reference/">
+      
+      
+        <link rel="prev" href="../extending-grammars/">
+      
+      
+        <link rel="next" href="../../reference/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.52">
+    
+    
+      
+        <title>API Reference - kfnetlist</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.8b3b5a67.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.dfe2e883.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#api-reference" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="kfnetlist" class="md-header__button md-logo" aria-label="kfnetlist" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            kfnetlist
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              API Reference
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="none" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="none" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/gdsfactory/kfnetlist" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting_started/installation/" class="md-tabs__link">
+          
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/netlist_model/" class="md-tabs__link">
+          
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../extraction/overview/" class="md-tabs__link">
+          
+  
+  Extraction
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/lvs_verification/" class="md-tabs__link">
+          
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  Format Conversion
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="kfnetlist" class="md-nav__button md-logo" aria-label="kfnetlist" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    kfnetlist
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/gdsfactory/kfnetlist" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting Started
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Getting Started
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting_started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Installation
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting_started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Quickstart
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Concepts
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Concepts
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/netlist_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Netlist Model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/ports_and_refs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Ports & Refs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/serialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Serialization
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Extraction
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Extraction
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extraction/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extraction/optical_nets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optical Nets
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extraction/electrical_l2n/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Electrical L2N
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extraction/l2n_parsing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  L2N Parsing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extraction/short_detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Short Detection
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extraction/port_checking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Port Checking
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Guides
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Guides
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/lvs_verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  LVS Verification
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/equivalent_ports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Equivalent Ports
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/hierarchical_flattening/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Hierarchical Flattening
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/instance_removal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Instance Removal
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/placement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Placement
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/open_detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Open Detection
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  FAQ
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Format Conversion
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Format Conversion
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting Started
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic-usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Basic Usage
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced-usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Advanced Usage
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ring_oscillator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Example: Ring Oscillator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mzi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Example: Photonic MZI
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extending-grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Extending Grammars
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API Overview
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#kfnetlistmorphnetnetlist-parse-and-write-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        kfnetlist.morphnet.netlist — Parse and Write Functions
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="kfnetlist.morphnet.netlist — Parse and Write Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hspice" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        HSPICE
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HSPICE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse_hspicetext-str-netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_hspice(text: str) -&gt; Netlist</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_hspicecircuit-netlist-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>write_hspice(circuit: Netlist) -&gt; str</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spice" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SPICE
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SPICE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse_spicetext-str-netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_spice(text: str) -&gt; Netlist</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_spicecircuit-netlist-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>write_spice(circuit: Netlist) -&gt; str</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#xyce" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Xyce
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Xyce">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse_xycetext-str-netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_xyce(text: str) -&gt; Netlist</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_xycecircuit-netlist-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>write_xyce(circuit: Netlist) -&gt; str</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spectre" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Spectre
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Spectre">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse_spectretext-str-netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_spectre(text: str) -&gt; Netlist</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_spectrecircuit-netlist-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>write_spectre(circuit: Netlist) -&gt; str</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spectre-spice" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Spectre-SPICE
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Spectre-SPICE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse_spectre_spicetext-str-netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_spectre_spice(text: str) -&gt; Netlist</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_spectre_spicecircuit-netlist-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>write_spectre_spice(circuit: Netlist) -&gt; str</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verilog-ams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Verilog-AMS
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Verilog-AMS">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse_vamstext-str-netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_vams(text: str) -&gt; Netlist</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_vamscircuit-netlist-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>write_vams(circuit: Netlist) -&gt; str</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kfnetlistmorphnetmorphnet_schema-data-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        kfnetlist.morphnet.morphnet_schema — Data Models
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="kfnetlist.morphnet.morphnet_schema — Data Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#base-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Base Class
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Base Class">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#protomodel" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ProtoModel</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#core-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Core Models
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Netlist</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#circuit" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Circuit</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#externalcircuit" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ExternalCircuit</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subcircuit" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>SubCircuit</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connection" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Connection</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#port-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Port Models
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Port Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#port" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Port</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#portreference" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>PortReference</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bus" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Bus</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parameter-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Parameter Models
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Parameter Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parameter" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Parameter</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parametervalue" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ParameterValue</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prefixedvalue" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>PrefixedValue</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelreference" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ModelReference</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ModelInterface</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#directive-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Directive Models
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Directive Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#directive" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Directive</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#simulation-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Simulation Models
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Simulation Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#simulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Simulation</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Analysis</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#outputrequest" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>OutputRequest</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#measurement" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Measurement</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#initialcondition" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>InitialCondition</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enums" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Enums
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Enums">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#portdirection" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>PortDirection</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#signaldomain" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>SignalDomain</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#siprefix" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>SIPrefix</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#externalcircuitkind" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ExternalCircuitKind</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#directivekind" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>DirectiveKind</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#analysiskind" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>AnalysisKind</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#outputrequestkind" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>OutputRequestKind</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kfnetlistmorphnetnetlistvalue_utils-value-utilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        kfnetlist.morphnet.netlist.value_utils — Value Utilities
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="kfnetlist.morphnet.netlist.value_utils — Value Utilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse_si_numbertoken-str-prefixedvalue" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_si_number(token: str) -&gt; PrefixedValue</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#format_si_valuepv-prefixedvalue-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>format_si_value(pv: PrefixedValue) -&gt; str</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parse_parameter_numbertoken-str-parametervalue" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_parameter_number(token: str) -&gt; ParameterValue</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#is_si_numbertoken-str-bool" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>is_si_number(token: str) -&gt; bool</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Constants
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kfnetlistmorphnetnetlistnet_utils-network-utilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        kfnetlist.morphnet.netlist.net_utils — Network Utilities
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="kfnetlist.morphnet.netlist.net_utils — Network Utilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#net_map_to_connectionsnet_map-netmap-listconnection" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>net_map_to_connections(net_map: NetMap) -&gt; list[Connection]</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connections_to_instance_netsconnections-listconnection-dicttuplestr-str-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>connections_to_instance_nets(connections: list[Connection]) -&gt; dict[tuple[str, str], str]</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add_port_to_netnet_map-netmap-net_name-str-instance_name-str-port_name-str-none" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>add_port_to_net(net_map: NetMap, net_name: str, instance_name: str, port_name: str) -&gt; None</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-aliases" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Type Aliases
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Reference
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1" id="__nav_7_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  API
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/extract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  extract
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_3" id="__nav_7_1_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  kfnetlist_schema
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_1_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  kfnetlist_schema
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/kfnetlist_schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/kfnetlist_schema/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  models
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4" id="__nav_7_1_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  morphnet
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_1_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  morphnet
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/morphnet_schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  morphnet_schema
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3" id="__nav_7_1_4_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  netlist
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_7_1_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  netlist
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  grammars
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3_3" id="__nav_7_1_4_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  hspice
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_7_1_4_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  hspice
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/hspice/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/hspice/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  parser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/hspice/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/hspice/transformer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  transformer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/hspice/writer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  writer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/net_utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  net_utils
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/simulation_data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  simulation_data
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3_7" id="__nav_7_1_4_3_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  spectre
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_7_1_4_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  spectre
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  parser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre/transformer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  transformer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre/writer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  writer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3_8" id="__nav_7_1_4_3_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  spectre_spice
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_7_1_4_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  spectre_spice
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre_spice/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre_spice/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  parser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre_spice/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre_spice/writer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  writer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3_9" id="__nav_7_1_4_3_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  spice
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_7_1_4_3_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  spice
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spice/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spice/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  parser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spice/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spice/transformer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  transformer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spice/writer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  writer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/value_utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  value_utils
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3_11" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3_11" id="__nav_7_1_4_3_11_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  vams
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_7_1_4_3_11_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3_11">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  vams
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/vams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/vams/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  parser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/vams/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/vams/transformer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  transformer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/vams/writer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  writer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3_12" id="__nav_7_1_4_3_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  xyce
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_7_1_4_3_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  xyce
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/xyce/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/xyce/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  parser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/xyce/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/xyce/transformer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  transformer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/xyce/writer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  writer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/port_check/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  port_check
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changelog
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#kfnetlistmorphnetnetlist-parse-and-write-functions" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        kfnetlist.morphnet.netlist — Parse and Write Functions
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="kfnetlist.morphnet.netlist — Parse and Write Functions">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#hspice" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        HSPICE
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="HSPICE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse_hspicetext-str-netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_hspice(text: str) -&gt; Netlist</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_hspicecircuit-netlist-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>write_hspice(circuit: Netlist) -&gt; str</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spice" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SPICE
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="SPICE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse_spicetext-str-netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_spice(text: str) -&gt; Netlist</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_spicecircuit-netlist-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>write_spice(circuit: Netlist) -&gt; str</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#xyce" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Xyce
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Xyce">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse_xycetext-str-netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_xyce(text: str) -&gt; Netlist</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_xycecircuit-netlist-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>write_xyce(circuit: Netlist) -&gt; str</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spectre" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Spectre
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Spectre">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse_spectretext-str-netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_spectre(text: str) -&gt; Netlist</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_spectrecircuit-netlist-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>write_spectre(circuit: Netlist) -&gt; str</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#spectre-spice" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Spectre-SPICE
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Spectre-SPICE">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse_spectre_spicetext-str-netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_spectre_spice(text: str) -&gt; Netlist</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_spectre_spicecircuit-netlist-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>write_spectre_spice(circuit: Netlist) -&gt; str</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#verilog-ams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Verilog-AMS
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Verilog-AMS">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse_vamstext-str-netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_vams(text: str) -&gt; Netlist</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#write_vamscircuit-netlist-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>write_vams(circuit: Netlist) -&gt; str</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kfnetlistmorphnetmorphnet_schema-data-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        kfnetlist.morphnet.morphnet_schema — Data Models
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="kfnetlist.morphnet.morphnet_schema — Data Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#base-class" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Base Class
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Base Class">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#protomodel" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ProtoModel</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#core-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Core Models
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Core Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#netlist" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Netlist</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#circuit" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Circuit</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#externalcircuit" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ExternalCircuit</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#subcircuit" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>SubCircuit</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connection" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Connection</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#port-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Port Models
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Port Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#port" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Port</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#portreference" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>PortReference</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#bus" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Bus</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parameter-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Parameter Models
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Parameter Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parameter" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Parameter</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parametervalue" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ParameterValue</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#prefixedvalue" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>PrefixedValue</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelreference" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ModelReference</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#modelinterface" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ModelInterface</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#directive-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Directive Models
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Directive Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#directive" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Directive</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#simulation-models" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Simulation Models
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Simulation Models">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#simulation" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Simulation</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#analysis" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Analysis</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#outputrequest" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>OutputRequest</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#measurement" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>Measurement</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#initialcondition" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>InitialCondition</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#enums" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Enums
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="Enums">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#portdirection" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>PortDirection</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#signaldomain" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>SignalDomain</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#siprefix" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>SIPrefix</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#externalcircuitkind" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>ExternalCircuitKind</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#directivekind" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>DirectiveKind</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#analysiskind" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>AnalysisKind</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#outputrequestkind" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>OutputRequestKind</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kfnetlistmorphnetnetlistvalue_utils-value-utilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        kfnetlist.morphnet.netlist.value_utils — Value Utilities
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="kfnetlist.morphnet.netlist.value_utils — Value Utilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#parse_si_numbertoken-str-prefixedvalue" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_si_number(token: str) -&gt; PrefixedValue</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#format_si_valuepv-prefixedvalue-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>format_si_value(pv: PrefixedValue) -&gt; str</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#parse_parameter_numbertoken-str-parametervalue" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>parse_parameter_number(token: str) -&gt; ParameterValue</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#is_si_numbertoken-str-bool" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>is_si_number(token: str) -&gt; bool</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#constants" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Constants
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#kfnetlistmorphnetnetlistnet_utils-network-utilities" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        kfnetlist.morphnet.netlist.net_utils — Network Utilities
+      </span>
+    </span>
+  </a>
+  
+    <nav class="md-nav" aria-label="kfnetlist.morphnet.netlist.net_utils — Network Utilities">
+      <ul class="md-nav__list">
+        
+          <li class="md-nav__item">
+  <a href="#net_map_to_connectionsnet_map-netmap-listconnection" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>net_map_to_connections(net_map: NetMap) -&gt; list[Connection]</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#connections_to_instance_netsconnections-listconnection-dicttuplestr-str-str" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>connections_to_instance_nets(connections: list[Connection]) -&gt; dict[tuple[str, str], str]</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#add_port_to_netnet_map-netmap-net_name-str-instance_name-str-port_name-str-none" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        <code>add_port_to_net(net_map: NetMap, net_name: str, instance_name: str, port_name: str) -&gt; None</code>
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+          <li class="md-nav__item">
+  <a href="#type-aliases" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Type Aliases
+      </span>
+    </span>
+  </a>
+  
+</li>
+        
+      </ul>
+    </nav>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+
+
+
+                  
+  
+  
+
+
+<h1 id="api-reference">API Reference</h1>
+<h2 id="kfnetlistmorphnetnetlist-parse-and-write-functions">kfnetlist.morphnet.netlist — Parse and Write Functions</h2>
+<p>All functions are importable directly from <code>kfnetlist.morphnet.netlist</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist.morphnet.netlist</span><span class="w"> </span><span class="kn">import</span> <span class="n">parse_spectre</span><span class="p">,</span> <span class="n">write_spectre</span>
+</code></pre></div>
+<p>Or from their format-specific modules:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist.morphnet.netlist.spectre.parser</span><span class="w"> </span><span class="kn">import</span> <span class="n">parse_spectre</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist.morphnet.netlist.spectre.writer</span><span class="w"> </span><span class="kn">import</span> <span class="n">write_spectre</span>
+</code></pre></div>
+<h3 id="hspice">HSPICE</h3>
+<h4 id="parse_hspicetext-str-netlist"><code>parse_hspice(text: str) -&gt; Netlist</code></h4>
+<p>Parse HSPICE netlist text. Handles <code>.subckt</code>/<code>.ends</code>, <code>.macro</code>/<code>.eom</code>, device instances, <code>.model</code> statements, simulation directives (<code>.tran</code>, <code>.ac</code>, <code>.dc</code>, <code>.op</code>, <code>.fft</code>, etc.), <code>.include</code>, <code>.lib</code>, <code>.param</code>.</p>
+<h4 id="write_hspicecircuit-netlist-str"><code>write_hspice(circuit: Netlist) -&gt; str</code></h4>
+<p>Write a <code>Netlist</code> to HSPICE format.</p>
+<h3 id="spice">SPICE</h3>
+<h4 id="parse_spicetext-str-netlist"><code>parse_spice(text: str) -&gt; Netlist</code></h4>
+<p>Parse generic SPICE netlist text. Supports the common SPICE3 subset shared across simulators.</p>
+<h4 id="write_spicecircuit-netlist-str"><code>write_spice(circuit: Netlist) -&gt; str</code></h4>
+<p>Write a <code>Netlist</code> to generic SPICE format.</p>
+<h3 id="xyce">Xyce</h3>
+<h4 id="parse_xycetext-str-netlist"><code>parse_xyce(text: str) -&gt; Netlist</code></h4>
+<p>Parse Xyce netlist text. Supports Xyce-specific syntax extensions.</p>
+<h4 id="write_xycecircuit-netlist-str"><code>write_xyce(circuit: Netlist) -&gt; str</code></h4>
+<p>Write a <code>Netlist</code> to Xyce format.</p>
+<h3 id="spectre">Spectre</h3>
+<h4 id="parse_spectretext-str-netlist"><code>parse_spectre(text: str) -&gt; Netlist</code></h4>
+<p>Parse Spectre netlist text. Handles <code>subckt</code>/<code>ends</code>, instances with <code>(port list) circuit_name param=value</code> syntax, model statements, and simulation analyses.</p>
+<h4 id="write_spectrecircuit-netlist-str"><code>write_spectre(circuit: Netlist) -&gt; str</code></h4>
+<p>Write a <code>Netlist</code> to Spectre format.</p>
+<h3 id="spectre-spice">Spectre-SPICE</h3>
+<h4 id="parse_spectre_spicetext-str-netlist"><code>parse_spectre_spice(text: str) -&gt; Netlist</code></h4>
+<p>Parse Spectre-SPICE mixed-mode netlists. Handles both Spectre and SPICE syntax blocks.</p>
+<h4 id="write_spectre_spicecircuit-netlist-str"><code>write_spectre_spice(circuit: Netlist) -&gt; str</code></h4>
+<p>Write a <code>Netlist</code> to Spectre-SPICE format (SPICE-style output).</p>
+<h3 id="verilog-ams">Verilog-AMS</h3>
+<h4 id="parse_vamstext-str-netlist"><code>parse_vams(text: str) -&gt; Netlist</code></h4>
+<p>Parse Verilog-AMS netlist text. Handles <code>module</code>/<code>endmodule</code>, named port connections (<code>.port(net)</code>), parameter overrides (<code>#(.param(value))</code>), natures, and disciplines.</p>
+<h4 id="write_vamscircuit-netlist-str"><code>write_vams(circuit: Netlist) -&gt; str</code></h4>
+<p>Write a <code>Netlist</code> to Verilog-AMS format.</p>
+<hr />
+<h2 id="kfnetlistmorphnetmorphnet_schema-data-models">kfnetlist.morphnet.morphnet_schema — Data Models</h2>
+<p>All models are importable from <code>kfnetlist.morphnet.morphnet_schema</code>:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist.morphnet.morphnet_schema</span><span class="w"> </span><span class="kn">import</span> <span class="n">Netlist</span><span class="p">,</span> <span class="n">Circuit</span><span class="p">,</span> <span class="n">Port</span><span class="p">,</span> <span class="n">SIPrefix</span>
+</code></pre></div>
+<h3 id="base-class">Base Class</h3>
+<h4 id="protomodel"><code>ProtoModel</code></h4>
+<p>Base class for all kfnetlist.morphnet data models. Extends <code>pydantic.BaseModel</code> (mutable, <code>populate_by_name=True</code>) with protobuf, JSON and YAML serialization.</p>
+<p><strong>Methods:</strong></p>
+<table>
+<thead>
+<tr>
+<th>Method</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>to_proto() -&gt; ProtoMessage</code></td>
+<td>Convert to a protobuf Message</td>
+</tr>
+<tr>
+<td><code>to_proto_bytes() -&gt; bytes</code></td>
+<td>Serialize to binary protobuf</td>
+</tr>
+<tr>
+<td><code>from_proto_bytes(data: bytes) -&gt; Self</code></td>
+<td>Deserialize from binary protobuf (classmethod)</td>
+</tr>
+<tr>
+<td><code>from_proto(msg: ProtoMessage) -&gt; Self</code></td>
+<td>Convert from a protobuf Message (classmethod)</td>
+</tr>
+<tr>
+<td><code>to_json(**kwargs) -&gt; str</code></td>
+<td>Serialize to JSON string</td>
+</tr>
+<tr>
+<td><code>from_json(json_str: str) -&gt; Self</code></td>
+<td>Deserialize from JSON string (classmethod)</td>
+</tr>
+<tr>
+<td><code>to_yaml(**kwargs) -&gt; str</code></td>
+<td>Serialize to YAML string</td>
+</tr>
+<tr>
+<td><code>from_yaml(yaml_str: str) -&gt; Self</code></td>
+<td>Deserialize from YAML string (classmethod)</td>
+</tr>
+<tr>
+<td><code>model_copy(update={...})</code></td>
+<td>Create a modified copy (inherited from Pydantic)</td>
+</tr>
+</tbody>
+</table>
+<h3 id="core-models">Core Models</h3>
+<h4 id="netlist"><code>Netlist</code></h4>
+<p>Top-level container: circuit definitions, external circuits, directives and simulation.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td><code>name</code></td>
+<td><code>str</code></td>
+<td>Netlist name</td>
+</tr>
+<tr>
+<td><code>top_circuit</code></td>
+<td><code>top_circuit</code></td>
+<td><code>str</code></td>
+<td>Name of the top-level circuit</td>
+</tr>
+<tr>
+<td><code>circuits</code></td>
+<td><code>circuits</code></td>
+<td><code>list[Circuit]</code></td>
+<td>Circuit definitions</td>
+</tr>
+<tr>
+<td><code>ext_circuits</code></td>
+<td><code>ext_circuits</code></td>
+<td><code>list[ExternalCircuit]</code></td>
+<td>Body-less circuit definitions (devices, models, PDK cells)</td>
+</tr>
+<tr>
+<td><code>properties</code></td>
+<td><code>properties</code></td>
+<td><code>dict[str, str]</code></td>
+<td>Arbitrary key-value properties</td>
+</tr>
+<tr>
+<td><code>directives</code></td>
+<td><code>directives</code></td>
+<td><code>list[Directive]</code></td>
+<td>Include, lib, param directives</td>
+</tr>
+<tr>
+<td><code>simulation</code></td>
+<td><code>simulation</code></td>
+<td><code>Simulation \| None</code></td>
+<td>Simulation configuration</td>
+</tr>
+<tr>
+<td><code>libraries</code></td>
+<td><code>libraries</code></td>
+<td><code>dict[str, ExternalLibrary]</code></td>
+<td>External model libraries by name</td>
+</tr>
+</tbody>
+</table>
+<h4 id="circuit"><code>Circuit</code></h4>
+<p>A circuit definition: ports, parameters, subcircuit instances and connections.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td><code>name</code></td>
+<td><code>str</code></td>
+<td>Circuit name</td>
+</tr>
+<tr>
+<td><code>class_name</code></td>
+<td><code>class_name</code></td>
+<td><code>str</code></td>
+<td>Class/type name</td>
+</tr>
+<tr>
+<td><code>ports</code></td>
+<td><code>terminals</code></td>
+<td><code>list[Port]</code></td>
+<td>Port declarations</td>
+</tr>
+<tr>
+<td><code>parameters</code></td>
+<td><code>parameters</code></td>
+<td><code>list[Parameter]</code></td>
+<td>Parameter declarations</td>
+</tr>
+<tr>
+<td><code>model_interfaces</code></td>
+<td><code>model_interfaces</code></td>
+<td><code>list[ModelInterface]</code></td>
+<td>Model function definitions</td>
+</tr>
+<tr>
+<td><code>subcircuits</code></td>
+<td><code>subcircuits</code></td>
+<td><code>list[SubCircuit]</code></td>
+<td>Instances of other circuits</td>
+</tr>
+<tr>
+<td><code>connections</code></td>
+<td><code>connections</code></td>
+<td><code>list[Connection]</code></td>
+<td>Point-to-point connections</td>
+</tr>
+<tr>
+<td><code>buses</code></td>
+<td><code>buses</code></td>
+<td><code>list[Bus]</code></td>
+<td>Bus definitions</td>
+</tr>
+<tr>
+<td><code>properties</code></td>
+<td><code>properties</code></td>
+<td><code>dict[str, str]</code></td>
+<td>Arbitrary properties</td>
+</tr>
+<tr>
+<td><code>directives</code></td>
+<td><code>directives</code></td>
+<td><code>list[Directive]</code></td>
+<td>Circuit-level directives</td>
+</tr>
+</tbody>
+</table>
+<h4 id="externalcircuit"><code>ExternalCircuit</code></h4>
+<p>A primitive or externally-defined device (resistor, mosfet, etc.).</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td><code>name</code></td>
+<td><code>str</code></td>
+<td>Device name</td>
+</tr>
+<tr>
+<td><code>class_name</code></td>
+<td><code>class_name</code></td>
+<td><code>str</code></td>
+<td>Class/type name</td>
+</tr>
+<tr>
+<td><code>library_name</code></td>
+<td><code>library_name</code></td>
+<td><code>str</code></td>
+<td>Library providing the device</td>
+</tr>
+<tr>
+<td><code>group_name</code></td>
+<td><code>group_name</code></td>
+<td><code>str</code></td>
+<td>Group within the library</td>
+</tr>
+<tr>
+<td><code>ports</code></td>
+<td><code>terminals</code></td>
+<td><code>list[Port]</code></td>
+<td>Port declarations</td>
+</tr>
+<tr>
+<td><code>parameters</code></td>
+<td><code>parameters</code></td>
+<td><code>list[Parameter]</code></td>
+<td>Parameter declarations</td>
+</tr>
+<tr>
+<td><code>properties</code></td>
+<td><code>properties</code></td>
+<td><code>dict[str, str]</code></td>
+<td>Arbitrary properties</td>
+</tr>
+<tr>
+<td><code>kind</code></td>
+<td><code>kind</code></td>
+<td><code>ExternalCircuitKind</code></td>
+<td>Device kind (DEVICE, MODEL, etc.)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="subcircuit"><code>SubCircuit</code></h4>
+<p>An instance of a circuit or external circuit inside a parent circuit.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td><code>name</code></td>
+<td><code>str</code></td>
+<td>Instance name</td>
+</tr>
+<tr>
+<td><code>circuit_name</code></td>
+<td><code>circuit_name</code></td>
+<td><code>str</code></td>
+<td>Referenced circuit name</td>
+</tr>
+<tr>
+<td><code>class_name</code></td>
+<td><code>class_name</code></td>
+<td><code>str</code></td>
+<td>Class/type name</td>
+</tr>
+<tr>
+<td><code>parameters</code></td>
+<td><code>parameters</code></td>
+<td><code>list[Parameter]</code></td>
+<td>Parameter values for this instance</td>
+</tr>
+<tr>
+<td><code>properties</code></td>
+<td><code>properties</code></td>
+<td><code>dict[str, str]</code></td>
+<td>Arbitrary properties</td>
+</tr>
+</tbody>
+</table>
+<h4 id="connection"><code>Connection</code></h4>
+<p>A point-to-point connection between two port references on a net.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td><code>name</code></td>
+<td><code>str</code></td>
+<td>Net name</td>
+</tr>
+<tr>
+<td><code>source</code></td>
+<td><code>source</code></td>
+<td><code>PortReference \| None</code></td>
+<td>Source port reference</td>
+</tr>
+<tr>
+<td><code>target</code></td>
+<td><code>target</code></td>
+<td><code>PortReference \| None</code></td>
+<td>Target port reference</td>
+</tr>
+<tr>
+<td><code>domain</code></td>
+<td><code>domain</code></td>
+<td><code>SignalDomain</code></td>
+<td>Signal domain</td>
+</tr>
+<tr>
+<td><code>weight</code></td>
+<td><code>weight</code></td>
+<td><code>int</code></td>
+<td>Connection weight</td>
+</tr>
+<tr>
+<td><code>properties</code></td>
+<td><code>properties</code></td>
+<td><code>dict[str, str]</code></td>
+<td>Arbitrary properties</td>
+</tr>
+</tbody>
+</table>
+<h3 id="port-models">Port Models</h3>
+<h4 id="port"><code>Port</code></h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td><code>name</code></td>
+<td><code>str</code></td>
+<td>Port name</td>
+</tr>
+<tr>
+<td><code>direction</code></td>
+<td><code>direction</code></td>
+<td><code>PortDirection</code></td>
+<td>INOUT, INPUT, or OUTPUT</td>
+</tr>
+<tr>
+<td><code>domain</code></td>
+<td><code>domain</code></td>
+<td><code>SignalDomain</code></td>
+<td>Signal domain</td>
+</tr>
+<tr>
+<td><code>width</code></td>
+<td><code>width</code></td>
+<td><code>int</code></td>
+<td>Bus width</td>
+</tr>
+<tr>
+<td><code>properties</code></td>
+<td><code>properties</code></td>
+<td><code>dict[str, str]</code></td>
+<td>Arbitrary properties</td>
+</tr>
+<tr>
+<td><code>discipline</code></td>
+<td><code>discipline</code></td>
+<td><code>str</code></td>
+<td>Verilog-AMS discipline</td>
+</tr>
+</tbody>
+</table>
+<h4 id="portreference"><code>PortReference</code></h4>
+<p>A reference to a specific port on a specific instance.</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>instance_name</code></td>
+<td><code>instance_name</code></td>
+<td><code>str</code></td>
+<td>Name of the instance</td>
+</tr>
+<tr>
+<td><code>port_name</code></td>
+<td><code>terminal_name</code></td>
+<td><code>str</code></td>
+<td>Name of the port</td>
+</tr>
+</tbody>
+</table>
+<h4 id="bus"><code>Bus</code></h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td><code>name</code></td>
+<td><code>str</code></td>
+<td>Bus name</td>
+</tr>
+<tr>
+<td><code>width</code></td>
+<td><code>width</code></td>
+<td><code>int</code></td>
+<td>Bus width</td>
+</tr>
+<tr>
+<td><code>domain</code></td>
+<td><code>domain</code></td>
+<td><code>SignalDomain</code></td>
+<td>Signal domain</td>
+</tr>
+<tr>
+<td><code>connections</code></td>
+<td><code>connections</code></td>
+<td><code>list[Connection]</code></td>
+<td>Bus connections</td>
+</tr>
+<tr>
+<td><code>properties</code></td>
+<td><code>properties</code></td>
+<td><code>dict[str, str]</code></td>
+<td>Arbitrary properties</td>
+</tr>
+</tbody>
+</table>
+<h3 id="parameter-models">Parameter Models</h3>
+<h4 id="parameter"><code>Parameter</code></h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td><code>name</code></td>
+<td><code>str</code></td>
+<td>Parameter name</td>
+</tr>
+<tr>
+<td><code>default_value</code></td>
+<td><code>default_value</code></td>
+<td><code>ParameterValue \| None</code></td>
+<td>Default value</td>
+</tr>
+<tr>
+<td><code>description</code></td>
+<td><code>description</code></td>
+<td><code>str</code></td>
+<td>Description</td>
+</tr>
+<tr>
+<td><code>properties</code></td>
+<td><code>properties</code></td>
+<td><code>dict[str, str]</code></td>
+<td>Arbitrary properties</td>
+</tr>
+</tbody>
+</table>
+<h4 id="parametervalue"><code>ParameterValue</code></h4>
+<p>A oneof value — exactly one field should be set:</p>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>prefixed_value</code></td>
+<td><code>prefixed_value</code></td>
+<td><code>PrefixedValue \| None</code></td>
+<td>SI-prefixed numeric value</td>
+</tr>
+<tr>
+<td><code>model_ref</code></td>
+<td><code>model_ref</code></td>
+<td><code>ModelReference \| None</code></td>
+<td>Reference to a model</td>
+</tr>
+</tbody>
+</table>
+<h4 id="prefixedvalue"><code>PrefixedValue</code></h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>double_value</code></td>
+<td><code>double_value</code></td>
+<td><code>float</code></td>
+<td>Numeric value</td>
+</tr>
+<tr>
+<td><code>prefix</code></td>
+<td><code>prefix</code></td>
+<td><code>SIPrefix</code></td>
+<td>SI prefix (KILO, MEGA, PICO, etc.)</td>
+</tr>
+</tbody>
+</table>
+<h4 id="modelreference"><code>ModelReference</code></h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>model_interface_name</code></td>
+<td><code>model_interface_name</code></td>
+<td><code>str</code></td>
+<td>Model interface name</td>
+</tr>
+<tr>
+<td><code>arguments</code></td>
+<td><code>arguments</code></td>
+<td><code>dict[str, ParameterValue]</code></td>
+<td>Model arguments</td>
+</tr>
+</tbody>
+</table>
+<h4 id="modelinterface"><code>ModelInterface</code></h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td><code>name</code></td>
+<td><code>str</code></td>
+<td>Interface name</td>
+</tr>
+<tr>
+<td><code>function_name</code></td>
+<td><code>function_name</code></td>
+<td><code>str</code></td>
+<td>Function name</td>
+</tr>
+<tr>
+<td><code>parameters</code></td>
+<td><code>parameters</code></td>
+<td><code>list[Parameter]</code></td>
+<td>Parameters</td>
+</tr>
+<tr>
+<td><code>properties</code></td>
+<td><code>properties</code></td>
+<td><code>dict[str, str]</code></td>
+<td>Arbitrary properties</td>
+</tr>
+</tbody>
+</table>
+<h3 id="directive-models">Directive Models</h3>
+<h4 id="directive"><code>Directive</code></h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kind</code></td>
+<td><code>kind</code></td>
+<td><code>DirectiveKind</code></td>
+<td>Directive type</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td><code>name</code></td>
+<td><code>str</code></td>
+<td>Directive name/key</td>
+</tr>
+<tr>
+<td><code>value</code></td>
+<td><code>value</code></td>
+<td><code>str</code></td>
+<td>Directive value</td>
+</tr>
+</tbody>
+</table>
+<h3 id="simulation-models">Simulation Models</h3>
+<h4 id="simulation"><code>Simulation</code></h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>analyses</code></td>
+<td><code>analyses</code></td>
+<td><code>list[Analysis]</code></td>
+<td>Simulation analyses</td>
+</tr>
+<tr>
+<td><code>output_requests</code></td>
+<td><code>output_requests</code></td>
+<td><code>list[OutputRequest]</code></td>
+<td>Print/plot/probe/save requests</td>
+</tr>
+<tr>
+<td><code>measurements</code></td>
+<td><code>measurements</code></td>
+<td><code>list[Measurement]</code></td>
+<td>.meas statements</td>
+</tr>
+<tr>
+<td><code>initial_conditions</code></td>
+<td><code>initial_conditions</code></td>
+<td><code>InitialCondition \| None</code></td>
+<td>Initial conditions</td>
+</tr>
+<tr>
+<td><code>node_sets</code></td>
+<td><code>node_sets</code></td>
+<td><code>InitialCondition \| None</code></td>
+<td>Node sets</td>
+</tr>
+<tr>
+<td><code>temperatures</code></td>
+<td><code>temperatures</code></td>
+<td><code>list[float]</code></td>
+<td>Temperature list</td>
+</tr>
+<tr>
+<td><code>options</code></td>
+<td><code>options</code></td>
+<td><code>dict[str, str]</code></td>
+<td>Simulation options</td>
+</tr>
+</tbody>
+</table>
+<h4 id="analysis"><code>Analysis</code></h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kind</code></td>
+<td><code>kind</code></td>
+<td><code>AnalysisKind</code></td>
+<td>Analysis type (OP, DC, AC, TRAN, etc.)</td>
+</tr>
+<tr>
+<td><code>name</code></td>
+<td><code>name</code></td>
+<td><code>str</code></td>
+<td>Analysis name</td>
+</tr>
+<tr>
+<td><code>arguments</code></td>
+<td><code>arguments</code></td>
+<td><code>list[str]</code></td>
+<td>Positional arguments</td>
+</tr>
+<tr>
+<td><code>options</code></td>
+<td><code>options</code></td>
+<td><code>dict[str, str]</code></td>
+<td>Named options</td>
+</tr>
+</tbody>
+</table>
+<h4 id="outputrequest"><code>OutputRequest</code></h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>kind</code></td>
+<td><code>kind</code></td>
+<td><code>OutputRequestKind</code></td>
+<td>PRINT, PLOT, PROBE, or SAVE</td>
+</tr>
+<tr>
+<td><code>analysis_type</code></td>
+<td><code>analysis_type</code></td>
+<td><code>str</code></td>
+<td>Associated analysis type</td>
+</tr>
+<tr>
+<td><code>variables</code></td>
+<td><code>variables</code></td>
+<td><code>list[str]</code></td>
+<td>Variable expressions</td>
+</tr>
+</tbody>
+</table>
+<h4 id="measurement"><code>Measurement</code></h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>name</code></td>
+<td><code>name</code></td>
+<td><code>str</code></td>
+<td>Measurement name</td>
+</tr>
+<tr>
+<td><code>analysis_type</code></td>
+<td><code>analysis_type</code></td>
+<td><code>str</code></td>
+<td>Associated analysis type</td>
+</tr>
+<tr>
+<td><code>body</code></td>
+<td><code>body</code></td>
+<td><code>str</code></td>
+<td>Measurement body</td>
+</tr>
+</tbody>
+</table>
+<h4 id="initialcondition"><code>InitialCondition</code></h4>
+<table>
+<thead>
+<tr>
+<th>Field</th>
+<th>Schema name</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>conditions</code></td>
+<td><code>conditions</code></td>
+<td><code>dict[str, str]</code></td>
+<td>Node/value pairs</td>
+</tr>
+</tbody>
+</table>
+<h3 id="enums">Enums</h3>
+<h4 id="portdirection"><code>PortDirection</code></h4>
+<p><code>INOUT</code> (0), <code>INPUT</code> (1), <code>OUTPUT</code> (2)</p>
+<h4 id="signaldomain"><code>SignalDomain</code></h4>
+<p><code>UNSPECIFIED</code> (0), <code>ELECTRICAL</code> (1), <code>WAVEGUIDE</code> (2)</p>
+<h4 id="siprefix"><code>SIPrefix</code></h4>
+<p><code>UNSPECIFIED</code> (0), <code>QUECTO</code> (1), <code>RONTO</code> (2), <code>YOCTO</code> (3), <code>ZEPTO</code> (4), <code>ATTO</code> (5), <code>FEMTO</code> (6), <code>PICO</code> (7), <code>NANO</code> (8), <code>MICRO</code> (9), <code>MILLI</code> (10), <code>CENTI</code> (11), <code>DECI</code> (12), <code>DECA</code> (13), <code>HECTO</code> (14), <code>KILO</code> (15), <code>MEGA</code> (16), <code>GIGA</code> (17), <code>TERA</code> (18), <code>PETA</code> (19), <code>EXA</code> (20), <code>ZETTA</code> (21), <code>YOTTA</code> (22), <code>RONNA</code> (23), <code>QUETTA</code> (24)</p>
+<h4 id="externalcircuitkind"><code>ExternalCircuitKind</code></h4>
+<p><code>UNSPECIFIED</code> (0), <code>DEVICE</code> (1), <code>MODEL</code> (2), <code>NATURE</code> (3), <code>DISCIPLINE</code> (4)</p>
+<h4 id="directivekind"><code>DirectiveKind</code></h4>
+<p><code>UNSPECIFIED</code> (0), <code>INCLUDE</code> (1), <code>LIB</code> (2), <code>GLOBAL</code> (3), <code>OPTION</code> (4), <code>PARAM</code> (5), <code>DEFINE</code> (6), <code>TIMESCALE</code> (7)</p>
+<h4 id="analysiskind"><code>AnalysisKind</code></h4>
+<p><code>UNSPECIFIED</code> (0), <code>OP</code> (1), <code>DC</code> (2), <code>AC</code> (3), <code>TRAN</code> (4), <code>NOISE</code> (5), <code>TF</code> (6), <code>SENS</code> (7), <code>PZ</code> (8), <code>DISTO</code> (9), <code>FOUR</code> (10), <code>FFT</code> (11)</p>
+<h4 id="outputrequestkind"><code>OutputRequestKind</code></h4>
+<p><code>UNSPECIFIED</code> (0), <code>PRINT</code> (1), <code>PLOT</code> (2), <code>PROBE</code> (3), <code>SAVE</code> (4)</p>
+<hr />
+<h2 id="kfnetlistmorphnetnetlistvalue_utils-value-utilities">kfnetlist.morphnet.netlist.value_utils — Value Utilities</h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist.morphnet.netlist.value_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">parse_si_number</span><span class="p">,</span> <span class="n">format_si_value</span>
+</code></pre></div>
+<h4 id="parse_si_numbertoken-str-prefixedvalue"><code>parse_si_number(token: str) -&gt; PrefixedValue</code></h4>
+<p>Parse a SPICE-style SI-prefixed number (e.g., <code>"10k"</code>, <code>"2.2u"</code>, <code>"100meg"</code>) into a <code>PrefixedValue</code>. Raises <code>ValueError</code> if the token is not valid.</p>
+<h4 id="format_si_valuepv-prefixedvalue-str"><code>format_si_value(pv: PrefixedValue) -&gt; str</code></h4>
+<p>Format a <code>PrefixedValue</code> as a SPICE-style string (e.g., <code>"10k"</code>, <code>"2.2u"</code>).</p>
+<h4 id="parse_parameter_numbertoken-str-parametervalue"><code>parse_parameter_number(token: str) -&gt; ParameterValue</code></h4>
+<p>Parse a numeric token into the most appropriate <code>ParameterValue</code> variant. Whole integers return <code>int_value</code>; everything else returns <code>prefixed_value</code>.</p>
+<h4 id="is_si_numbertoken-str-bool"><code>is_si_number(token: str) -&gt; bool</code></h4>
+<p>Check whether a token looks like an SI-prefixed number.</p>
+<h4 id="constants">Constants</h4>
+<table>
+<thead>
+<tr>
+<th>Constant</th>
+<th>Type</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>SI_SUFFIX_TO_PREFIX</code></td>
+<td><code>dict[str, SIPrefix]</code></td>
+<td>Maps suffix strings (<code>"k"</code>, <code>"u"</code>, <code>"meg"</code>, etc.) to <code>SIPrefix</code> enum values</td>
+</tr>
+<tr>
+<td><code>PREFIX_TO_SI_SUFFIX</code></td>
+<td><code>dict[SIPrefix, str]</code></td>
+<td>Reverse mapping from <code>SIPrefix</code> to suffix strings</td>
+</tr>
+<tr>
+<td><code>DEVICE_PORT_TEMPLATES</code></td>
+<td><code>dict[str, list[str]]</code></td>
+<td>Maps device prefix letters to port name lists (e.g., <code>"M"</code> -&gt; <code>["d", "g", "s", "b"]</code>)</td>
+</tr>
+<tr>
+<td><code>DEVICE_PREFIX_TO_CIRCUIT</code></td>
+<td><code>dict[str, str]</code></td>
+<td>Maps device prefix letters to external circuit names (e.g., <code>"M"</code> -&gt; <code>"mosfet"</code>)</td>
+</tr>
+</tbody>
+</table>
+<hr />
+<h2 id="kfnetlistmorphnetnetlistnet_utils-network-utilities">kfnetlist.morphnet.netlist.net_utils — Network Utilities</h2>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist.morphnet.netlist.net_utils</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">net_map_to_connections</span><span class="p">,</span>
+    <span class="n">connections_to_instance_nets</span><span class="p">,</span>
+<span class="p">)</span>
+</code></pre></div>
+<h4 id="net_map_to_connectionsnet_map-netmap-listconnection"><code>net_map_to_connections(net_map: NetMap) -&gt; list[Connection]</code></h4>
+<p>Convert a net-based connectivity map (<code>dict[str, list[PortReference]]</code>) to point-to-point <code>Connection</code> objects. For each net with N port references, produces N-1 connections.</p>
+<h4 id="connections_to_instance_netsconnections-listconnection-dicttuplestr-str-str"><code>connections_to_instance_nets(connections: list[Connection]) -&gt; dict[tuple[str, str], str]</code></h4>
+<p>Build an <code>(instance_name, port_name) -&gt; net_name</code> lookup from a list of <code>Connection</code> objects. Used by writers to reconstruct instance lines with correct net names.</p>
+<h4 id="add_port_to_netnet_map-netmap-net_name-str-instance_name-str-port_name-str-none"><code>add_port_to_net(net_map: NetMap, net_name: str, instance_name: str, port_name: str) -&gt; None</code></h4>
+<p>Register a port reference on a net in the net map.</p>
+<h4 id="type-aliases">Type Aliases</h4>
+<table>
+<thead>
+<tr>
+<th>Alias</th>
+<th>Definition</th>
+<th>Description</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td><code>NetMap</code></td>
+<td><code>dict[str, list[PortReference]]</code></td>
+<td>Maps net names to port references</td>
+</tr>
+</tbody>
+</table>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["navigation.tabs","navigation.tabs.sticky"],"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"default":"latest","provider":"mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.ed145cee.min.js"></script>
+      
+    
+  </body>
+</html>
