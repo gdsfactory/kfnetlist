@@ -3223,10 +3223,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#unreleased" class="md-nav__link">
+  <a href="#040" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Unreleased
+        0.4.0
       </span>
     </span>
   </a>
@@ -3323,10 +3323,10 @@
     <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
       
         <li class="md-nav__item">
-  <a href="#unreleased" class="md-nav__link">
+  <a href="#040" class="md-nav__link">
     <span class="md-ellipsis">
       <span class="md-typeset">
-        Unreleased
+        0.4.0
       </span>
     </span>
   </a>
@@ -3388,8 +3388,13 @@
 
 
 <h1 id="changelog">Changelog</h1>
-<h2 id="unreleased">Unreleased</h2>
+<h2 id="040">0.4.0</h2>
 <ul>
+<li><strong>Loads on macOS 27</strong> (<a href="https://github.com/gdsfactory/kfnetlist/issues/31">#31</a>) —
+  rustc strips macOS release builds with <code>rust-objcopy</code>, which left the
+  extension's LINKEDIT string pool misaligned, and macOS 27's dyld refused to
+  load it. <code>.cargo/config.toml</code> now skips that strip on macOS (also in the
+  sdist), and the release workflow rejects any misaligned macOS wheel.</li>
 <li><strong>Bidirectional netlist format conversion</strong> — morphnet's source is vendored as
   <code>kfnetlist.morphnet</code>. Its runtime dependencies (<code>lark</code>, <code>protobuf</code>, <code>pydantic</code>,
   <code>pydantic-yaml</code>) become kfnetlist dependencies.
