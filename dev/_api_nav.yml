@@ -3,4 +3,49 @@
           - kfnetlist_schema:
               - Overview: reference/kfnetlist_schema/index.md
               - models: reference/kfnetlist_schema/models.md
+          - morphnet:
+              - Overview: reference/morphnet/index.md
+              - morphnet_schema: reference/morphnet/morphnet_schema/index.md
+              - netlist:
+                  - Overview: reference/morphnet/netlist/index.md
+                  - grammars: reference/morphnet/netlist/grammars/index.md
+                  - hspice:
+                      - Overview: reference/morphnet/netlist/hspice/index.md
+                      - parser: reference/morphnet/netlist/hspice/parser.md
+                      - preprocess: reference/morphnet/netlist/hspice/preprocess.md
+                      - transformer: reference/morphnet/netlist/hspice/transformer.md
+                      - writer: reference/morphnet/netlist/hspice/writer.md
+                  - net_utils: reference/morphnet/netlist/net_utils.md
+                  - preprocess: reference/morphnet/netlist/preprocess.md
+                  - simulation_data: reference/morphnet/netlist/simulation_data.md
+                  - spectre:
+                      - Overview: reference/morphnet/netlist/spectre/index.md
+                      - parser: reference/morphnet/netlist/spectre/parser.md
+                      - preprocess: reference/morphnet/netlist/spectre/preprocess.md
+                      - transformer: reference/morphnet/netlist/spectre/transformer.md
+                      - writer: reference/morphnet/netlist/spectre/writer.md
+                  - spectre_spice:
+                      - Overview: reference/morphnet/netlist/spectre_spice/index.md
+                      - parser: reference/morphnet/netlist/spectre_spice/parser.md
+                      - preprocess: reference/morphnet/netlist/spectre_spice/preprocess.md
+                      - writer: reference/morphnet/netlist/spectre_spice/writer.md
+                  - spice:
+                      - Overview: reference/morphnet/netlist/spice/index.md
+                      - parser: reference/morphnet/netlist/spice/parser.md
+                      - preprocess: reference/morphnet/netlist/spice/preprocess.md
+                      - transformer: reference/morphnet/netlist/spice/transformer.md
+                      - writer: reference/morphnet/netlist/spice/writer.md
+                  - value_utils: reference/morphnet/netlist/value_utils.md
+                  - vams:
+                      - Overview: reference/morphnet/netlist/vams/index.md
+                      - parser: reference/morphnet/netlist/vams/parser.md
+                      - preprocess: reference/morphnet/netlist/vams/preprocess.md
+                      - transformer: reference/morphnet/netlist/vams/transformer.md
+                      - writer: reference/morphnet/netlist/vams/writer.md
+                  - xyce:
+                      - Overview: reference/morphnet/netlist/xyce/index.md
+                      - parser: reference/morphnet/netlist/xyce/parser.md
+                      - preprocess: reference/morphnet/netlist/xyce/preprocess.md
+                      - transformer: reference/morphnet/netlist/xyce/transformer.md
+                      - writer: reference/morphnet/netlist/xyce/writer.md
           - port_check: reference/port_check.md
