@@ -65,3 +65,8 @@ docs-deploy-release version python_version="3.14": docs-build-source
         --config-file docs/zensical-built.yml \
         --push \
         latest
+
+# Regenerate kfnetlist.morphnet protobuf stubs from the single proto source
+compile-schema-py:
+    protoc --proto_path=crates/kfnetlist-schema/proto --python_out=src/kfnetlist/morphnet/morphnet_schema --pyi_out=src/kfnetlist/morphnet/morphnet_schema crates/kfnetlist-schema/proto/*.proto
+    perl -pi -e 's/^import (\w+_pb2)/import kfnetlist.morphnet.morphnet_schema.$1/' src/kfnetlist/morphnet/morphnet_schema/*_pb2.py src/kfnetlist/morphnet/morphnet_schema/*_pb2.pyi

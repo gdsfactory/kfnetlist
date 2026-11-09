@@ -1,0 +1,144 @@
+circuits:
+- buses: []
+  class_name: ''
+  connections:
+  - domain: 0
+    name: in_
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: in_
+    target:
+      instance_name: R1
+      terminal_name: p
+    weight: 0
+  - domain: 0
+    name: out
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: out
+    target:
+      instance_name: R1
+      terminal_name: n
+    weight: 0
+  - domain: 0
+    name: out
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: out
+    target:
+      instance_name: C1
+      terminal_name: p
+    weight: 0
+  - domain: 0
+    name: gnd
+    properties: {}
+    source:
+      instance_name: ''
+      terminal_name: gnd
+    target:
+      instance_name: C1
+      terminal_name: n
+    weight: 0
+  directives: []
+  model_interfaces: []
+  name: rc_lowpass
+  parameters: []
+  properties: {}
+  subcircuits:
+  - circuit_name: resistor
+    class_name: ''
+    name: R1
+    parameters:
+    - default_value:
+        model_ref: null
+        prefixed_value:
+          double_value: 1.0
+          prefix: 15
+      description: ''
+      name: value
+      properties: {}
+    properties: {}
+  - circuit_name: capacitor
+    class_name: ''
+    name: C1
+    parameters:
+    - default_value:
+        model_ref: null
+        prefixed_value:
+          double_value: 100.0
+          prefix: 7
+      description: ''
+      name: value
+      properties: {}
+    properties: {}
+  terminals:
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: in_
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: out
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: gnd
+    properties: {}
+    width: 0
+directives: []
+ext_circuits:
+- class_name: ''
+  group_name: ''
+  kind: 0
+  library_name: ''
+  name: resistor
+  parameters: []
+  properties:
+    spice_prefix: R
+  terminals:
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: p
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: n
+    properties: {}
+    width: 0
+- class_name: ''
+  group_name: ''
+  kind: 0
+  library_name: ''
+  name: capacitor
+  parameters: []
+  properties:
+    spice_prefix: C
+  terminals:
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: p
+    properties: {}
+    width: 0
+  - direction: 0
+    discipline: ''
+    domain: 1
+    name: n
+    properties: {}
+    width: 0
+libraries: {}
+name: ''
+properties: {}
+simulation: null
+top_circuit: rc_lowpass

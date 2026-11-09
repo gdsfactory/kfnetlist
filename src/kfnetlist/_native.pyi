@@ -3,6 +3,7 @@
 from collections.abc import Callable, Mapping, Sequence
 from os import PathLike
 from typing import Any, ClassVar, Self
+from typing_extensions import deprecated
 
 class NetlistPort:
     name: str
@@ -389,6 +390,7 @@ class ParameterValue(_ProtoModel):
 
 class Parameter(_ProtoModel):
     @property
+    @deprecated("Removed from the schema; read properties['__uid__'].")
     def uid(self) -> int: ...
     @property
     def name(self) -> str: ...
@@ -440,6 +442,7 @@ class ModelReference(_ProtoModel):
 
 class Terminal(_ProtoModel):
     @property
+    @deprecated("Removed from the schema; read properties['__uid__'].")
     def uid(self) -> int: ...
     @property
     def name(self) -> str: ...
@@ -450,9 +453,12 @@ class Terminal(_ProtoModel):
     @property
     def width(self) -> int: ...
     @property
+    @deprecated("Removed from the schema; read properties['__cross_section__'].")
     def cross_section(self) -> str: ...
     @property
     def properties(self) -> dict[str, str]: ...
+    @property
+    def discipline(self) -> str: ...
     def __init__(
         self,
         *,
@@ -463,6 +469,7 @@ class Terminal(_ProtoModel):
         width: int = ...,
         cross_section: str = ...,
         properties: dict[str, str] = ...,
+        discipline: str = ...,
     ) -> None: ...
 
 class TerminalReference(_ProtoModel):
@@ -519,109 +526,169 @@ class Bus(_ProtoModel):
         properties: dict[str, str] = ...,
     ) -> None: ...
 
-class ExternalModule(_ProtoModel):
+class ExternalCircuit(_ProtoModel):
+    """A body-less circuit definition provided externally (device, model, PDK cell)."""
     @property
     def name(self) -> str: ...
     @property
+    @deprecated("Removed from the schema; read properties['__domain__'].")
     def domain(self) -> str: ...
+    @property
+    def class_name(self) -> str: ...
+    @property
+    def library_name(self) -> str: ...
+    @property
+    def group_name(self) -> str: ...
     @property
     def terminals(self) -> list[Terminal]: ...
     @property
     def parameters(self) -> list[Parameter]: ...
     @property
     def properties(self) -> dict[str, str]: ...
+    @property
+    def kind(self) -> int: ...
     def __init__(
         self,
         *,
         name: str = ...,
         domain: str = ...,
+        class_name: str = ...,
+        library_name: str = ...,
+        group_name: str = ...,
         terminals: list[Terminal] = ...,
         parameters: list[Parameter] = ...,
         properties: dict[str, str] = ...,
+        kind: int = ...,
     ) -> None: ...
 
-class ProtoModuleReference(_ProtoModel):
+class ProtoSubCircuit(_ProtoModel):
+    """An instance of a circuit or external circuit."""
     @property
     def name(self) -> str: ...
     @property
+    def circuit_name(self) -> str: ...
+    @property
+    @deprecated("Use `circuit_name`.")
     def module_name(self) -> str: ...
     @property
     def class_name(self) -> str: ...
     @property
+    @deprecated("Use `parameters` (unnamed entries).")
     def parameter_values(self) -> list[ParameterValue]: ...
     @property
+    @deprecated("Use `parameters`.")
     def parameter_overrides(self) -> dict[str, ParameterValue]: ...
+    @property
+    def parameters(self) -> list[Parameter]: ...
     @property
     def properties(self) -> dict[str, str]: ...
     def __init__(
         self,
         *,
         name: str = ...,
+        circuit_name: str = ...,
         module_name: str = ...,
         class_name: str = ...,
+        parameters: list[Parameter] = ...,
         parameter_values: list[ParameterValue] = ...,
         parameter_overrides: dict[str, ParameterValue] = ...,
         properties: dict[str, str] = ...,
     ) -> None: ...
 
-class ProtoModule(_ProtoModel):
+class ProtoCircuit(_ProtoModel):
+    """A circuit definition: ports, parameters, subcircuit instances, connections."""
     @property
+    @deprecated("Removed from the schema; read properties['__uid__'].")
     def uid(self) -> int: ...
     @property
     def name(self) -> str: ...
     @property
     def class_name(self) -> str: ...
     @property
+    @deprecated("Use `terminals`.")
     def terminal(self) -> list[Terminal]: ...
+    @property
+    def terminals(self) -> list[Terminal]: ...
     @property
     def parameters(self) -> list[Parameter]: ...
     @property
     def model_interfaces(self) -> list[ModelInterface]: ...
     @property
-    def module_references(self) -> list[ProtoModuleReference]: ...
+    def subcircuits(self) -> list[ProtoSubCircuit]: ...
+    @property
+    @deprecated("Use `subcircuits`.")
+    def module_references(self) -> list[ProtoSubCircuit]: ...
     @property
     def connections(self) -> list[Connection]: ...
     @property
     def buses(self) -> list[Bus]: ...
     @property
     def properties(self) -> dict[str, str]: ...
+    @property
+    def directives(self) -> list[dict[str, Any]]: ...
     def __init__(
         self,
         *,
         uid: int = ...,
         name: str = ...,
         class_name: str = ...,
+        terminals: list[Terminal] = ...,
         terminal: list[Terminal] = ...,
         parameters: list[Parameter] = ...,
         model_interfaces: list[ModelInterface] = ...,
-        module_references: list[ProtoModuleReference] = ...,
+        subcircuits: list[ProtoSubCircuit] = ...,
+        module_references: list[ProtoSubCircuit] = ...,
         connections: list[Connection] = ...,
         buses: list[Bus] = ...,
         properties: dict[str, str] = ...,
+        directives: list[dict[str, Any]] = ...,
     ) -> None: ...
 
-class ProtoCircuit(_ProtoModel):
+class ProtoNetlist(_ProtoModel):
+    """The top-level container: circuit definitions, external circuits, simulation."""
     @property
     def name(self) -> str: ...
     @property
+    @deprecated("Removed from the schema; read properties['__domain__'].")
     def domain(self) -> str: ...
     @property
+    def top_circuit(self) -> str: ...
+    @property
+    @deprecated("Use `top_circuit`.")
     def top_module(self) -> str: ...
     @property
-    def modules(self) -> list[ProtoModule]: ...
+    def circuits(self) -> list[ProtoCircuit]: ...
     @property
-    def ext_modules(self) -> list[ExternalModule]: ...
+    @deprecated("Use `circuits`.")
+    def modules(self) -> list[ProtoCircuit]: ...
+    @property
+    def ext_circuits(self) -> list[ExternalCircuit]: ...
+    @property
+    @deprecated("Use `ext_circuits`.")
+    def ext_modules(self) -> list[ExternalCircuit]: ...
     @property
     def properties(self) -> dict[str, str]: ...
+    @property
+    def directives(self) -> list[dict[str, Any]]: ...
+    @property
+    def simulation(self) -> dict[str, Any] | None: ...
+    @property
+    def libraries(self) -> dict[str, dict[str, Any]]: ...
     def __init__(
         self,
         *,
         name: str = ...,
         domain: str = ...,
+        top_circuit: str = ...,
         top_module: str = ...,
-        modules: list[ProtoModule] = ...,
-        ext_modules: list[ExternalModule] = ...,
+        circuits: list[ProtoCircuit] = ...,
+        modules: list[ProtoCircuit] = ...,
+        ext_circuits: list[ExternalCircuit] = ...,
+        ext_modules: list[ExternalCircuit] = ...,
         properties: dict[str, str] = ...,
+        directives: list[dict[str, Any]] = ...,
+        simulation: dict[str, Any] | None = ...,
+        libraries: dict[str, dict[str, Any]] = ...,
     ) -> None: ...
 
 class ArraySpec(_SchemaModel):
@@ -631,7 +698,8 @@ class ArraySpec(_SchemaModel):
     def nb(self) -> int: ...
     def __init__(self, *, na: int = ..., nb: int = ...) -> None: ...
 
-class Instance(_SchemaModel):
+class SubCircuitDocument(_SchemaModel):
+    """A PIC document instance (YAML ``instances`` entry)."""
     @property
     def component(self) -> str: ...
     @property
@@ -649,7 +717,8 @@ class Instance(_SchemaModel):
         info: dict[str, Any] = ...,
     ) -> None: ...
 
-class Module(_SchemaModel):
+class CircuitDocument(_SchemaModel):
+    """A PIC document cell (gdsfactory YAML keys)."""
     @property
     def name(self) -> str | None: ...
     @property
@@ -657,7 +726,7 @@ class Module(_SchemaModel):
     @property
     def info(self) -> dict[str, Any]: ...
     @property
-    def instances(self) -> dict[str, Instance]: ...
+    def instances(self) -> dict[str, SubCircuitDocument]: ...
     @property
     def placements(self) -> dict[str, Any]: ...
     @property
@@ -674,7 +743,7 @@ class Module(_SchemaModel):
         name: str | None = ...,
         settings: dict[str, Any] = ...,
         info: dict[str, Any] = ...,
-        instances: dict[str, Instance] = ...,
+        instances: dict[str, SubCircuitDocument] = ...,
         placements: dict[str, Any] = ...,
         ports: dict[str, str] = ...,
         connections: dict[str, str] = ...,
@@ -685,21 +754,27 @@ class Module(_SchemaModel):
     @classmethod
     def from_netlist(cls, name: str, nl: Netlist) -> Self: ...
 
-class TopLevelModule(_SchemaModel):
+class NetlistDocument(_SchemaModel):
+    """A PIC document: cells under ``modules`` plus the ``toplevel`` cell name."""
     @property
-    def modules(self) -> dict[str, Module]: ...
+    def modules(self) -> dict[str, CircuitDocument]: ...
     @property
     def toplevel(self) -> str | None: ...
     def __init__(
         self,
         *,
-        modules: dict[str, Module] = ...,
+        modules: dict[str, CircuitDocument] = ...,
         toplevel: str | None = ...,
         **bare_module: Any,
     ) -> None: ...
-    def to_proto_circuit(self) -> ProtoCircuit: ...
+    def to_proto_netlist(self) -> ProtoNetlist: ...
     @classmethod
-    def from_proto_circuit(cls, circuit: ProtoCircuit) -> Self: ...
+    def from_proto_netlist(cls, netlist: ProtoNetlist) -> Self: ...
+    @deprecated("Use `to_proto_netlist`.")
+    def to_proto_circuit(self) -> ProtoNetlist: ...
+    @classmethod
+    @deprecated("Use `from_proto_netlist`.")
+    def from_proto_circuit(cls, netlist: ProtoNetlist) -> Self: ...
     def to_proto(self) -> bytes: ...
     @classmethod
     def from_proto(cls, data: bytes) -> Self: ...
@@ -712,4 +787,4 @@ class TopLevelModule(_SchemaModel):
         cls, netlists: dict[str, Netlist], toplevel: str | None = ...
     ) -> Self: ...
 
-def load_pic_yaml(path: str | PathLike[str]) -> TopLevelModule: ...
+def load_pic_yaml(path: str | PathLike[str]) -> NetlistDocument: ...

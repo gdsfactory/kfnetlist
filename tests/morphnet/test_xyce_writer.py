@@ -1,0 +1,80 @@
+from kfnetlist.morphnet.morphnet_schema import (
+    Netlist,
+    Connection,
+    ExternalCircuit,
+    Circuit,
+    SubCircuit,
+    Parameter,
+    ParameterValue,
+    Port,
+    PortDirection,
+    PortReference,
+    PrefixedValue,
+    SignalDomain,
+    SIPrefix,
+)
+from kfnetlist.morphnet.netlist.xyce.writer import write_xyce
+
+
+def make_port(name: str) -> Port:
+    return Port(
+        name=name,
+        direction=PortDirection.INOUT,
+        domain=SignalDomain.ELECTRICAL,
+    )
+
+
+def make_pv(value: float, prefix: SIPrefix = SIPrefix.UNSPECIFIED) -> ParameterValue:
+    return ParameterValue(
+        prefixed_value=PrefixedValue(double_value=value, prefix=prefix)
+    )
+
+
+def make_conn(
+    net: str, src_inst: str, src_port: str, tgt_inst: str, tgt_port: str
+) -> Connection:
+    return Connection(
+        name=net,
+        source=PortReference(instance_name=src_inst, port_name=src_port),
+        target=PortReference(instance_name=tgt_inst, port_name=tgt_port),
+    )
+
+
+class TestXyceFormat:
+    def test_basic_output(self) -> None:
+        """Xyce output matches SPICE format."""
+        resistor = ExternalCircuit(
+            name="resistor",
+            ports=[make_port("p"), make_port("n")],
+            properties={"spice_prefix": "R"},
+        )
+        circ = Circuit(
+            name="test",
+            ports=[make_port("a"), make_port("b")],
+            subcircuits=[
+                SubCircuit(
+                    name="R1",
+                    circuit_name="resistor",
+                    parameters=[
+                        Parameter(
+                            name="value",
+                            default_value=make_pv(10.0, SIPrefix.KILO),
+                        )
+                    ],
+                ),
+            ],
+            connections=[
+                make_conn("a", "", "a", "R1", "p"),
+                make_conn("b", "", "b", "R1", "n"),
+            ],
+        )
+        netlist = Netlist(
+            name="test",
+            top_circuit="test",
+            circuits=[circ],
+            ext_circuits=[resistor],
+        )
+        output = write_xyce(netlist)
+        assert ".subckt test a b" in output
+        assert "R1 a b 10k" in output
+        assert ".ends test" in output

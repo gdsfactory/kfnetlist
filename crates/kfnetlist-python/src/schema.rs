@@ -37,6 +37,127 @@ fn input_value(obj: &Bound<'_, PyAny>) -> PyResult<Value> {
         from_py_any(obj)
     }
 }
+/// Rewrites pre-morphnet schema input; document classes (free-form settings) opt out.
+trait Legacy {
+    fn upgrade(_py: Python<'_>, _value: &mut Value) -> PyResult<()> {
+        Ok(())
+    }
+}
+// Keys removed when the schema adopted morphnet's circuit.proto. None exists in the new
+// schema, so a structural rewrite is safe; `properties`/`arguments` hold user keys.
+fn upgrade_legacy(value: &mut Value, found: &mut std::collections::BTreeSet<&'static str>) {
+    if let Value::Array(items) = value {
+        items.iter_mut().for_each(|v| upgrade_legacy(v, found));
+        return;
+    }
+    let Value::Object(obj) = value else { return };
+    let mut moved = Vec::new();
+    for key in ["uid", "cross_section", "domain"] {
+        // `domain` is still an enum on Terminal/Connection/Bus; only the string form is legacy.
+        if key == "domain" && !matches!(obj.get(key), Some(Value::String(_))) {
+            continue;
+        }
+        let Some(old) = obj.remove(key) else { continue };
+        let text = match old {
+            Value::String(s) => s,
+            other => other.to_string(),
+        };
+        if !text.is_empty() && text != "0" {
+            found.insert(key);
+            moved.push((format!("__{key}__"), Value::String(text)));
+        }
+    }
+    if !moved.is_empty() {
+        if let Some(Value::Object(props)) = obj
+            .entry("properties")
+            .or_insert_with(|| Value::Object(Default::default()))
+            .as_object_mut()
+            .map(|_| ())
+            .and(obj.get_mut("properties"))
+        {
+            props.extend(moved);
+        }
+    }
+    for (old, new) in RENAMED_FIELDS {
+        if let Some(value) = obj.remove(old) {
+            found.insert(old);
+            obj.entry(new).or_insert(value);
+        }
+    }
+    let mut parameters = Vec::new();
+    if let Some(Value::Array(values)) = obj.remove("parameter_values") {
+        parameters.extend(
+            values
+                .into_iter()
+                .map(|v| serde_json::json!({"name": "", "default_value": v})),
+        );
+    }
+    if let Some(Value::Object(overrides)) = obj.remove("parameter_overrides") {
+        parameters.extend(
+            overrides
+                .into_iter()
+                .map(|(k, v)| serde_json::json!({"name": k, "default_value": v})),
+        );
+    }
+    if !parameters.is_empty() {
+        found.insert("parameter_values/parameter_overrides");
+        if let Some(Value::Array(list)) = Some(
+            obj.entry("parameters")
+                .or_insert_with(|| Value::Array(Vec::new())),
+        ) {
+            list.extend(parameters);
+        }
+    }
+    for (key, child) in obj.iter_mut() {
+        if key != "properties" && key != "arguments" {
+            upgrade_legacy(child, found);
+        }
+    }
+}
+fn upgrade_with_warning(py: Python<'_>, value: &mut Value) -> PyResult<()> {
+    let mut found = std::collections::BTreeSet::new();
+    upgrade_legacy(value, &mut found);
+    if found.is_empty() {
+        return Ok(());
+    }
+    let keys: Vec<_> = found.into_iter().collect();
+    crate::warn_deprecated(
+        py,
+        &format!(
+            "circuit schema fields {} were renamed or removed; \
+             values moved to properties[\"__<field>__\"], `terminals` and `parameters`",
+            keys.join(", ")
+        ),
+    )
+}
+// Fields renamed when the schema adopted Netlist → Circuit → SubCircuit naming
+// (and the older `terminal`); none of the old names exists in the new schema.
+const RENAMED_FIELDS: [(&str, &str); 6] = [
+    ("terminal", "terminals"),
+    ("top_module", "top_circuit"),
+    ("modules", "circuits"),
+    ("ext_modules", "ext_circuits"),
+    ("module_references", "subcircuits"),
+    ("module_name", "circuit_name"),
+];
+fn renamed(py: Python<'_>, old: &str, new: &str) -> PyResult<()> {
+    crate::warn_deprecated(py, &format!("`{old}` is deprecated; use `{new}`"))
+}
+// Deprecated getters read the values `upgrade_legacy` moved into properties.
+fn legacy_property(
+    py: Python<'_>,
+    properties: &std::collections::BTreeMap<String, String>,
+    key: &str,
+) -> PyResult<String> {
+    crate::warn_deprecated(
+        py,
+        &format!("`{key}` is deprecated; read properties[\"__{key}__\"] instead"),
+    )?;
+    Ok(properties
+        .get(&format!("__{key}__"))
+        .cloned()
+        .unwrap_or_default())
+}
 trait Field {
     fn field(&self, py: Python<'_>) -> PyResult<PyObject>;
 }
@@ -45,7 +166,18 @@ macro_rules! scalar_field {
         fn field(&self, py: Python<'_>) -> PyResult<PyObject> { Ok(to_py_dict(py, self)?.unbind()) }
     })* };
 }
-scalar_field!(String, i32, i64, u32, f64, Value, serde_json::Map<String, Value>);
+scalar_field!(
+    String,
+    i32,
+    i64,
+    u32,
+    f64,
+    Value,
+    serde_json::Map<String, Value>,
+    proto::Directive,
+    proto::Simulation,
+    proto::ExternalLibrary
+);
 impl<T: Field> Field for Option<T> {
     fn field(&self, py: Python<'_>) -> PyResult<PyObject> {
         match self {
@@ -97,8 +229,9 @@ macro_rules! schema_class {
         impl $name {
             #[new]
             #[pyo3(signature = (**kwargs))]
-            fn new(kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
-                let value = kwargs.map(|v| input_value(v.as_any())).transpose()?.unwrap_or_else(|| serde_json::json!({}));
+            fn new(py: Python<'_>, kwargs: Option<&Bound<'_, PyDict>>) -> PyResult<Self> {
+                let mut value = kwargs.map(|v| input_value(v.as_any())).transpose()?.unwrap_or_else(|| serde_json::json!({}));
+                <Self as Legacy>::upgrade(py, &mut value)?;
                 serde_json::from_value(value).map(Self).map_err(schema_error)
             }
             $(#[getter]
@@ -112,14 +245,18 @@ macro_rules! schema_class {
             fn to_json(&self) -> PyResult<String> { json_string(&self.0) }
             fn model_dump_json(&self) -> PyResult<String> { self.to_json() }
             #[classmethod]
-            fn from_dict(_cls: &Bound<'_, PyType>, obj: &Bound<'_, PyAny>) -> PyResult<Self> {
-                serde_json::from_value(input_value(obj)?).map(Self).map_err(schema_error)
+            fn from_dict(cls: &Bound<'_, PyType>, obj: &Bound<'_, PyAny>) -> PyResult<Self> {
+                let mut value = input_value(obj)?;
+                <Self as Legacy>::upgrade(cls.py(), &mut value)?;
+                serde_json::from_value(value).map(Self).map_err(schema_error)
             }
             #[classmethod]
             fn model_validate(cls: &Bound<'_, PyType>, obj: &Bound<'_, PyAny>) -> PyResult<Self> { Self::from_dict(cls, obj) }
             #[classmethod]
-            fn from_json(_cls: &Bound<'_, PyType>, data: &str) -> PyResult<Self> {
-                serde_json::from_value(json_parse(data)?).map(Self).map_err(schema_error)
+            fn from_json(cls: &Bound<'_, PyType>, data: &str) -> PyResult<Self> {
+                let mut value = json_parse(data)?;
+                <Self as Legacy>::upgrade(cls.py(), &mut value)?;
+                serde_json::from_value(value).map(Self).map_err(schema_error)
             }
             #[classmethod]
             fn model_validate_json(cls: &Bound<'_, PyType>, data: &str) -> PyResult<Self> { Self::from_json(cls, data) }
@@ -135,6 +272,11 @@ macro_rules! schema_class {
 }
 macro_rules! proto_schema_class {
     ($name:ident, $core:ty, [$($field:ident),*], {$($extra:tt)*}) => {
+        impl Legacy for $name {
+            fn upgrade(py: Python<'_>, value: &mut Value) -> PyResult<()> {
+                upgrade_with_warning(py, value)
+            }
+        }
         schema_class!($name, $core, [$($field),*], {
             fn to_proto<'py>(&self, py: Python<'py>) -> Bound<'py, PyBytes> {
                 PyBytes::new(py, &self.0.encode_to_vec())
@@ -172,8 +314,15 @@ proto_schema_class!(ParameterValue, proto::ParameterValue, [], {
 proto_schema_class!(
     Parameter,
     proto::Parameter,
-    [uid, name, default_value, description, properties],
-    {}
+    [name, default_value, description, properties],
+    {
+        #[getter]
+        fn uid(&self, py: Python<'_>) -> PyResult<u32> {
+            Ok(legacy_property(py, &self.0.properties, "uid")?
+                .parse()
+                .unwrap_or(0))
+        }
+    }
 );
 proto_schema_class!(
     ModelInterface,
@@ -190,16 +339,19 @@ proto_schema_class!(
 proto_schema_class!(
     Terminal,
     proto::Terminal,
-    [
-        uid,
-        name,
-        direction,
-        domain,
-        width,
-        cross_section,
-        properties
-    ],
-    {}
+    [name, direction, domain, width, properties, discipline],
+    {
+        #[getter]
+        fn uid(&self, py: Python<'_>) -> PyResult<u32> {
+            Ok(legacy_property(py, &self.0.properties, "uid")?
+                .parse()
+                .unwrap_or(0))
+        }
+        #[getter]
+        fn cross_section(&self, py: Python<'_>) -> PyResult<String> {
+            legacy_property(py, &self.0.properties, "cross_section")
+        }
+    }
 );
 proto_schema_class!(
     TerminalReference,
@@ -220,57 +372,140 @@ proto_schema_class!(
     {}
 );
 proto_schema_class!(
-    ExternalModule,
-    proto::ExternalModule,
-    [name, domain, terminals, parameters, properties],
-    {}
-);
-proto_schema_class!(
-    ProtoModuleReference,
-    proto::ModuleReference,
+    ExternalCircuit,
+    proto::ExternalCircuit,
     [
         name,
-        module_name,
         class_name,
-        parameter_values,
-        parameter_overrides,
-        properties
-    ],
-    {}
-);
-proto_schema_class!(
-    ProtoModule,
-    proto::Module,
-    [
-        uid,
-        name,
-        class_name,
-        terminal,
+        library_name,
+        group_name,
+        terminals,
         parameters,
-        model_interfaces,
-        module_references,
-        connections,
-        buses,
-        properties
+        properties,
+        kind
     ],
-    {}
+    {
+        #[getter]
+        fn domain(&self, py: Python<'_>) -> PyResult<String> {
+            legacy_property(py, &self.0.properties, "domain")
+        }
+    }
+);
+proto_schema_class!(
+    ProtoSubCircuit,
+    proto::SubCircuit,
+    [name, circuit_name, class_name, parameters, properties],
+    {
+        #[getter]
+        fn module_name(&self, py: Python<'_>) -> PyResult<PyObject> {
+            renamed(py, "module_name", "circuit_name")?;
+            self.0.circuit_name.field(py)
+        }
+        #[getter]
+        fn parameter_values(&self, py: Python<'_>) -> PyResult<PyObject> {
+            crate::warn_deprecated(py, "`parameter_values` is deprecated; use `parameters`")?;
+            self.0
+                .parameters
+                .iter()
+                .filter(|p| p.name.is_empty())
+                .filter_map(|p| p.default_value.clone())
+                .collect::<Vec<_>>()
+                .field(py)
+        }
+        #[getter]
+        fn parameter_overrides<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+            crate::warn_deprecated(py, "`parameter_overrides` is deprecated; use `parameters`")?;
+            let d = PyDict::new(py);
+            for p in self.0.parameters.iter().filter(|p| !p.name.is_empty()) {
+                d.set_item(&p.name, p.default_value.field(py)?)?;
+            }
+            Ok(d)
+        }
+    }
 );
 proto_schema_class!(
     ProtoCircuit,
     proto::Circuit,
-    [name, domain, top_module, modules, ext_modules, properties],
-    {}
+    [
+        name,
+        class_name,
+        terminals,
+        parameters,
+        model_interfaces,
+        subcircuits,
+        connections,
+        buses,
+        properties,
+        directives
+    ],
+    {
+        #[getter]
+        fn uid(&self, py: Python<'_>) -> PyResult<u32> {
+            Ok(legacy_property(py, &self.0.properties, "uid")?
+                .parse()
+                .unwrap_or(0))
+        }
+        #[getter]
+        fn terminal(&self, py: Python<'_>) -> PyResult<PyObject> {
+            renamed(py, "terminal", "terminals")?;
+            self.0.terminals.field(py)
+        }
+        #[getter]
+        fn module_references(&self, py: Python<'_>) -> PyResult<PyObject> {
+            renamed(py, "module_references", "subcircuits")?;
+            self.0.subcircuits.field(py)
+        }
+    }
 );
+proto_schema_class!(
+    ProtoNetlist,
+    proto::Netlist,
+    [
+        name,
+        top_circuit,
+        circuits,
+        ext_circuits,
+        properties,
+        directives,
+        simulation,
+        libraries
+    ],
+    {
+        #[getter]
+        fn domain(&self, py: Python<'_>) -> PyResult<String> {
+            legacy_property(py, &self.0.properties, "domain")
+        }
+        #[getter]
+        fn top_module(&self, py: Python<'_>) -> PyResult<PyObject> {
+            renamed(py, "top_module", "top_circuit")?;
+            self.0.top_circuit.field(py)
+        }
+        #[getter]
+        fn modules(&self, py: Python<'_>) -> PyResult<PyObject> {
+            renamed(py, "modules", "circuits")?;
+            self.0.circuits.field(py)
+        }
+        #[getter]
+        fn ext_modules(&self, py: Python<'_>) -> PyResult<PyObject> {
+            renamed(py, "ext_modules", "ext_circuits")?;
+            self.0.ext_circuits.field(py)
+        }
+    }
+);
+impl Legacy for ArraySpec {}
+impl Legacy for SubCircuitDocument {}
+impl Legacy for CircuitDocument {}
+impl Legacy for NetlistDocument {}
 schema_class!(ArraySpec, core::ArraySpec, [na, nb], {});
 schema_class!(
-    Instance,
-    core::Instance,
+    SubCircuitDocument,
+    core::SubCircuitDocument,
     [component, settings, array, info],
     {}
 );
 schema_class!(
-    Module,
-    core::Module,
+    CircuitDocument,
+    core::CircuitDocument,
     [
         name,
         settings,
@@ -295,69 +530,83 @@ schema_class!(
             name: String,
             nl: &crate::netlist::Netlist,
         ) -> Self {
-            Self(core::Module::from_netlist(name, &nl.0))
+            Self(core::CircuitDocument::from_netlist(name, &nl.0))
         }
     }
 );
-schema_class!(TopLevelModule, core::TopLevelModule, [modules, toplevel], {
-    fn to_proto_circuit(&self) -> PyResult<ProtoCircuit> {
-        self.0
-            .to_proto_circuit()
-            .map(ProtoCircuit)
-            .map_err(schema_error)
-    }
-    #[classmethod]
-    fn from_proto_circuit(_cls: &Bound<'_, PyType>, circuit: &ProtoCircuit) -> PyResult<Self> {
-        core::TopLevelModule::from_proto_circuit(&circuit.0)
-            .map(Self)
-            .map_err(schema_error)
-    }
-    fn to_proto<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
-        Ok(PyBytes::new(py, &self.0.to_proto().map_err(schema_error)?))
-    }
-    #[classmethod]
-    fn from_proto(_cls: &Bound<'_, PyType>, data: &[u8]) -> PyResult<Self> {
-        core::TopLevelModule::from_proto(data)
-            .map(Self)
-            .map_err(schema_error)
-    }
-    fn to_yaml(&self) -> PyResult<String> {
-        self.0.to_yaml().map_err(schema_error)
-    }
-    #[classmethod]
-    fn from_yaml(_cls: &Bound<'_, PyType>, text: &str) -> PyResult<Self> {
-        core::TopLevelModule::from_yaml(text)
-            .map(Self)
-            .map_err(schema_error)
-    }
-    fn to_netlists<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
-        let result = PyDict::new(py);
-        for (k, v) in self.0.to_netlists().map_err(schema_error)? {
-            result.set_item(k, crate::netlist::Netlist(v))?;
+schema_class!(
+    NetlistDocument,
+    core::NetlistDocument,
+    [modules, toplevel],
+    {
+        fn to_proto_netlist(&self) -> PyResult<ProtoNetlist> {
+            self.0
+                .to_proto_netlist()
+                .map(ProtoNetlist)
+                .map_err(schema_error)
         }
-        Ok(result)
+        #[classmethod]
+        fn from_proto_netlist(_cls: &Bound<'_, PyType>, netlist: &ProtoNetlist) -> PyResult<Self> {
+            core::NetlistDocument::from_proto_netlist(&netlist.0)
+                .map(Self)
+                .map_err(schema_error)
+        }
+        fn to_proto_circuit(&self, py: Python<'_>) -> PyResult<ProtoNetlist> {
+            renamed(py, "to_proto_circuit", "to_proto_netlist")?;
+            self.to_proto_netlist()
+        }
+        #[classmethod]
+        fn from_proto_circuit(cls: &Bound<'_, PyType>, netlist: &ProtoNetlist) -> PyResult<Self> {
+            renamed(cls.py(), "from_proto_circuit", "from_proto_netlist")?;
+            Self::from_proto_netlist(cls, netlist)
+        }
+        fn to_proto<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyBytes>> {
+            Ok(PyBytes::new(py, &self.0.to_proto().map_err(schema_error)?))
+        }
+        #[classmethod]
+        fn from_proto(_cls: &Bound<'_, PyType>, data: &[u8]) -> PyResult<Self> {
+            core::NetlistDocument::from_proto(data)
+                .map(Self)
+                .map_err(schema_error)
+        }
+        fn to_yaml(&self) -> PyResult<String> {
+            self.0.to_yaml().map_err(schema_error)
+        }
+        #[classmethod]
+        fn from_yaml(_cls: &Bound<'_, PyType>, text: &str) -> PyResult<Self> {
+            core::NetlistDocument::from_yaml(text)
+                .map(Self)
+                .map_err(schema_error)
+        }
+        fn to_netlists<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyDict>> {
+            let result = PyDict::new(py);
+            for (k, v) in self.0.to_netlists().map_err(schema_error)? {
+                result.set_item(k, crate::netlist::Netlist(v))?;
+            }
+            Ok(result)
+        }
+        #[classmethod]
+        #[pyo3(signature = (netlists, toplevel=None))]
+        fn from_netlists(
+            _cls: &Bound<'_, PyType>,
+            netlists: &Bound<'_, PyDict>,
+            toplevel: Option<String>,
+        ) -> PyResult<Self> {
+            let netlists = netlists
+                .iter()
+                .map(|(k, v)| {
+                    Ok((
+                        k.extract()?,
+                        v.extract::<PyRef<'_, crate::netlist::Netlist>>()?.0.clone(),
+                    ))
+                })
+                .collect::<PyResult<_>>()?;
+            Ok(Self(core::NetlistDocument::from_netlists(
+                &netlists, toplevel,
+            )))
+        }
     }
-    #[classmethod]
-    #[pyo3(signature = (netlists, toplevel=None))]
-    fn from_netlists(
-        _cls: &Bound<'_, PyType>,
-        netlists: &Bound<'_, PyDict>,
-        toplevel: Option<String>,
-    ) -> PyResult<Self> {
-        let netlists = netlists
-            .iter()
-            .map(|(k, v)| {
-                Ok((
-                    k.extract()?,
-                    v.extract::<PyRef<'_, crate::netlist::Netlist>>()?.0.clone(),
-                ))
-            })
-            .collect::<PyResult<_>>()?;
-        Ok(Self(core::TopLevelModule::from_netlists(
-            &netlists, toplevel,
-        )))
-    }
-});
+);
 #[allow(clippy::upper_case_acronyms)]
 #[pyclass(module = "kfnetlist._native", eq, eq_int)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq)]
@@ -405,9 +654,9 @@ pub enum SIPrefix {
     QUETTA = 24,
 }
 #[pyfunction]
-pub fn load_pic_yaml(path: std::path::PathBuf) -> PyResult<TopLevelModule> {
-    core::TopLevelModule::load_pic_yaml(path)
-        .map(TopLevelModule)
+pub fn load_pic_yaml(path: std::path::PathBuf) -> PyResult<NetlistDocument> {
+    core::NetlistDocument::load_pic_yaml(path)
+        .map(NetlistDocument)
         .map_err(schema_error)
 }
 pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
@@ -420,14 +669,14 @@ pub fn register(m: &Bound<'_, PyModule>) -> PyResult<()> {
     m.add_class::<TerminalReference>()?;
     m.add_class::<Connection>()?;
     m.add_class::<Bus>()?;
-    m.add_class::<ExternalModule>()?;
-    m.add_class::<ProtoModuleReference>()?;
-    m.add_class::<ProtoModule>()?;
+    m.add_class::<ExternalCircuit>()?;
+    m.add_class::<ProtoSubCircuit>()?;
     m.add_class::<ProtoCircuit>()?;
+    m.add_class::<ProtoNetlist>()?;
     m.add_class::<ArraySpec>()?;
-    m.add_class::<Instance>()?;
-    m.add_class::<Module>()?;
-    m.add_class::<TopLevelModule>()?;
+    m.add_class::<SubCircuitDocument>()?;
+    m.add_class::<CircuitDocument>()?;
+    m.add_class::<NetlistDocument>()?;
     m.add_class::<TerminalDirection>()?;
     m.add_class::<SignalDomain>()?;
     m.add_class::<SIPrefix>()?;

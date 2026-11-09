@@ -1,10 +1,20 @@
 //! Hierarchical PIC documents and protobuf messages, with no Python dependency.
 //!
+//! Both follow one hierarchy: a netlist (container) holds circuit definitions, and
+//! each circuit holds subcircuit instances.
+//!
 //! Protobuf structs are generated from `proto/circuit.proto` by prost in OUT_DIR.
 //! YAML and netlist conversions operate on native Rust values throughout.
 mod convert;
 mod document;
-pub use document::{ArraySpec, Instance, Module, TopLevelModule};
+pub use document::{ArraySpec, CircuitDocument, NetlistDocument, SubCircuitDocument};
+
+#[deprecated(note = "renamed to NetlistDocument")]
+pub type TopLevelModule = NetlistDocument;
+#[deprecated(note = "renamed to CircuitDocument")]
+pub type Module = CircuitDocument;
+#[deprecated(note = "renamed to SubCircuitDocument")]
+pub type Instance = SubCircuitDocument;
 
 pub mod proto {
     include!(concat!(env!("OUT_DIR"), "/circuit.rs"));

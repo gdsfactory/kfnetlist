@@ -2,7 +2,7 @@
 
 **kfnetlist** is a standalone, Rust-backed netlist schema for [kfactory](https://github.com/gdsfactory/kfactory) and netlist tooling.
 
-It provides a fast, type-safe data model for circuit connectivity — instances, nets, ports, and arrays — with full JSON/dict serialization and optional Pydantic v2 integration. The core is implemented in Rust via PyO3 and has zero runtime Python dependencies.
+It provides a fast, type-safe data model for circuit connectivity — instances, nets, ports, and arrays — with full JSON/dict serialization and optional Pydantic v2 integration. The core is implemented in Rust via PyO3; the vendored netlist format converter (`kfnetlist.morphnet`) uses Lark, protobuf and Pydantic.
 
 ---
 
@@ -56,6 +56,19 @@ It provides a fast, type-safe data model for circuit connectivity — instances,
     &nbsp;·&nbsp;
     [:octicons-arrow-right-24: FAQ](guides/faq.md)
 
+-   :material-swap-horizontal:{ .lg .middle } **Format Conversion**
+
+    ---
+
+    Build netlists programmatically and convert them both ways between SPICE,
+    HSPICE, Xyce, Spectre, Spectre-SPICE, Verilog-AMS and YAML with `kfnetlist.morphnet`.
+
+    [:octicons-arrow-right-24: Overview](morphnet/index.md)
+    &nbsp;·&nbsp;
+    [:octicons-arrow-right-24: Ring Oscillator](morphnet/ring_oscillator.py)
+    &nbsp;·&nbsp;
+    [:octicons-arrow-right-24: Photonic MZI](morphnet/mzi.py)
+
 </div>
 
 ---
@@ -63,7 +76,6 @@ It provides a fast, type-safe data model for circuit connectivity — instances,
 ## Key Features
 
 - **Rust core** — `Netlist`, `Net`, and port types implemented in Rust for speed and memory safety
-- **Zero runtime dependencies** — the base package has no Python dependencies
 - **Full serialization** — `to_json()` / `from_json()` and `to_dict()` / `from_dict()` on every type
 - **Optional Pydantic v2 support** — install Pydantic separately; all types
   implement `__get_pydantic_core_schema__`
@@ -76,6 +88,7 @@ It provides a fast, type-safe data model for circuit connectivity — instances,
 - **Short detection** — find geometric polygon overlaps between distinct nets
 - **Open detection** — find unconnected ports, singleton nets, and missing nets vs. a reference
 - **Connectivity verification** — complete LVS workflow combining open detection, net comparison, and short detection
+- **Bidirectional netlist format conversion** — `kfnetlist.morphnet` parses and writes SPICE, HSPICE, Xyce, Spectre, Spectre-SPICE and Verilog-AMS with Lark grammars, offers a programmatic circuit builder, and converts to and from `Netlist`
 
 ## Relationship to kfactory
 
