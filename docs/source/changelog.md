@@ -2,9 +2,11 @@
 
 ## 0.4.0
 
-- **macOS 27 wheels** — the release workflow fails a macOS build whose
-  `_native.abi3.so` string pool is not 8-byte aligned, which macOS 27's dyld
-  rejects ([#31](https://github.com/gdsfactory/kfnetlist/issues/31)).
+- **Loads on macOS 27** ([#31](https://github.com/gdsfactory/kfnetlist/issues/31)) —
+  rustc strips macOS release builds with `rust-objcopy`, which left the
+  extension's LINKEDIT string pool misaligned, and macOS 27's dyld refused to
+  load it. `.cargo/config.toml` now skips that strip on macOS (also in the
+  sdist), and the release workflow rejects any misaligned macOS wheel.
 - **Bidirectional netlist format conversion** — morphnet's source is vendored as
   `kfnetlist.morphnet`. Its runtime dependencies (`lark`, `protobuf`, `pydantic`,
   `pydantic-yaml`) become kfnetlist dependencies.

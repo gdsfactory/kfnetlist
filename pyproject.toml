@@ -47,6 +47,7 @@ manifest-path = "crates/kfnetlist-python/Cargo.toml"
 python-source = "src"
 module-name = "kfnetlist._native"
 features = ["pyo3/extension-module"]
+include = [{ path = ".cargo/config.toml", format = "sdist" }]
 
 [tool.codespell]
 ignore-words-list = "ure, THE, BE, WE, TO, the, be, we, to, astroid, input, output, inout, in, out, TE"
