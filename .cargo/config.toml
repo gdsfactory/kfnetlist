@@ -1,0 +1,5 @@
+# rustc strips macOS release builds with rust-objcopy, which drops the
+# LINKEDIT padding before the string table; macOS 27's dyld then refuses to
+# load the extension (#31). Skip that strip on macOS (+~50 KB).
+[target.'cfg(target_os = "macos")']
+rustflags = ["-C", "strip=none"]
