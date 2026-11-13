@@ -11,9 +11,11 @@ from kfnetlist.morphnet.morphnet_schema import circuit_pb2 as pb
 from kfnetlist.morphnet.netlist import (
     parse_spectre,
     parse_spice,
+    parse_systemverilog,
     parse_vams,
     write_spectre,
     write_spice,
+    write_systemverilog,
     write_vams,
 )
 
@@ -50,6 +52,7 @@ def test_direct_round_trip_is_exact():
         (write_spice, parse_spice),
         (write_spectre, parse_spectre),
         (write_vams, parse_vams),
+        (write_systemverilog, parse_systemverilog),
     ],
 )
 def test_every_format_round_trips_connectivity(write, parse):

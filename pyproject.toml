@@ -72,8 +72,9 @@ exclude = [
 include = ["src/kfnetlist/morphnet/**", "tests/morphnet/**"]
 
 [tool.ty.overrides.rules]
-invalid-attribute-override = "ignore"
-unresolved-attribute = "ignore"
+incompatible-attribute-override = "ignore"
+missing-attribute = "ignore"
+missing-union-attribute = "ignore"
 unused-ignore-comment = "ignore"
 pydantic-discarded-extra-argument = "ignore"
 

@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import re
+
 from kfnetlist.morphnet.morphnet_schema import (
     Analysis,
     Netlist,
@@ -36,7 +38,8 @@ class SpectreSpiceParser:
         ic_conditions: dict[str, str] = {}
         ns_conditions: dict[str, str] = {}
 
-        for section in sections:
+        section_of: dict[str, int] = {}
+        for index, section in enumerate(sections):
             if not section.text.strip():
                 continue
             if section.language == "spectre":
@@ -45,6 +48,7 @@ class SpectreSpiceParser:
                 netlist = parse_spice(section.text)
 
             all_circuits.extend(netlist.circuits)
+            section_of.update((c.name, index) for c in netlist.circuits)
             for ext in netlist.ext_circuits:
                 all_ext_circuits[ext.name] = ext
             all_directives.extend(netlist.directives)
@@ -61,6 +65,7 @@ class SpectreSpiceParser:
                 if netlist.simulation.node_sets:
                     ns_conditions.update(netlist.simulation.node_sets.conditions)
 
+        resolve_cross_section_pins(all_circuits, section_of)
         top_circuit = all_circuits[-1].name if all_circuits else ""
 
         has_sim = (
@@ -98,6 +103,35 @@ class SpectreSpiceParser:
             directives=all_directives,
             simulation=simulation,
         )
+
+
+POSITIONAL_PIN_RE = re.compile(r"p(\d+)")
+
+
+def resolve_cross_section_pins(
+    circuits: list[Circuit], section_of: dict[str, int]
+) -> None:
+    """Name the pins of instances whose subcircuit is defined in another section.
+
+    Each section is parsed on its own, so such instances get positional ``p0``,
+    ``p1``, ... pins; map them to the definition's port names.
+    """
+    ports = {c.name: [p.name for p in c.ports] for c in circuits}
+    for circuit in circuits:
+        targets = {
+            s.name: ports[s.circuit_name]
+            for s in circuit.subcircuits
+            if s.circuit_name in ports
+            and section_of[s.circuit_name] != section_of[circuit.name]
+        }
+        for conn in circuit.connections:
+            for ref in (conn.source, conn.target):
+                if ref is None or ref.instance_name not in targets:
+                    continue
+                m = POSITIONAL_PIN_RE.fullmatch(ref.port_name)
+                names = targets[ref.instance_name]
+                if m and int(m.group(1)) < len(names):
+                    ref.port_name = names[int(m.group(1))]
 
 
 def parse_spectre_spice(text: str) -> Netlist:

@@ -21,12 +21,12 @@ from kfnetlist.morphnet.morphnet_schema import (
     Port,
     PortDirection,
     PrefixedValue,
-    SignalDomain,
     Simulation,
 )
 from kfnetlist.morphnet.netlist.net_utils import (
     NetMap,
     add_port_to_net,
+    domain_of,
     net_map_to_connections,
 )
 from kfnetlist.morphnet.netlist.simulation_data import (
@@ -578,7 +578,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
                 Port(
                     name=pname,
                     direction=PortDirection.INOUT,
-                    domain=SignalDomain.ELECTRICAL,
+                    domain=domain_of(pname),
                 )
             )
 
@@ -632,7 +632,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
                         Port(
                             name=pn,
                             direction=PortDirection.INOUT,
-                            domain=SignalDomain.ELECTRICAL,
+                            domain=domain_of(pn),
                         )
                         for pn in port_template
                     ]

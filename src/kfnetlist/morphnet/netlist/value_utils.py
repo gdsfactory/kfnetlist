@@ -94,6 +94,40 @@ def parse_parameter_number(token: str) -> ParameterValue:
     return ParameterValue(prefixed_value=parse_si_number(token))
 
 
+SI_PREFIX_EXPONENT: dict[SIPrefix, int] = {
+    SIPrefix.UNSPECIFIED: 0,
+    SIPrefix.QUECTO: -30,
+    SIPrefix.RONTO: -27,
+    SIPrefix.YOCTO: -24,
+    SIPrefix.ZEPTO: -21,
+    SIPrefix.ATTO: -18,
+    SIPrefix.FEMTO: -15,
+    SIPrefix.PICO: -12,
+    SIPrefix.NANO: -9,
+    SIPrefix.MICRO: -6,
+    SIPrefix.MILLI: -3,
+    SIPrefix.CENTI: -2,
+    SIPrefix.DECI: -1,
+    SIPrefix.DECA: 1,
+    SIPrefix.HECTO: 2,
+    SIPrefix.KILO: 3,
+    SIPrefix.MEGA: 6,
+    SIPrefix.GIGA: 9,
+    SIPrefix.TERA: 12,
+    SIPrefix.PETA: 15,
+    SIPrefix.EXA: 18,
+    SIPrefix.ZETTA: 21,
+    SIPrefix.YOTTA: 24,
+    SIPrefix.RONNA: 27,
+    SIPrefix.QUETTA: 30,
+}
+
+
+def to_float(pv: PrefixedValue) -> float:
+    """Plain float value of a PrefixedValue (``2.2`` MICRO → ``2.2e-06``)."""
+    return pv.double_value * 10.0 ** SI_PREFIX_EXPONENT[pv.prefix]
+
+
 def format_si_value(pv: PrefixedValue) -> str:
     """Format a PrefixedValue as a SPICE-style string like '10k', '2.2u'.
 

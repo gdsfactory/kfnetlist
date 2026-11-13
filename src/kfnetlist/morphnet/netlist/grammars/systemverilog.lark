@@ -1,0 +1,119 @@
+// SystemVerilog structural netlist grammar (LALR)
+// Structural subset of the SystemVerilog 3.1a BNF (Annex A):
+//   A.1.3 module_declaration, A.1.4 ports, A.2.1 parameter/port/net declarations,
+//   A.4.1.1 module_instantiation, A.6.1 continuous_assign / net_alias.
+// Expects pre-processed input: comments, attributes and `directives stripped,
+// behavioral code (always, initial, function, task, generate, class, complex
+// assigns, ...) replaced with __sv_placeholder__ N ;
+// Semicolons terminate statements. All whitespace ignored.
+
+start: description*
+
+?description: module_def
+            | placeholder
+
+// ── Module declaration (A.1.3) ────────────────────────────────────────
+module_def: _MODULE_KW IDENT param_port_list? port_list? _SEMI module_item* _ENDMODULE_KW end_label?
+end_label: ":" IDENT
+
+// ── Parameter port list: #(parameter real gap = 200e-9, n = 2) (A.1.4) ─
+param_port_list: "#" "(" param_port ("," param_port)* ")"
+param_port: PARAM_KW? type_spec? param_assign
+
+// ── ANSI / non-ANSI port list (A.1.4) ─────────────────────────────────
+// (input wire [3:0] a, output o1, b)  or  (a, b, o1)
+port_list: "(" (ansi_port ("," ansi_port)*)? ")"
+ansi_port: PORT_DIR? type_spec? IDENT dims
+
+// ── Module items (A.1.5) ──────────────────────────────────────────────
+?module_item: port_decl
+            | data_decl
+            | user_decl
+            | param_decl
+            | instance_stmt
+            | assign_stmt
+            | alias_stmt
+            | placeholder
+
+// input [3:0] a, b;   inout optical o1;
+port_decl: PORT_DIR type_spec? IDENT dims ("," IDENT dims)* _SEMI
+
+// wire a, b = c;   logic [7:0] bus;   real r = 1.5;
+data_decl: builtin_type decl_assign ("," decl_assign)* _SEMI
+// user-defined type: my_type a, b;
+user_decl: IDENT decl_assign ("," decl_assign)* _SEMI
+decl_assign: IDENT dims ("=" expr)?
+
+// parameter real gap = 200e-9, n = 2;   localparam W = 8;
+param_decl: PARAM_KW type_spec? param_assign ("," param_assign)* _SEMI
+param_assign: IDENT dims "=" expr
+
+// ── Types (A.2.2.1) ───────────────────────────────────────────────────
+?type_spec: builtin_type
+          | SIGNING range*  -> implicit_type
+          | range+          -> implicit_type
+          | IDENT           -> user_type
+builtin_type: DATA_TYPE SIGNING? range*
+
+// ── Module instantiation (A.4.1.1) ────────────────────────────────────
+// dc #(.gap(200n)) X1 (.o1(a), .o2(b)), X2 (a, b);
+instance_stmt: IDENT param_values? hier_inst ("," hier_inst)* _SEMI
+param_values: "#" "(" (param_arg ("," param_arg)*)? ")"
+?param_arg: "." IDENT "(" expr? ")" -> named_param
+          | expr                     -> ordered_param
+
+hier_inst: IDENT dims "(" conn ("," conn)* ")"
+?conn: "." IDENT "(" expr? ")" -> named_conn
+     | "." IDENT               -> implicit_conn
+     | ".*"                    -> wildcard_conn
+     | expr?                   -> ordered_conn
+
+// ── Continuous assign / net alias (A.6.1) ─────────────────────────────
+assign_stmt: _ASSIGN_KW net_ref "=" net_ref ("," net_ref "=" net_ref)* _SEMI
+alias_stmt: _ALIAS_KW net_ref ("=" net_ref)+ _SEMI
+
+// ── Behavioral placeholder ────────────────────────────────────────────
+placeholder: _PLACEHOLDER NUMBER _SEMI
+
+// ── Expressions (parameter values, ranges, port connections) ──────────
+?expr: sum
+?sum: product
+    | sum ADD_OP product     -> binop
+?product: unary
+        | product MUL_OP unary -> binop
+?unary: atom
+      | ADD_OP unary         -> unop
+?atom: NUMBER                -> number
+     | SIZED_NUMBER          -> sized_number
+     | QSTRING               -> string
+     | net_ref
+     | "(" expr ")"          -> paren
+
+net_ref: IDENT range*
+dims: range*
+range: "[" expr (":" expr)? "]"
+
+// ── Terminals ─────────────────────────────────────────────────────────
+// Keywords are word-bounded regexes with priority over IDENT.
+_MODULE_KW.2: /\b(module|macromodule)\b/
+_ENDMODULE_KW.2: /\bendmodule\b/
+_ASSIGN_KW.2: /\bassign\b/
+_ALIAS_KW.2: /\balias\b/
+_PLACEHOLDER.2: /\b__sv_placeholder__\b/
+PARAM_KW.2: /\b(parameter|localparam)\b/
+PORT_DIR.2: /\b(input|output|inout|ref)\b/
+SIGNING.2: /\b(signed|unsigned)\b/
+DATA_TYPE.2: /\b(wire|tri|triand|trior|tri0|tri1|supply0|supply1|trireg|wand|wor|uwire|logic|bit|reg|byte|shortint|int|longint|integer|time|shortreal|real|realtime|string)\b/
+
+// 4'b1010, 8'hFF, 'd3, '0, '1, 'x, 'z
+SIZED_NUMBER.3: /(\d[\d_]*\s*)?'[sS]?[bBoOdDhH]\s*[0-9a-fA-FxXzZ?_]+/ | /'[01xXzZ]/
+// 200e-9, 1.5, 10 — SI suffixes (200n, 10k) are accepted as in the vams grammar
+NUMBER: /(?:\d[\d_]*(?:\.[\d_]*)?|\.\d+)(?:[eE][+-]?\d+)?(?:meg|mil|[TtGgKkMmUuNnPpFfAa])?/
+// plain or escaped identifier (\bus[0] ends at whitespace)
+IDENT: /\\[^\s]+|[A-Za-z_][A-Za-z0-9_$]*/
+QSTRING: /"(?:\\.|[^"\\])*"/
+ADD_OP: "+" | "-"
+MUL_OP: "*" | "/" | "%"
+_SEMI: ";"
+
+%ignore /[ \t\r\n]+/

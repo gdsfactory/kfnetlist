@@ -108,3 +108,43 @@ ends parent
                 x1_ports.add(c.source.port_name)
         assert "p" in x1_ports
         assert "q" in x1_ports
+
+
+def test_master_decides_device_not_instance_name() -> None:
+    netlist = parse_spectre(
+        """\
+subckt inverter (a y)
+R0 (a y) resistor r=1k
+ends inverter
+subckt top (a y)
+I1 (a y) inverter
+Xr (a y) capacitor c=1p
+ends top
+"""
+    )
+    top = netlist.circuits[1]
+    assert [(s.name, s.circuit_name) for s in top.subcircuits] == [
+        ("I1", "inverter"),
+        ("Xr", "capacitor"),
+    ]
+    pins = {
+        (c.target.instance_name, c.target.port_name)
+        for c in top.connections
+        if c.target
+    }
+    assert ("I1", "a") in pins and ("Xr", "p") in pins
+
+
+def test_subckt_named_like_an_analysis_is_an_instance() -> None:
+    netlist = parse_spectre(
+        """\
+subckt dc (o1 o2)
+ends dc
+subckt top (o1 o2)
+Xdc1 (o1 o2) dc gap=200n
+ends top
+"""
+    )
+    top = netlist.circuits[1]
+    assert [s.name for s in top.subcircuits] == ["Xdc1"]
+    assert len(top.connections) == 2

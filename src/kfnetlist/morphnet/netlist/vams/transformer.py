@@ -14,11 +14,11 @@ from kfnetlist.morphnet.morphnet_schema import (
     ParameterValue,
     Port,
     PortDirection,
-    SignalDomain,
 )
 from kfnetlist.morphnet.netlist.net_utils import (
     NetMap,
     add_port_to_net,
+    domain_of,
     net_map_to_connections,
 )
 from kfnetlist.morphnet.netlist.value_utils import parse_parameter_number
@@ -471,7 +471,7 @@ class VamsTransformer(Transformer[Token, Netlist]):
                 Port(
                     name=pn,
                     direction=port_dirs.get(pn, PortDirection.INOUT),
-                    domain=SignalDomain.ELECTRICAL,
+                    domain=domain_of(pn),
                     discipline=port_disciplines.get(pn, ""),
                 )
             )
