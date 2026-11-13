@@ -32,6 +32,8 @@ nav:
       - Getting Started: morphnet/getting-started.md
       - Basic Usage: morphnet/basic-usage.md
       - Advanced Usage: morphnet/advanced-usage.md
+      - Parsing Netlist Formats: morphnet/netlist_formats.md
+      - Converting Between Formats: morphnet/format_conversion.md
       - "Example: Ring Oscillator": morphnet/ring_oscillator.md
       - "Example: Photonic MZI": morphnet/mzi.md
       - Extending Grammars: morphnet/extending-grammars.md

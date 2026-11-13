@@ -19,7 +19,7 @@ from ._native import (
 )
 from .port_check import PortCheck, check_connection
 
-__version__ = "0.4.0"
+__version__ = "0.4.1"
 
 __all__ = [
     "LeafNetlistInstance",

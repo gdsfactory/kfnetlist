@@ -75,6 +75,21 @@ Parse Verilog-AMS netlist text. Handles `module`/`endmodule`, named port connect
 
 Write a `Netlist` to Verilog-AMS format.
 
+### SystemVerilog
+
+#### `parse_systemverilog(text: str) -> Netlist`
+
+Parse the structural subset of SystemVerilog (3.1a, Annex A): ANSI and non-ANSI
+ports, `parameter`/`localparam`, net declarations, module instances with named,
+positional, `.name`, `.*` and empty connections, and `assign`/`alias` net merges.
+Behavioral code (`always`, `initial`, `function`, `task`, `generate`, ...) is kept
+as text in `behavioral_block_N` circuit properties.
+
+#### `write_systemverilog(circuit: Netlist) -> str`
+
+Write a `Netlist` as structural SystemVerilog with ANSI headers and named
+connections. Values are written as plain numbers (SystemVerilog has no SI suffixes).
+
 ---
 
 ## kfnetlist.morphnet.morphnet_schema — Data Models
@@ -190,7 +205,7 @@ A point-to-point connection between two port references on a net.
 | `domain` | `domain` | `SignalDomain` | Signal domain |
 | `width` | `width` | `int` | Bus width |
 | `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
-| `discipline` | `discipline` | `str` | Verilog-AMS discipline |
+| `discipline` | `discipline` | `str` | Verilog-AMS discipline or SystemVerilog net type |
 
 #### `PortReference`
 

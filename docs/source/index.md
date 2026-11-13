@@ -61,7 +61,7 @@ It provides a fast, type-safe data model for circuit connectivity — instances,
     ---
 
     Build netlists programmatically and convert them both ways between SPICE,
-    HSPICE, Xyce, Spectre, Spectre-SPICE, Verilog-AMS and YAML with `kfnetlist.morphnet`.
+    HSPICE, Xyce, Spectre, Spectre-SPICE, Verilog-AMS, SystemVerilog and YAML with `kfnetlist.morphnet`.
 
     [:octicons-arrow-right-24: Overview](morphnet/index.md)
     &nbsp;·&nbsp;
@@ -88,7 +88,7 @@ It provides a fast, type-safe data model for circuit connectivity — instances,
 - **Short detection** — find geometric polygon overlaps between distinct nets
 - **Open detection** — find unconnected ports, singleton nets, and missing nets vs. a reference
 - **Connectivity verification** — complete LVS workflow combining open detection, net comparison, and short detection
-- **Bidirectional netlist format conversion** — `kfnetlist.morphnet` parses and writes SPICE, HSPICE, Xyce, Spectre, Spectre-SPICE and Verilog-AMS with Lark grammars, offers a programmatic circuit builder, and converts to and from `Netlist`
+- **Bidirectional netlist format conversion** — `kfnetlist.morphnet` parses and writes SPICE, HSPICE, Xyce, Spectre, Spectre-SPICE, Verilog-AMS and SystemVerilog with Lark grammars, offers a programmatic circuit builder, and converts to and from `Netlist`
 
 ## Relationship to kfactory
 
