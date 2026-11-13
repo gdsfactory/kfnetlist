@@ -51,6 +51,23 @@ fn terminal(text: &str) -> p::TerminalReference {
         terminal_name: port.trim().into(),
     }
 }
+/// Pin names of a terminal: a bus (`width` > 1, or a `range` property `"msb:lsb"`)
+/// is its bits `name[msb]` … `name[lsb]`; anything else is the bare name.
+fn terminal_pins(t: &p::Terminal) -> Vec<String> {
+    let range = t.properties.get("range").and_then(|r| {
+        let (a, b) = r.split_once(':')?;
+        Some((a.trim().parse::<i64>().ok()?, b.trim().parse::<i64>().ok()?))
+    });
+    let (msb, lsb) = match range {
+        Some(r) => r,
+        None if t.width > 1 => (i64::from(t.width) - 1, 0),
+        None => return vec![t.name.clone()],
+    };
+    let step = if msb >= lsb { -1 } else { 1 };
+    (0..=(msb - lsb).abs())
+        .map(|k| format!("{}[{}]", t.name, msb + step * k))
+        .collect()
+}
 fn reference(t: &p::TerminalReference) -> String {
     if t.instance_name.is_empty() {
         t.terminal_name.clone()
@@ -197,7 +214,8 @@ impl CircuitDocument {
         })
     }
     fn read_named_nets(&mut self, pm: &p::Circuit) -> Result<()> {
-        let terminals: HashSet<&str> = pm.terminals.iter().map(|t| t.name.as_str()).collect();
+        let pins: Vec<String> = pm.terminals.iter().flat_map(terminal_pins).collect();
+        let terminals: HashSet<&str> = pins.iter().map(String::as_str).collect();
         let mut foreign: IndexMap<&str, Vec<String>> = IndexMap::new();
         for c in &pm.connections {
             if c.properties.contains_key("__from__") {
@@ -264,8 +282,8 @@ impl CircuitDocument {
                 .collect::<Result<_>>()?,
             ..Default::default()
         };
-        for t in &pm.terminals {
-            module.ports.insert(t.name.clone(), t.name.clone());
+        for pin in pm.terminals.iter().flat_map(terminal_pins) {
+            module.ports.insert(pin.clone(), pin);
         }
         // Modules written before the named-net encoding always carry `__placements__`.
         if pm.properties.contains_key("__nets__") || !pm.properties.contains_key("__placements__") {

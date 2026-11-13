@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
 
@@ -14,13 +15,29 @@ from kfnetlist.morphnet.morphnet_schema import (
     ParameterValue,
     Port,
     PortDirection,
+    SignalDomain,
     SubCircuit,
+)
+from kfnetlist.morphnet.netlist.hdl import (
+    Concat,
+    Dim,
+    Literal,
+    NetRef,
+    Range,
+    bits,
+    connect,
+    decl_range,
+    instance_names,
+    range_width,
+    resolve,
+    to_int,
 )
 from kfnetlist.morphnet.netlist.net_utils import (
     NetMap,
     add_port_to_net,
     domain_of,
-    net_map_to_connections,
+    propagate_domains,
+    typed_connections,
 )
 from kfnetlist.morphnet.netlist.value_utils import (
     is_si_number,
@@ -38,19 +55,24 @@ SIZED_RE = re.compile(r"(?:\d[\d_]*\s*)?'[sS]?([bBoOdDhH])\s*([0-9a-fA-F_]+)")
 BASES = {"b": 2, "o": 8, "d": 10, "h": 16}
 
 
-class NetRef(str):
-    """Expression text that names a net (``a``, ``a[3]``, ``a[3:0]``)."""
+class TypeSpec(str):
+    """Type name (``wire``, ``connection``, ``""``) carrying its packed dims."""
 
+    dims: list[Dim]
 
-class Literal(str):
-    """Numeric literal text (``0``, ``1'b0``) — a constant tie when used as a net."""
+    @classmethod
+    def make(cls, name: str, dims: list[Dim]) -> TypeSpec:
+        spec = cls(name)
+        spec.dims = dims
+        return spec
 
 
 @dataclass
 class PortSpec:
     name: str
     direction: str | None
-    type: str | None
+    type: TypeSpec | None
+    dims: list[Dim] = field(default_factory=list)  # unpacked
 
 
 @dataclass
@@ -64,19 +86,19 @@ class ParamSpec:
 @dataclass
 class PortDecl:
     direction: str
-    type: str
-    names: list[str]
+    ports: list[PortSpec]
 
 
 @dataclass
 class DataDecl:
-    type: str
-    assigns: list[tuple[str, str | None]]
+    type: TypeSpec
+    assigns: list[tuple[str, list[Dim], str | None]]
 
 
 @dataclass
 class HierInst:
     name: str
+    dims: list[Dim]
     named: dict[str, str | None] = field(default_factory=dict)
     ordered: list[str | None] = field(default_factory=list)
     wildcard: bool = False
@@ -109,6 +131,45 @@ class ModuleData:
 
     def port_names(self) -> list[str]:
         return [p.name for p in self.ports]
+
+    def declarations(self) -> tuple[dict[str, str], dict[str, str], dict[str, Range]]:
+        """Port directions, net/port types and bus ranges declared in this module."""
+        directions: dict[str, str] = {}
+        types: dict[str, str] = {}
+        ranges: dict[str, Range] = {}
+
+        def declare(name: str, ptype: TypeSpec | None, dims: list[Dim]) -> None:
+            if ptype:
+                types.setdefault(name, ptype)
+            rng = decl_range(name, (ptype.dims if ptype is not None else []) + dims)
+            if rng is not None:
+                ranges.setdefault(name, rng)
+
+        # ANSI header: a bare name inherits the previous port's direction and type
+        ansi = any(p.direction or p.type is not None for p in self.ports)
+        prev_dir, prev_type = "inout", None
+        for spec in self.ports:
+            if ansi and spec.direction is None and spec.type is None:
+                spec.direction, spec.type = prev_dir, prev_type
+            elif ansi and spec.direction is None:
+                spec.direction = prev_dir
+            if spec.direction:
+                directions[spec.name] = spec.direction
+                prev_dir, prev_type = spec.direction, spec.type
+            declare(spec.name, spec.type, spec.dims)
+        for item in self.items:
+            if isinstance(item, PortDecl):
+                for spec in item.ports:
+                    directions[spec.name] = item.direction
+                    declare(spec.name, spec.type, spec.dims)
+            elif isinstance(item, DataDecl):
+                for n, dims, _ in item.assigns:
+                    declare(n, item.type, dims)
+        return directions, types, ranges
+
+    def port_ranges(self) -> dict[str, Range | None]:
+        ranges = self.declarations()[2]
+        return {n: ranges.get(n) for n in self.port_names()}
 
     def param_names(self) -> list[str]:
         params = self.params + [p for i in self.items if isinstance(i, list) for p in i]
@@ -144,10 +205,12 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
         self,
         blocks: list[str] | None = None,
         directives: list[Directive] | None = None,
+        disciplines: Mapping[str, SignalDomain] | None = None,
     ) -> None:
         super().__init__()
         self.blocks = blocks or []
         self.directives = directives or []
+        self.disciplines = disciplines or {}
 
     # ── Expressions ─────────────────────────────────────────────────────
 
@@ -169,25 +232,41 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
     def paren(self, items: list[Any]) -> str:
         return f"({items[0]})"
 
-    def range(self, items: list[Any]) -> str:
-        return f"[{':'.join(items)}]"
+    def concat(self, items: list[Any]) -> Concat:
+        return Concat.make(items)
 
-    def dims(self, items: list[str]) -> str:
-        return "".join(items)
+    def replicate(self, items: list[Any]) -> Concat:
+        n = to_int(items[0])
+        if n is None or n < 1:
+            raise ValueError(
+                f"replication count {items[0]!r} must be a positive integer"
+            )
+        return Concat.make(items[1:] * n)
+
+    def range(self, items: list[Any]) -> Dim:
+        return Dim(str(i) for i in items)
+
+    def dims(self, items: list[Dim]) -> list[Dim]:
+        return items
 
     def net_ref(self, items: list[Any]) -> NetRef:
-        return NetRef(_ident(items[0]) + "".join(items[1:]))
+        if len(items) > 2:
+            raise ValueError(
+                f"{_ident(items[0])}{''.join(map(str, items[1:]))}: "
+                "multi-dimensional selects are not supported"
+            )
+        return NetRef.make(_ident(items[0]), items[1] if len(items) > 1 else ())
 
     # ── Types ───────────────────────────────────────────────────────────
 
-    def builtin_type(self, items: list[Any]) -> str:
-        return str(items[0])
+    def builtin_type(self, items: list[Any]) -> TypeSpec:
+        return TypeSpec.make(str(items[0]), [i for i in items if isinstance(i, Dim)])
 
-    def implicit_type(self, items: list[Any]) -> str:
-        return ""
+    def implicit_type(self, items: list[Any]) -> TypeSpec:
+        return TypeSpec.make("", [i for i in items if isinstance(i, Dim)])
 
-    def user_type(self, items: list[Token]) -> str:
-        return _ident(items[0])
+    def user_type(self, items: list[Token]) -> TypeSpec:
+        return TypeSpec.make(_ident(items[0]), [])
 
     # ── Parameters ──────────────────────────────────────────────────────
 
@@ -221,40 +300,46 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
 
     # ── Ports ───────────────────────────────────────────────────────────
 
+    def port_name(self, items: list[Any]) -> PortSpec:
+        if len(items) == 4:  # user type first: `connection [3:0] a [1:0]`
+            ptype = TypeSpec.make(_ident(items[0]), items[1])
+            return PortSpec(_ident(items[2]), None, ptype, items[3])
+        return PortSpec(_ident(items[0]), None, None, items[1])
+
     def ansi_port(self, items: list[Any]) -> PortSpec:
-        direction = ptype = None
-        name = ""
-        for item in items:
+        spec = items[-1]
+        for item in items[:-1]:
             if isinstance(item, Token) and item.type == "PORT_DIR":
-                direction = str(item)
-            elif isinstance(item, Token) and item.type == "IDENT":
-                name = _ident(item)
-            elif not name and isinstance(item, str):
-                ptype = item
-        return PortSpec(name, direction, ptype)
+                spec.direction = str(item)
+            elif isinstance(item, TypeSpec):
+                spec.type = item
+        return spec
 
     def port_list(self, items: list[PortSpec]) -> list[PortSpec]:
         return items
 
     def port_decl(self, items: list[Any]) -> PortDecl:
-        direction, ptype, names = str(items[0]), "", []
-        for item in items[1:]:
-            if isinstance(item, Token) and item.type == "IDENT":
-                names.append(_ident(item))
-            elif isinstance(item, str) and not names:
-                ptype = item
-        return PortDecl(direction, ptype, names)
+        # `input [3:0] a, b;` / `input connection a, b;`: names share the first type
+        ptype = next((i for i in items[1:] if isinstance(i, TypeSpec)), None)
+        specs = [i for i in items[1:] if isinstance(i, PortSpec)]
+        for spec in specs:
+            spec.type = ptype = spec.type if spec.type is not None else ptype
+        return PortDecl(str(items[0]), specs)
 
     # ── Net / variable declarations ─────────────────────────────────────
 
-    def decl_assign(self, items: list[Any]) -> tuple[str, str | None]:
-        return _ident(items[0]), (items[2] if len(items) > 2 else None)
+    def decl_assign(self, items: list[Any]) -> tuple[str, list[Dim], str | None]:
+        return _ident(items[0]), items[1], (items[2] if len(items) > 2 else None)
 
     def data_decl(self, items: list[Any]) -> DataDecl:
-        return DataDecl(str(items[0]), items[1:])
+        return DataDecl(items[0], items[1:])
 
     def user_decl(self, items: list[Any]) -> DataDecl:
-        return DataDecl(_ident(items[0]), items[1:])
+        dims = [i for i in items[1:] if isinstance(i, Dim)]
+        assigns = [
+            i for i in items[1:] if isinstance(i, tuple) and not isinstance(i, Dim)
+        ]
+        return DataDecl(TypeSpec.make(_ident(items[0]), dims), assigns)
 
     # ── Instances ───────────────────────────────────────────────────────
 
@@ -280,7 +365,7 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
         return [items[0] if items else None]
 
     def hier_inst(self, items: list[Any]) -> HierInst:
-        inst = HierInst(name=_ident(items[0]) + items[1])
+        inst = HierInst(name=_ident(items[0]), dims=items[1])
         for conn in items[2:]:
             if conn == ".*":
                 inst.wildcard = True
@@ -350,47 +435,29 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
         tops = [c.name for c in circuits if c.name not in used] or [
             c.name for c in circuits
         ]
-        return Netlist(
+        netlist = Netlist(
             top_circuit=tops[-1] if tops else "",
             circuits=circuits,
             properties=properties,
             directives=self.directives,
         )
+        propagate_domains(netlist, self.disciplines)
+        return netlist
 
     def _build_circuit(
         self, module: ModuleData, modules: dict[str, ModuleData]
     ) -> Circuit:
-        # ── ports: ANSI header specs, completed by non-ANSI body declarations
-        directions: dict[str, str] = {}
-        types: dict[str, str] = {}
-        ansi = any(p.direction or p.type for p in module.ports)
-        prev_dir, prev_type = "inout", ""
-        for spec in module.ports:
-            if ansi and spec.direction is None and spec.type is None:
-                spec.direction, spec.type = prev_dir, prev_type
-            elif ansi and spec.direction is None:
-                spec.direction = prev_dir
-            if spec.direction:
-                directions[spec.name] = spec.direction
-                prev_dir, prev_type = spec.direction, spec.type or ""
-            if spec.type:
-                types[spec.name] = spec.type
+        directions, types, buses = module.declarations()
 
         parameters: list[Parameter] = [self._parameter(p) for p in module.params]
         properties: dict[str, str] = {}
-        merges: list[list[str]] = []
+        merges: list[list[Any]] = []
         instances: list[InstanceStmt] = []
         for item in module.items:
-            if isinstance(item, PortDecl):
-                for n in item.names:
-                    directions[n] = item.direction
-                    if item.type:
-                        types[n] = item.type
-            elif isinstance(item, DataDecl):
-                for n, rhs in item.assigns:
-                    types[n] = types.get(n) or item.type
-                    if isinstance(rhs, NetRef):
-                        merges.append([n, rhs])  # wire a = b;
+            if isinstance(item, DataDecl):
+                for n, _, rhs in item.assigns:
+                    if isinstance(rhs, (NetRef, Concat)):
+                        merges.append([NetRef.make(n), rhs])  # wire a = b;
             elif isinstance(item, list):
                 parameters.extend(self._parameter(p) for p in item)
             elif isinstance(item, Merge):
@@ -401,17 +468,26 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
                 properties[f"behavioral_block_{item.index}"] = self.blocks[item.index]
 
         port_names = module.port_names()
-        ports = [
-            Port(
-                name=n,
-                direction=DIR_MAP.get(directions.get(n, "inout"), PortDirection.INOUT),
-                domain=domain_of(n),
-                discipline=types.get(n, ""),
+        ports = []
+        port_bits: dict[str, list[str]] = {}
+        for n in port_names:
+            rng = buses.get(n)
+            port_bits[n] = bits(n, *rng) if rng else [n]
+            ports.append(
+                Port(
+                    name=n,
+                    direction=DIR_MAP.get(
+                        directions.get(n, "inout"), PortDirection.INOUT
+                    ),
+                    domain=domain_of(n),
+                    discipline=types.get(n, ""),
+                    width=range_width(rng) if rng else 0,
+                    properties={"range": f"{rng[0]}:{rng[1]}"} if rng else {},
+                )
             )
-            for n in port_names
-        ]
+        pins = {b for bs in port_bits.values() for b in bs}
 
-        # ── nets: assign/alias merge nets; a module port names its merged net
+        # ── nets (bit level): assign/alias merge nets; a module port names its net
         parent: dict[str, str] = {}
 
         def find(net: str) -> str:
@@ -420,22 +496,28 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
             return net
 
         for group in merges:
-            for other in group[1:]:
-                a, b = find(group[0]), find(other)
-                if a != b:
-                    keep, drop = (
-                        (b, a) if b in port_names and a not in port_names else (a, b)
-                    )
-                    parent[drop] = keep
+            sides = [resolve(expr, buses) for expr in group]
+            if any(len(side) != len(sides[0]) for side in sides):
+                raise ValueError(
+                    f"{module.name}: width mismatch in {' = '.join(map(str, group))}"
+                )
+            for side in sides[1:]:
+                for x, y in zip(sides[0], side):
+                    a, b = find(x), find(y)
+                    if a != b:
+                        keep, drop = (b, a) if b in pins and a not in pins else (a, b)
+                        parent[drop] = keep
 
         net_map: NetMap = {}
-        for n in port_names:
-            add_port_to_net(net_map, find(n), "", n)
+        for bs in port_bits.values():
+            for b in bs:
+                add_port_to_net(net_map, find(b), "", b)
 
         subcircuits: list[SubCircuit] = []
         for stmt in instances:
             target = modules.get(stmt.module)
             param_names = target.param_names() if target else []
+            target_ranges = target.port_ranges() if target else None
             params = [
                 Parameter(name=n, default_value=v, properties=props)
                 for n, expr in stmt.named_params.items()
@@ -450,22 +532,28 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
                 for v, props in [parameter_value(expr)]
             ]
             for inst in stmt.instances:
-                for port, net in self._connections(inst, stmt.module, target):
-                    add_port_to_net(net_map, find(net), inst.name, port)
-                subcircuits.append(
-                    SubCircuit(
-                        name=inst.name,
-                        circuit_name=stmt.module,
-                        parameters=params,
+                rng = decl_range(inst.name, inst.dims)
+                if inst.dims and rng is None:
+                    raise ValueError(
+                        f"{inst.name}{inst.dims[0]}: instance array range must be constant"
                     )
-                )
+                names = instance_names(inst.name, rng)
+                for port, expr in self._connections(inst, stmt.module, target):
+                    for name, pin, net in connect(
+                        names, port, expr, buses, target_ranges
+                    ):
+                        add_port_to_net(net_map, find(net), name, pin)
+                subcircuits += [
+                    SubCircuit(name=n, circuit_name=stmt.module, parameters=params)
+                    for n in names
+                ]
 
         return Circuit(
             name=module.name,
             ports=ports,
             parameters=parameters,
             subcircuits=subcircuits,
-            connections=net_map_to_connections(net_map),
+            connections=typed_connections(net_map, types),
             properties=properties,
         )
 
@@ -481,8 +569,8 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
     @staticmethod
     def _connections(
         inst: HierInst, module: str, target: ModuleData | None
-    ) -> list[tuple[str, str]]:
-        """``(instance port, net)`` pairs for one instance."""
+    ) -> list[tuple[str, Any]]:
+        """``(instance port, net expression)`` pairs for one instance."""
         target_ports = target.port_names() if target else []
         conns: list[tuple[str, Any]] = list(inst.named.items())
         conns += [
@@ -501,10 +589,10 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
             if net is None:
                 continue  # unconnected
             if net is IMPLICIT:
-                net = port
-            elif not isinstance(net, (NetRef, Literal)):
+                net = NetRef.make(port)
+            elif not isinstance(net, (NetRef, Literal, Concat)):
                 raise ValueError(
                     f"{inst.name}.{port}: unsupported port expression {net!r}"
                 )
-            pairs.append((port, str(net)))
+            pairs.append((port, net))
         return pairs

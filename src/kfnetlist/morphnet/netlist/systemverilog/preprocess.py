@@ -1,8 +1,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
 
+from kfnetlist.morphnet.netlist.hdl import apply_defines
 from kfnetlist.morphnet.netlist.vams.preprocess import (
     BLOCK_COMMENT_RE,
     DIRECTIVE_RE,
@@ -56,11 +58,14 @@ class SvPreprocessResult:
     blocks: list[str] = field(default_factory=list)
 
 
-def preprocess_systemverilog(text: str) -> SvPreprocessResult:
+def preprocess_systemverilog(
+    text: str, defines: Mapping[str, str] | None = None
+) -> SvPreprocessResult:
     """Prepare SystemVerilog text for Lark parsing.
 
     1. Strip block comments, line comments and ``(* attributes *)``.
-    2. Extract backtick directives (`include, `define, `timescale, etc.).
+    2. Keep the active `` `ifdef `` branches for ``defines``, expand macros, then
+       extract backtick directives (`include, `define, `timescale, etc.).
     3. Replace behavioral constructs (always, initial, function, task, generate,
        class, non-trivial assign, ...) with ``__sv_placeholder__ N ;`` markers.
        typedef / import / genvar / timeunit statements are dropped.
@@ -68,6 +73,7 @@ def preprocess_systemverilog(text: str) -> SvPreprocessResult:
     text = BLOCK_COMMENT_RE.sub("", text)
     text = LINE_COMMENT_RE.sub("", text)
     text = ATTRIBUTE_RE.sub("", text)
+    text = apply_defines(text, defines)
 
     directives = [(m.group(1), m.group(2).strip()) for m in DIRECTIVE_RE.finditer(text)]
     text = DIRECTIVE_RE.sub("", text)

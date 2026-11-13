@@ -1,3 +1,5 @@
+import pytest
+
 from kfnetlist.morphnet.netlist.vams.preprocess import preprocess_vams
 
 
@@ -57,3 +59,40 @@ class TestAnalogBlockReplacement:
         result = preprocess_vams(text)
         assert len(result.analog_blocks) == 1
         assert "begin" in result.analog_blocks[0]
+
+
+class TestConditionals:
+    TEXT = """\
+`ifdef SIM
+module sim (a); endmodule
+`elsif FAST
+module fast (a); endmodule
+`else
+module plain (a); endmodule
+`endif
+`ifndef SIM
+`define W 3
+`endif
+module m (a); input [`W:0] a; endmodule
+"""
+
+    def test_else_branch_without_defines(self) -> None:
+        text = preprocess_vams(self.TEXT).text
+        assert "module plain" in text
+        assert "module sim" not in text and "module fast" not in text
+        assert "input [3:0] a;" in text
+
+    def test_defines_select_branches(self) -> None:
+        assert "module sim" in preprocess_vams(self.TEXT, {"SIM": "1"}).text
+        fast = preprocess_vams(self.TEXT, {"FAST": ""}).text
+        assert "module fast" in fast and "module plain" not in fast
+
+    def test_nested_inactive_branch_stays_inactive(self) -> None:
+        text = "`ifdef A\n`ifdef B\nx;\n`else\ny;\n`endif\n`endif\nz;\n"
+        assert preprocess_vams(text).text == "z;\n"
+
+    def test_unbalanced_raises(self) -> None:
+        with pytest.raises(ValueError, match="without `endif"):
+            preprocess_vams("`ifdef A\nmodule m (a); endmodule\n")
+        with pytest.raises(ValueError, match="`else without"):
+            preprocess_vams("`else\n")

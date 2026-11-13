@@ -1,0 +1,16 @@
+// Synthetic 2x2 photonic switch (see systemverilog/switch_2x2.sv).
+module SWITCH_2X2 (in, out, sel);
+  input [1:0] in;
+  output [1:0] out;
+  input [3:0] sel;
+`ifdef IS_SIM
+  optical [1:0] in, out;
+  optical a [3:0];
+`else
+  electrical [1:0] in, out;
+  electrical a [3:0];
+`endif
+  electrical [3:0] sel;
+  MZM_1X2 #() I_I[1:0] (.in0(in), .out0({a[2], a[0]}), .out1({a[3], a[1]}), .sel(sel[1:0]));
+  MZM_2X1 I_O[1:0] (.in0(a[1:0]), .in1(a[3:2]), .out0(out), .sel(sel[3:2]));
+endmodule

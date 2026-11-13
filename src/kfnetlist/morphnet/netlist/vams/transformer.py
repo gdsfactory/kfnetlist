@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
+from dataclasses import dataclass, field
 from typing import Any
 
 from lark import Token, Transformer
@@ -14,18 +16,34 @@ from kfnetlist.morphnet.morphnet_schema import (
     ParameterValue,
     Port,
     PortDirection,
+    SignalDomain,
+)
+from kfnetlist.morphnet.netlist.hdl import (
+    Concat,
+    Dim,
+    Literal,
+    NetRef,
+    Range,
+    bits,
+    connect,
+    decl_range,
+    instance_names,
+    range_width,
+    to_int,
 )
 from kfnetlist.morphnet.netlist.net_utils import (
     NetMap,
     add_port_to_net,
     domain_of,
-    net_map_to_connections,
+    propagate_domains,
+    typed_connections,
 )
 from kfnetlist.morphnet.netlist.value_utils import parse_parameter_number
 
 
 class InstanceData:
     __slots__ = (
+        "dims",
         "module_type",
         "name",
         "named_params",
@@ -38,11 +56,13 @@ class InstanceData:
         self,
         module_type: str,
         name: str,
-        named_ports: dict[str, str],
-        positional_ports: list[str],
+        named_ports: dict[str, Any],
+        positional_ports: list[Any],
         named_params: dict[str, ParameterValue],
         positional_params: list[ParameterValue],
+        dims: list[Dim] | None = None,
     ) -> None:
+        self.dims = dims or []
         self.module_type = module_type
         self.name = name
         self.named_ports = named_ports
@@ -80,19 +100,67 @@ class ParamsetData:
 
 
 class PortDirData:
-    __slots__ = ("direction", "names")
+    __slots__ = ("direction", "names", "ranges")
 
-    def __init__(self, direction: PortDirection, names: list[str]) -> None:
+    def __init__(
+        self,
+        direction: PortDirection,
+        names: list[str],
+        ranges: dict[str, Range] | None = None,
+    ) -> None:
         self.direction = direction
         self.names = names
+        self.ranges = ranges or {}
 
 
 class DisciplineDeclData:
-    __slots__ = ("discipline", "names")
+    __slots__ = ("discipline", "names", "ranges")
 
-    def __init__(self, discipline: str, names: list[str]) -> None:
+    def __init__(
+        self, discipline: str, names: list[str], ranges: dict[str, Range] | None = None
+    ) -> None:
         self.discipline = discipline
         self.names = names
+        self.ranges = ranges or {}
+
+
+@dataclass
+class ParamOverride:
+    named: dict[str, ParameterValue] = field(default_factory=dict)
+    positional: list[ParameterValue] = field(default_factory=list)
+
+
+@dataclass
+class PortConn:
+    named: dict[str, Any] = field(default_factory=dict)
+    positional: list[Any] = field(default_factory=list)
+
+
+@dataclass
+class VamsModule:
+    """A module before connectivity: instances need the other modules' ports."""
+
+    name: str
+    ports: list[Port]
+    parameters: list[Parameter]
+    instances: list[InstanceData]
+    properties: dict[str, str]
+    buses: dict[str, Range]
+    types: dict[str, str]
+
+    def port_ranges(self) -> dict[str, Range | None]:
+        return {p.name: self.buses.get(p.name) for p in self.ports}
+
+
+def _decl_ranges(
+    packed: Dim | None, names: list[tuple[str, list[Dim]]]
+) -> dict[str, Range]:
+    ranges = {}
+    for name, dims in names:
+        rng = decl_range(name, ([packed] if packed else []) + dims)
+        if rng is not None:
+            ranges[name] = rng
+    return ranges
 
 
 class GroundData:
@@ -119,9 +187,14 @@ DIR_MAP = {
 class VamsTransformer(Transformer[Token, Netlist]):
     """Transform a Verilog-AMS parse tree into a Netlist model."""
 
-    def __init__(self, analog_blocks: list[str] | None = None) -> None:
+    def __init__(
+        self,
+        analog_blocks: list[str] | None = None,
+        disciplines: Mapping[str, SignalDomain] | None = None,
+    ) -> None:
         super().__init__()
         self.analog_blocks = analog_blocks or []
+        self.disciplines = disciplines or {}
 
     # ── Leaf transformers ───────────────────────────────────────────────
 
@@ -155,22 +228,64 @@ class VamsTransformer(Transformer[Token, Netlist]):
     def port_item(self, items: list[Token]) -> Token:
         return items[0]
 
-    def port_name_list(self, items: list[Token]) -> list[str]:
-        return [str(t) for t in items]
+    def decl_name(self, items: list[Any]) -> tuple[str, list[Dim]]:
+        return str(items[0]).removeprefix("\\"), items[1]
+
+    def port_name_list(
+        self, items: list[tuple[str, list[Dim]]]
+    ) -> list[tuple[str, list[Dim]]]:
+        return items
+
+    def range(self, items: list[Token]) -> Dim:
+        return Dim(str(t).strip() for t in items)
+
+    def dims(self, items: list[Dim]) -> list[Dim]:
+        return items
+
+    # ── Connection expressions ─────────────────────────────────────────
+
+    def net_ref(self, items: list[Any]) -> NetRef:
+        return NetRef.make(
+            str(items[0]).removeprefix("\\"), items[1] if len(items) > 1 else ()
+        )
+
+    def literal(self, items: list[Token]) -> Literal:
+        return Literal(items[0])
+
+    def concat(self, items: list[Any]) -> Concat:
+        return Concat.make(items)
+
+    def replicate(self, items: list[Any]) -> Concat:
+        n = to_int(items[0])
+        if n is None or n < 1:
+            raise ValueError(
+                f"replication count {items[0]!r} must be a positive integer"
+            )
+        return Concat.make(items[1:] * n)
 
     # ── Port direction declarations ────────────────────────────────────
 
     def port_dir_decl(self, items: list[Any]) -> PortDirData:
         direction = DIR_MAP.get(str(items[0]), PortDirection.INOUT)
-        names = items[1] if isinstance(items[1], list) else [str(items[1])]
-        return PortDirData(direction=direction, names=names)
+        packed = items[1] if isinstance(items[1], Dim) else None
+        names = items[-1]
+        return PortDirData(
+            direction=direction,
+            names=[n for n, _ in names],
+            ranges=_decl_ranges(packed, names),
+        )
 
     # ── Discipline declaration ─────────────────────────────────────────
 
     def discipline_decl(self, items: list[Any]) -> DisciplineDeclData:
         discipline = str(items[0])
-        names = items[1] if isinstance(items[1], list) else [str(items[1])]
-        return DisciplineDeclData(discipline=discipline, names=names)
+        packed = items[1] if isinstance(items[1], Dim) else None
+        names = items[-1]
+        return DisciplineDeclData(
+            discipline=discipline,
+            names=[n for n, _ in names],
+            ranges=_decl_ranges(packed, names),
+        )
 
     # ── Parameter / localparam ─────────────────────────────────────────
 
@@ -241,82 +356,42 @@ class VamsTransformer(Transformer[Token, Netlist]):
             v = ParameterValue()
         return v
 
-    def param_override(
-        self, items: list[Any]
-    ) -> dict[str, ParameterValue] | list[ParameterValue]:
-        named: dict[str, ParameterValue] = {}
-        positional: list[ParameterValue] = []
+    def param_override(self, items: list[Any]) -> ParamOverride:
+        override = ParamOverride()
         for item in items:
             if isinstance(item, tuple):
-                named[item[0]] = item[1]
+                override.named[item[0]] = item[1]
             elif isinstance(item, ParameterValue):
-                positional.append(item)
-        return named if named else positional
+                override.positional.append(item)
+        return override
 
-    def named_conn(self, items: list[Token]) -> tuple[str, str]:
-        return (str(items[0]), str(items[1]))
+    def named_conn(self, items: list[Any]) -> tuple[str, Any]:
+        return (str(items[0]), items[1] if len(items) > 1 else None)
 
-    def positional_conn(self, items: list[Token]) -> str:
-        return str(items[0])
+    def positional_conn(self, items: list[Any]) -> Any:
+        return items[0]
 
-    def port_conn(self, items: list[Any]) -> dict[str, str] | list[str]:
-        named: dict[str, str] = {}
-        positional: list[str] = []
+    def port_conn(self, items: list[Any]) -> PortConn:
+        conn = PortConn()
         for item in items:
-            if isinstance(item, tuple):
-                named[item[0]] = item[1]
-            elif isinstance(item, str):
-                positional.append(item)
-        return named if named else positional
+            if isinstance(item, tuple) and not isinstance(item, Dim):
+                conn.named[item[0]] = item[1]
+            else:
+                conn.positional.append(item)
+        return conn
 
     def instance_stmt(self, items: list[Any]) -> InstanceData:
-        module_type = str(items[0])
-
-        params: dict[str, ParameterValue] | list[ParameterValue] = {}
-        inst_name = ""
-        ports: dict[str, str] | list[str] = []
-
-        idx = 1
-        if (
-            idx < len(items)
-            and isinstance(items[idx], (dict, list))
-            and not isinstance(items[idx], (str, Token))
-        ):
-            p = items[idx]
-            if isinstance(p, dict) or (
-                isinstance(p, list) and p and isinstance(p[0], ParameterValue)
-            ):
-                params = p
-            idx += 1
-
-        if idx < len(items) and isinstance(items[idx], Token):
-            inst_name = str(items[idx])
-            idx += 1
-
-        if idx < len(items):
-            ports = items[idx]
-
-        named_params: dict[str, ParameterValue] = {}
-        positional_params: list[ParameterValue] = []
-        if isinstance(params, dict):
-            named_params = params
-        elif isinstance(params, list):
-            positional_params = params
-
-        named_ports: dict[str, str] = {}
-        positional_ports: list[str] = []
-        if isinstance(ports, dict):
-            named_ports = ports
-        elif isinstance(ports, list):
-            positional_ports = ports
-
+        rest = items[1:]
+        params = rest.pop(0) if isinstance(rest[0], ParamOverride) else ParamOverride()
+        name, dims, ports = rest
         return InstanceData(
-            module_type=module_type,
-            name=inst_name,
-            named_ports=named_ports,
-            positional_ports=positional_ports,
-            named_params=named_params,
-            positional_params=positional_params,
+            module_type=str(items[0]),
+            name=str(name).removeprefix("\\"),
+            named_ports=ports.named,
+            positional_ports=ports.positional,
+            named_params=params.named,
+            positional_params=params.positional,
+            dims=dims,
         )
 
     # ── Analog placeholder ─────────────────────────────────────────────
@@ -402,9 +477,7 @@ class VamsTransformer(Transformer[Token, Netlist]):
 
     # ── Module definition ──────────────────────────────────────────────
 
-    def module_def(
-        self, items: list[Any]
-    ) -> tuple[str, Circuit, dict[str, ExternalCircuit]]:
+    def module_def(self, items: list[Any]) -> VamsModule:
         module_name = str(items[0])
 
         port_names: list[str] = []
@@ -422,7 +495,8 @@ class VamsTransformer(Transformer[Token, Netlist]):
                 body_items = item
 
         port_dirs: dict[str, PortDirection] = {}
-        port_disciplines: dict[str, str] = {}
+        types: dict[str, str] = {}  # port and net disciplines
+        buses: dict[str, Range] = {}
         parameters: list[Parameter] = []
         instances: list[InstanceData] = []
         ground_net = ""
@@ -433,9 +507,13 @@ class VamsTransformer(Transformer[Token, Netlist]):
             if isinstance(item, PortDirData):
                 for n in item.names:
                     port_dirs[n] = item.direction
+                for n, rng in item.ranges.items():
+                    buses.setdefault(n, rng)
             elif isinstance(item, DisciplineDeclData):
                 for n in item.names:
-                    port_disciplines[n] = item.discipline
+                    types[n] = item.discipline
+                for n, rng in item.ranges.items():
+                    buses.setdefault(n, rng)
             elif isinstance(item, list) and item and isinstance(item[0], tuple):
                 for entry in item:
                     if len(entry) == 3:
@@ -467,12 +545,15 @@ class VamsTransformer(Transformer[Token, Netlist]):
 
         ports: list[Port] = []
         for pn in port_names:
+            rng = buses.get(pn)
             ports.append(
                 Port(
                     name=pn,
                     direction=port_dirs.get(pn, PortDirection.INOUT),
                     domain=domain_of(pn),
-                    discipline=port_disciplines.get(pn, ""),
+                    discipline=types.get(pn, ""),
+                    width=range_width(rng) if rng else 0,
+                    properties={"range": f"{rng[0]}:{rng[1]}"} if rng else {},
                 )
             )
 
@@ -481,14 +562,21 @@ class VamsTransformer(Transformer[Token, Netlist]):
         if analog_block:
             properties["analog_block"] = analog_block
 
+        return VamsModule(
+            module_name, ports, parameters, instances, properties, buses, types
+        )
+
+    def _build_circuit(
+        self, module: VamsModule, modules: dict[str, VamsModule]
+    ) -> Circuit:
         net_map: NetMap = {}
+        for port in module.ports:
+            rng = module.buses.get(port.name)
+            for pin in bits(port.name, *rng) if rng else [port.name]:
+                add_port_to_net(net_map, pin, "", pin)
+
         subcircuits: list[SubCircuit] = []
-        ext_circuits: dict[str, ExternalCircuit] = {}
-
-        for port in ports:
-            add_port_to_net(net_map, port.name, "", port.name)
-
-        for inst in instances:
+        for inst in module.instances:
             params: list[Parameter] = []
             if inst.named_params:
                 params = [
@@ -501,49 +589,55 @@ class VamsTransformer(Transformer[Token, Netlist]):
                     for pi, pv in enumerate(inst.positional_params)
                 ]
 
-            if inst.named_ports:
-                for port_name, net_name in inst.named_ports.items():
-                    add_port_to_net(net_map, net_name, inst.name, port_name)
-            elif inst.positional_ports:
-                for pi, net_name in enumerate(inst.positional_ports):
-                    add_port_to_net(net_map, net_name, inst.name, f"p{pi}")
-
-            subcircuits.append(
-                SubCircuit(
-                    name=inst.name,
-                    circuit_name=inst.module_type,
-                    parameters=params,
+            target = modules.get(inst.module_type)
+            target_ports = [p.name for p in target.ports] if target else []
+            rng = decl_range(inst.name, inst.dims)
+            if inst.dims and rng is None:
+                raise ValueError(
+                    f"{inst.name}{inst.dims[0]}: instance array range must be constant"
                 )
-            )
+            names = instance_names(inst.name, rng)
+            conns = list(inst.named_ports.items()) + [
+                (target_ports[pi] if pi < len(target_ports) else f"p{pi}", expr)
+                for pi, expr in enumerate(inst.positional_ports)
+            ]
+            for port_name, expr in conns:
+                if expr is None:
+                    continue  # unconnected
+                for name, pin, net in connect(
+                    names,
+                    port_name,
+                    expr,
+                    module.buses,
+                    target.port_ranges() if target else None,
+                ):
+                    add_port_to_net(net_map, net, name, pin)
 
-        connections = net_map_to_connections(net_map)
+            subcircuits += [
+                SubCircuit(name=n, circuit_name=inst.module_type, parameters=params)
+                for n in names
+            ]
 
-        circuit = Circuit(
-            name=module_name,
-            ports=ports,
-            parameters=parameters,
+        return Circuit(
+            name=module.name,
+            ports=module.ports,
+            parameters=module.parameters,
             subcircuits=subcircuits,
-            connections=connections,
-            properties=properties,
+            connections=typed_connections(net_map, module.types),
+            properties=module.properties,
         )
-
-        return (module_name, circuit, ext_circuits)
 
     # ── Top-level ──────────────────────────────────────────────────────
 
     def start(self, items: list[Any]) -> Netlist:
-        circuits: list[Circuit] = []
+        modules = {m.name: m for m in items if isinstance(m, VamsModule)}
+        circuits = [self._build_circuit(m, modules) for m in modules.values()]
         ext_circuits: dict[str, ExternalCircuit] = {}
 
         for item in items:
             if item is None:
                 continue
-            if isinstance(item, tuple) and len(item) == 3:
-                _, mod, ext = item
-                if isinstance(mod, Circuit):
-                    circuits.append(mod)
-                    ext_circuits.update(ext)
-            elif isinstance(item, NatureData):
+            if isinstance(item, NatureData):
                 props: dict[str, str] = {"ext_kind": "nature"}
                 for k, v in item.attrs.items():
                     if v.prefixed_value is not None:
@@ -584,9 +678,11 @@ class VamsTransformer(Transformer[Token, Netlist]):
 
         top_circuit = circuits[-1].name if circuits else ""
 
-        return Netlist(
+        netlist = Netlist(
             name="",
             top_circuit=top_circuit,
             circuits=circuits,
             ext_circuits=list(ext_circuits.values()),
         )
+        propagate_domains(netlist, self.disciplines)
+        return netlist

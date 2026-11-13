@@ -264,3 +264,47 @@ fn morphnet_and_legacy_encodings_decode() {
     assert_eq!(old.ports["o1"], "wg,o1");
     assert_eq!(old.nets, vec![vec!["wg,o2", "wg2,o1"]]);
 }
+
+#[test]
+fn bus_terminals_and_bracketed_instance_names_decode() {
+    // Shape produced by morphnet's SystemVerilog parser for
+    // `module top (input [1:0] in); leaf I[1:0] (.a(in)); endmodule`.
+    let star = |net: &str, inst: &str| proto::Connection {
+        name: net.into(),
+        source: pin("", net),
+        target: pin(inst, "a"),
+        ..Default::default()
+    };
+    let leaf = |name: &str| proto::SubCircuit {
+        name: name.into(),
+        circuit_name: "leaf".into(),
+        ..Default::default()
+    };
+    let module = proto::Circuit {
+        name: "top".into(),
+        terminals: vec![proto::Terminal {
+            name: "in".into(),
+            width: 2,
+            properties: [("range".into(), "1:0".into())].into(),
+            ..Default::default()
+        }],
+        subcircuits: vec![leaf("I[1]"), leaf("I[0]")],
+        connections: vec![star("in[1]", "I[1]"), star("in[0]", "I[0]")],
+        ..Default::default()
+    };
+    let circuit = proto::Netlist {
+        top_circuit: "top".into(),
+        circuits: vec![module],
+        ..Default::default()
+    };
+    let doc = NetlistDocument::from_proto_netlist(&circuit).unwrap();
+    let top = &doc.modules["top"];
+    assert_eq!(
+        top.nets,
+        vec![vec!["in[1]", "I[1],a"], vec!["in[0]", "I[0],a"]]
+    );
+    let nl = top.to_netlist().unwrap();
+    let ports: Vec<_> = nl.ports.iter().map(|p| p.name.as_str()).collect();
+    assert_eq!(ports, ["in[1]", "in[0]"]);
+    assert_eq!(nl.nets.len(), 2);
+}

@@ -1,4 +1,12 @@
-from kfnetlist.morphnet.morphnet_schema import DirectiveKind, ExternalCircuitKind
+from pathlib import Path
+
+import pytest
+
+from kfnetlist.morphnet.morphnet_schema import (
+    DirectiveKind,
+    ExternalCircuitKind,
+    SignalDomain,
+)
 from kfnetlist.morphnet.netlist.vams.parser import parse_vams
 
 
@@ -375,3 +383,60 @@ endmodule
         myres = next(e for e in netlist.ext_circuits if e.name == "myres")
         assert myres.kind == ExternalCircuitKind.MODEL
         assert myres.properties.get("model_type") == "resistor"
+
+
+class TestBuses:
+    SWITCH = (Path(__file__).parent / "netlists/vams/switch_2x2.vams").read_text()
+
+    def test_switch_simulation_view(self) -> None:
+        netlist = parse_vams(
+            self.SWITCH, {"IS_SIM": "1"}, {"optical": SignalDomain.WAVEGUIDE}
+        )
+        switch = netlist.circuits[0]
+        assert [(p.name, p.width, p.discipline, p.domain) for p in switch.ports] == [
+            ("in", 2, "optical", SignalDomain.WAVEGUIDE),
+            ("out", 2, "optical", SignalDomain.WAVEGUIDE),
+            ("sel", 4, "electrical", SignalDomain.ELECTRICAL),
+        ]
+        conns = {
+            (c.name, c.source.instance_name, c.source.port_name,
+             c.target.instance_name, c.target.port_name, c.domain.name)
+            for c in switch.connections
+            if c.source is not None and c.target is not None
+        }  # fmt: skip
+        assert conns == {
+            ("in[1]", "", "in[1]", "I_I[1]", "in0", "WAVEGUIDE"),
+            ("in[0]", "", "in[0]", "I_I[0]", "in0", "WAVEGUIDE"),
+            ("out[1]", "", "out[1]", "I_O[1]", "out0", "WAVEGUIDE"),
+            ("out[0]", "", "out[0]", "I_O[0]", "out0", "WAVEGUIDE"),
+            ("sel[3]", "", "sel[3]", "I_O[1]", "sel", "ELECTRICAL"),
+            ("sel[2]", "", "sel[2]", "I_O[0]", "sel", "ELECTRICAL"),
+            ("sel[1]", "", "sel[1]", "I_I[1]", "sel", "ELECTRICAL"),
+            ("sel[0]", "", "sel[0]", "I_I[0]", "sel", "ELECTRICAL"),
+            ("a[0]", "I_I[0]", "out0", "I_O[0]", "in0", "WAVEGUIDE"),
+            ("a[1]", "I_I[0]", "out1", "I_O[1]", "in0", "WAVEGUIDE"),
+            ("a[2]", "I_I[1]", "out0", "I_O[0]", "in1", "WAVEGUIDE"),
+            ("a[3]", "I_I[1]", "out1", "I_O[1]", "in1", "WAVEGUIDE"),
+        }
+
+    def test_positional_ports_use_the_definition(self) -> None:
+        text = """\
+module cell (p, n);
+  inout [1:0] p;
+  inout n;
+endmodule
+module top (bus, g);
+  inout [1:0] bus;
+  inout g;
+  cell X1 (bus, g);
+endmodule
+"""
+        top = parse_vams(text).circuits[1]
+        assert {(c.target.instance_name, c.target.port_name) for c in top.connections if c.target} == {
+            ("X1", "p[1]"), ("X1", "p[0]"), ("X1", "n")
+        }  # fmt: skip
+
+    def test_width_mismatch_raises(self) -> None:
+        text = "module top (a);\n  inout [2:0] a;\n  leaf L[1:0] (.x(a));\nendmodule\n"
+        with pytest.raises(ValueError, match="3 bits for 2 instance"):
+            parse_vams(text)

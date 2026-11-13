@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 from dataclasses import dataclass, field
+
+from kfnetlist.morphnet.netlist.hdl import apply_defines
 
 BLOCK_COMMENT_RE: re.Pattern[str] = re.compile(r"/\*.*?\*/", re.DOTALL)
 LINE_COMMENT_RE: re.Pattern[str] = re.compile(r"//[^\n]*")
@@ -15,15 +18,19 @@ class VamsPreprocessResult:
     analog_blocks: list[str] = field(default_factory=list)
 
 
-def preprocess_vams(text: str) -> VamsPreprocessResult:
+def preprocess_vams(
+    text: str, defines: Mapping[str, str] | None = None
+) -> VamsPreprocessResult:
     """Prepare Verilog-AMS text for Lark parsing.
 
     1. Strip block comments and line comments.
-    2. Extract backtick directives (`include, `define, `timescale, etc.).
+    2. Keep the active `` `ifdef `` branches for ``defines``, expand macros, then
+       extract backtick directives (`include, `define, `timescale, etc.).
     3. Replace analog blocks with __analog_placeholder__ N ; markers.
     """
     text = BLOCK_COMMENT_RE.sub("", text)
     text = LINE_COMMENT_RE.sub("", text)
+    text = apply_defines(text, defines)
 
     directives: list[tuple[str, str]] = []
     for m in DIRECTIVE_RE.finditer(text):

@@ -30,13 +30,16 @@ module_body: module_stmt*
             | analog_placeholder
 
 // ── Port direction declarations ───────────────────────────────────────
-port_dir_decl: PORT_DIR port_name_list _SEMI
+// input [3:0] a, b;   input c [1:0];
+port_dir_decl: PORT_DIR range? port_name_list _SEMI
 PORT_DIR.2: "input" | "output" | "inout"
 
-port_name_list: IDENT ("," IDENT)*
+port_name_list: decl_name ("," decl_name)*
+decl_name: IDENT dims
 
 // ── Discipline declaration on nets/ports ──────────────────────────────
-discipline_decl: IDENT port_name_list _SEMI
+// electrical a, b;   optical [3:0] bus;
+discipline_decl: IDENT range? port_name_list _SEMI
 
 // ── Parameter / localparam declarations ───────────────────────────────
 // Typed: `parameter real r = 50;` — PARAM_TYPE_KW takes priority over IDENT
@@ -65,17 +68,28 @@ _GROUND_KW: "ground"
 // module_type #(v1, v2) inst_name (net1, net2) ;
 // module_type inst_name (.port1(net1), .port2(net2)) ;
 // module_type inst_name (net1, net2) ;
-instance_stmt: IDENT param_override? IDENT port_conn _SEMI
+// module_type inst_name[3:0] (.port1(bus), .port2({a, b[1:0]})) ;
+instance_stmt: IDENT param_override? IDENT dims port_conn _SEMI
 
-param_override: "#" "(" override_item ("," override_item)* ")"
+param_override: "#" "(" (override_item ("," override_item)*)? ")"
 ?override_item: named_override | positional_override
 named_override: "." IDENT "(" param_value ")"
 positional_override: param_value
 
 port_conn: "(" conn_item ("," conn_item)* ")"
 ?conn_item: named_conn | positional_conn
-named_conn: "." IDENT "(" IDENT ")"
-positional_conn: IDENT
+named_conn: "." IDENT "(" conn_expr? ")"
+positional_conn: conn_expr
+
+?conn_expr: net_ref
+          | SI_NUMBER                                        -> literal
+          | "{" conn_expr ("," conn_expr)* "}"               -> concat
+          | "{" SI_NUMBER "{" conn_expr ("," conn_expr)* "}" "}" -> replicate
+net_ref: IDENT range?
+
+// ── Bus ranges: [3:0], [i] ────────────────────────────────────────────
+dims: range*
+range: "[" BOUND (":" BOUND)? "]"
 
 // ── Analog block placeholder ──────────────────────────────────────────
 analog_placeholder: _ANALOG_PH SI_NUMBER _SEMI
@@ -110,7 +124,9 @@ paramset_constraint: "." IDENT "=" param_value _SEMI
 // ── Terminals ─────────────────────────────────────────────────────────
 _SEMI: ";"
 SI_NUMBER: /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?(?:meg|mil|[TtGgKkMmUuNnPpFfAa])?/
-IDENT: /[A-Za-z_][A-Za-z0-9_.\[\]:!$#]*/
+// plain or escaped identifier (\I[3] ends at whitespace)
+IDENT: /\\[^\s]+|[A-Za-z_][A-Za-z0-9_.!$#]*/
+BOUND: /[^\]:\s][^\]:]*/
 QSTRING: /\"[^\"]*\"/ | /'[^']*'/
 
 %ignore /[ \t\r\n]+/
