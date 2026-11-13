@@ -35,6 +35,12 @@
                       - preprocess: reference/morphnet/netlist/spice/preprocess.md
                       - transformer: reference/morphnet/netlist/spice/transformer.md
                       - writer: reference/morphnet/netlist/spice/writer.md
+                  - systemverilog:
+                      - Overview: reference/morphnet/netlist/systemverilog/index.md
+                      - parser: reference/morphnet/netlist/systemverilog/parser.md
+                      - preprocess: reference/morphnet/netlist/systemverilog/preprocess.md
+                      - transformer: reference/morphnet/netlist/systemverilog/transformer.md
+                      - writer: reference/morphnet/netlist/systemverilog/writer.md
                   - value_utils: reference/morphnet/netlist/value_utils.md
                   - vams:
                       - Overview: reference/morphnet/netlist/vams/index.md

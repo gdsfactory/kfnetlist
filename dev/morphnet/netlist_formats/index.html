@@ -1,0 +1,4491 @@
+
+<!doctype html>
+<html lang="en" class="no-js">
+  <head>
+    
+      <meta charset="utf-8">
+      <meta name="viewport" content="width=device-width,initial-scale=1">
+      
+      
+      
+        <link rel="canonical" href="https://gdsfactory.github.io/dev/morphnet/netlist_formats/">
+      
+      
+        <link rel="prev" href="../advanced-usage/">
+      
+      
+        <link rel="next" href="../format_conversion/">
+      
+      
+        
+      
+      
+      <link rel="icon" href="../../assets/images/favicon.png">
+      <meta name="generator" content="zensical-0.0.52">
+    
+    
+      
+        <title>Parsing netlist formats - kfnetlist</title>
+      
+    
+    
+      
+        
+      
+      <link rel="stylesheet" href="../../assets/stylesheets/modern/main.8b3b5a67.min.css">
+      
+        
+          
+        
+        <link rel="stylesheet" href="../../assets/stylesheets/modern/palette.dfe2e883.min.css">
+      
+      
+
+
+    
+    
+      
+    
+    
+      
+        
+        
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+        <link rel="stylesheet" href="https://fonts.googleapis.com/css?family=Inter:300,300i,400,400i,500,500i,700,700i%7CJetBrains+Mono:400,400i,700,700i&amp;display=fallback">
+        <style>:root{--md-text-font:"Inter";--md-code-font:"JetBrains Mono"}</style>
+      
+    
+    
+    <script>__md_scope=new URL("../..",location),__md_scope.pathname.endsWith("/")||(__md_scope=new URL(__md_scope.pathname+"/",location)),__md_hash=e=>[...e].reduce(((e,t)=>(e<<5)-e+t.charCodeAt(0)),0),__md_get=(e,t=localStorage,_=__md_scope)=>JSON.parse(t.getItem(_.pathname+"."+e)),__md_set=(e,t,_=localStorage,a=__md_scope)=>{try{_.setItem(a.pathname+"."+e,JSON.stringify(t))}catch(e){}},document.documentElement.setAttribute("data-platform",navigator.platform)</script>
+    
+      
+
+    
+    
+  </head>
+  
+  
+    
+    
+      
+    
+    
+    
+    
+    <body dir="ltr" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo">
+  
+    
+    <input class="md-toggle" data-md-toggle="drawer" type="checkbox" id="__drawer" autocomplete="off">
+    <input class="md-toggle" data-md-toggle="search" type="checkbox" id="__search" autocomplete="off">
+    <label class="md-overlay" for="__drawer" aria-label="Navigation"></label>
+    <div data-md-component="skip">
+      
+        
+        <a href="#parsing-netlist-formats" class="md-skip">
+          Skip to content
+        </a>
+      
+    </div>
+    <div data-md-component="announce">
+      
+    </div>
+    
+      <div data-md-color-scheme="default" data-md-component="outdated" hidden>
+        
+      </div>
+    
+    
+      
+
+  
+
+<header class="md-header md-header--shadow md-header--lifted" data-md-component="header">
+  <nav class="md-header__inner md-grid" aria-label="Header">
+    <a href="../.." title="kfnetlist" class="md-header__button md-logo" aria-label="kfnetlist" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    <label class="md-header__button md-icon" for="__drawer" aria-label="Navigation">
+      
+      <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-menu" viewBox="0 0 24 24"><path d="M4 5h16M4 12h16M4 19h16"/></svg>
+    </label>
+    <div class="md-header__title" data-md-component="header-title">
+      <div class="md-header__ellipsis">
+        <div class="md-header__topic">
+          <span class="md-ellipsis">
+            kfnetlist
+          </span>
+        </div>
+        <div class="md-header__topic" data-md-component="header-topic">
+          <span class="md-ellipsis">
+            
+              Parsing netlist formats
+            
+          </span>
+        </div>
+      </div>
+    </div>
+    
+      
+        <form class="md-header__option" data-md-component="palette">
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="none" data-md-color-scheme="slate" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to light mode"  type="radio" name="__palette" id="__palette_0">
+    
+      <label class="md-header__button md-icon" title="Switch to light mode" for="__palette_1" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 18c-.89 0-1.74-.2-2.5-.55C11.56 16.5 13 14.42 13 12s-1.44-4.5-3.5-5.45C10.26 6.2 11.11 6 12 6a6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+    
+    
+    
+    <input class="md-option" data-md-color-media="none" data-md-color-scheme="default" data-md-color-primary="indigo" data-md-color-accent="indigo"  aria-label="Switch to dark mode"  type="radio" name="__palette" id="__palette_1">
+    
+      <label class="md-header__button md-icon" title="Switch to dark mode" for="__palette_0" hidden>
+        <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M12 8a4 4 0 0 0-4 4 4 4 0 0 0 4 4 4 4 0 0 0 4-4 4 4 0 0 0-4-4m0 10a6 6 0 0 1-6-6 6 6 0 0 1 6-6 6 6 0 0 1 6 6 6 6 0 0 1-6 6m8-9.31V4h-4.69L12 .69 8.69 4H4v4.69L.69 12 4 15.31V20h4.69L12 23.31 15.31 20H20v-4.69L23.31 12z"/></svg>
+      </label>
+    
+  
+</form>
+      
+    
+    
+      <script>var palette=__md_get("__palette");if(palette&&palette.color){if("(prefers-color-scheme)"===palette.color.media){var media=matchMedia("(prefers-color-scheme: light)"),input=document.querySelector(media.matches?"[data-md-color-media='(prefers-color-scheme: light)']":"[data-md-color-media='(prefers-color-scheme: dark)']");palette.color.media=input.getAttribute("data-md-color-media"),palette.color.scheme=input.getAttribute("data-md-color-scheme"),palette.color.primary=input.getAttribute("data-md-color-primary"),palette.color.accent=input.getAttribute("data-md-color-accent")}for(var[key,value]of Object.entries(palette.color))document.body.setAttribute("data-md-color-"+key,value)}</script>
+    
+    
+    
+      
+      
+        <label class="md-header__button md-icon" for="__search" aria-label="Search">
+          
+          <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-search" viewBox="0 0 24 24"><path d="m21 21-4.34-4.34"/><circle cx="11" cy="11" r="8"/></svg>
+        </label>
+        <div class="md-search" data-md-component="search" role="dialog" aria-label="Search">
+  <button type="button" class="md-search__button">
+    Search
+  </button>
+</div>
+      
+    
+    <div class="md-header__source">
+      
+        <a href="https://github.com/gdsfactory/kfnetlist" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+      
+    </div>
+  </nav>
+  
+    
+      
+<nav class="md-tabs" aria-label="Tabs" data-md-component="tabs">
+  <div class="md-grid">
+    <ul class="md-tabs__list">
+      
+        
+  
+  
+  
+  
+    <li class="md-tabs__item">
+      <a href="../.." class="md-tabs__link">
+        
+  
+  Home
+
+      </a>
+    </li>
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../getting_started/installation/" class="md-tabs__link">
+          
+  
+  Getting Started
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../concepts/netlist_model/" class="md-tabs__link">
+          
+  
+  Concepts
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../extraction/overview/" class="md-tabs__link">
+          
+  
+  Extraction
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../guides/lvs_verification/" class="md-tabs__link">
+          
+  
+  Guides
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+    
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item md-tabs__item--active">
+        <a href="../" class="md-tabs__link">
+          
+  
+  Format Conversion
+
+        </a>
+      </li>
+    
+  
+
+      
+        
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      
+  
+  
+  
+  
+    
+      
+    
+    
+    
+      <li class="md-tabs__item">
+        <a href="../../reference/" class="md-tabs__link">
+          
+  
+  Reference
+
+        </a>
+      </li>
+    
+  
+
+    
+  
+
+      
+    </ul>
+  </div>
+</nav>
+    
+  
+</header>
+    
+    <div class="md-container" data-md-component="container">
+      
+      
+        
+      
+      <main class="md-main" data-md-component="main">
+        <div class="md-main__inner md-grid">
+          
+            
+              
+              <div class="md-sidebar md-sidebar--primary" data-md-component="sidebar" data-md-type="navigation" >
+                <div class="md-sidebar__scrollwrap">
+                  <div class="md-sidebar__inner">
+                    
+
+
+  
+
+
+<nav class="md-nav md-nav--primary md-nav--lifted" aria-label="Navigation" data-md-level="0">
+  <label class="md-nav__title" for="__drawer">
+    <a href="../.." title="kfnetlist" class="md-nav__button md-logo" aria-label="kfnetlist" data-md-component="logo">
+      
+  
+  <svg xmlns="http://www.w3.org/2000/svg" fill="none" stroke="currentColor" stroke-linecap="round" stroke-linejoin="round" stroke-width="2" class="lucide lucide-book-open" viewBox="0 0 24 24"><path d="M12 5v16M20.001 19A2 2 0 0 0 22 17V5a2 2 0 0 0-1.999-2L16 3.002A5 5 0 0 0 12 5a5 5 0 0 0-4-2H4a2 2 0 0 0-2 2v12a2 2 0 0 0 1.999 2H8a5 5 0 0 1 4 2 5 5 0 0 1 4-2z"/></svg>
+
+    </a>
+    kfnetlist
+  </label>
+  
+    <div class="md-nav__source">
+      <a href="https://github.com/gdsfactory/kfnetlist" title="Go to repository" class="md-source" data-md-component="source">
+  <div class="md-source__icon md-icon">
+    
+    <svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 448 512"><!--! Font Awesome Free 7.3.1 by @fontawesome - https://fontawesome.com License - https://fontawesome.com/license/free (Icons: CC BY 4.0, Fonts: SIL OFL 1.1, Code: MIT License) Copyright 2026 Fonticons, Inc.--><path fill="currentColor" d="M439.6 236.1 244 40.5c-5.4-5.5-12.8-8.5-20.4-8.5s-15 3-20.4 8.4L162.5 81l51.5 51.5c27.1-9.1 52.7 16.8 43.4 43.7l49.7 49.7c34.2-11.8 61.2 31 35.5 56.7-26.5 26.5-70.2-2.9-56-37.3L240.3 199v121.9c25.3 12.5 22.3 41.8 9.1 55-6.4 6.4-15.2 10.1-24.3 10.1s-17.8-3.6-24.3-10.1c-17.6-17.6-11.1-46.9 11.2-56v-123c-20.8-8.5-24.6-30.7-18.6-45L142.6 101 8.5 235.1C3 240.6 0 247.9 0 255.5s3 15 8.5 20.4l195.6 195.7c5.4 5.4 12.7 8.4 20.4 8.4s15-3 20.4-8.4l194.7-194.7c5.4-5.4 8.4-12.8 8.4-20.4s-3-15-8.4-20.4"/></svg>
+  </div>
+  <div class="md-source__repository">
+    GitHub
+  </div>
+</a>
+    </div>
+  
+  <ul class="md-nav__list" data-md-scrollfix>
+    
+      
+      
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../.." class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Home
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_2" >
+        
+          
+          <label class="md-nav__link" for="__nav_2" id="__nav_2_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting Started
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_2_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_2">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Getting Started
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting_started/installation/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Installation
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../getting_started/quickstart/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Quickstart
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_3" id="__nav_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Concepts
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Concepts
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/netlist_model/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Netlist Model
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/ports_and_refs/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Ports & Refs
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../concepts/serialization/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Serialization
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_4" id="__nav_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Extraction
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Extraction
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extraction/overview/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extraction/optical_nets/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Optical Nets
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extraction/electrical_l2n/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Electrical L2N
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extraction/l2n_parsing/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  L2N Parsing
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extraction/short_detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Short Detection
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../extraction/port_checking/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Port Checking
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_5" >
+        
+          
+          <label class="md-nav__link" for="__nav_5" id="__nav_5_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Guides
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_5_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_5">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Guides
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/lvs_verification/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  LVS Verification
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/equivalent_ports/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Equivalent Ports
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/hierarchical_flattening/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Hierarchical Flattening
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/instance_removal/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Instance Removal
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/placement/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Placement
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/open_detection/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Open Detection
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../guides/faq/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  FAQ
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+    
+  
+  
+  
+    
+    
+    
+    
+      
+        
+        
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--active md-nav__item--section md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_6" checked>
+        
+          
+          <label class="md-nav__link" for="__nav_6" id="__nav_6_label" tabindex="">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Format Conversion
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_6_label" aria-expanded="true">
+          <label class="md-nav__title" for="__nav_6">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Format Conversion
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../getting-started/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Getting Started
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../basic-usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Basic Usage
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../advanced-usage/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Advanced Usage
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+    
+  
+  
+  
+    <li class="md-nav__item md-nav__item--active">
+      
+      
+      
+      
+        
+      
+      
+        <label class="md-nav__link md-nav__link--active" for="__toc">
+          
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Parsing Netlist Formats
+
+    
+  </span>
+  
+  
+
+          <span class="md-nav__icon md-icon"></span>
+        </label>
+      
+      <a href="././" class="md-nav__link md-nav__link--active">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Parsing Netlist Formats
+
+    
+  </span>
+  
+  
+
+      </a>
+      
+        
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#spice" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SPICE
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hspice" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        HSPICE
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#xyce" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Xyce
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spectre" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Spectre
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spectre-with-spice-blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Spectre with SPICE blocks
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verilog-ams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Verilog-AMS
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#systemverilog" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SystemVerilog
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#photonic-circuits" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Photonic circuits
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#defining-a-netlist-in-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Defining a netlist in Python
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../format_conversion/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Converting Between Formats
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../ring_oscillator/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Example: Ring Oscillator
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../mzi/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Example: Photonic MZI
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../extending-grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Extending Grammars
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../api-reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+      
+      
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7" id="__nav_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Reference
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="1" aria-labelledby="__nav_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  Reference
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1" id="__nav_7_1_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  API
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="2" aria-labelledby="__nav_7_1_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  API
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/extract/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  extract
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_3" id="__nav_7_1_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  kfnetlist_schema
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_1_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  kfnetlist_schema
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/kfnetlist_schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/kfnetlist_schema/models/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  models
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4" id="__nav_7_1_4_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  morphnet
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="3" aria-labelledby="__nav_7_1_4_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  morphnet
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/morphnet_schema/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  morphnet_schema
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3" id="__nav_7_1_4_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  netlist
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="4" aria-labelledby="__nav_7_1_4_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  netlist
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/grammars/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  grammars
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3_3" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3_3" id="__nav_7_1_4_3_3_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  hspice
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_7_1_4_3_3_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3_3">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  hspice
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/hspice/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/hspice/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  parser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/hspice/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/hspice/transformer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  transformer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/hspice/writer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  writer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/net_utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  net_utils
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/simulation_data/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  simulation_data
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3_7" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3_7" id="__nav_7_1_4_3_7_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  spectre
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_7_1_4_3_7_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3_7">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  spectre
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  parser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre/transformer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  transformer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre/writer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  writer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3_8" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3_8" id="__nav_7_1_4_3_8_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  spectre_spice
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_7_1_4_3_8_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3_8">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  spectre_spice
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre_spice/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre_spice/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  parser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre_spice/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spectre_spice/writer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  writer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3_9" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3_9" id="__nav_7_1_4_3_9_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  spice
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_7_1_4_3_9_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3_9">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  spice
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spice/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spice/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  parser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spice/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spice/transformer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  transformer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/spice/writer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  writer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3_10" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3_10" id="__nav_7_1_4_3_10_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  systemverilog
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_7_1_4_3_10_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3_10">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  systemverilog
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/systemverilog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/systemverilog/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  parser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/systemverilog/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/systemverilog/transformer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  transformer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/systemverilog/writer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  writer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/value_utils/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  value_utils
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3_12" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3_12" id="__nav_7_1_4_3_12_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  vams
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_7_1_4_3_12_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3_12">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  vams
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/vams/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/vams/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  parser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/vams/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/vams/transformer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  transformer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/vams/writer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  writer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    
+    
+    
+    
+      
+      
+    
+    
+    <li class="md-nav__item md-nav__item--nested">
+      
+        
+        
+        <input class="md-nav__toggle md-toggle " type="checkbox" id="__nav_7_1_4_3_13" >
+        
+          
+          <label class="md-nav__link" for="__nav_7_1_4_3_13" id="__nav_7_1_4_3_13_label" tabindex="0">
+            
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  xyce
+
+    
+  </span>
+  
+  
+
+            <span class="md-nav__icon md-icon"></span>
+          </label>
+        
+        <nav class="md-nav" data-md-level="5" aria-labelledby="__nav_7_1_4_3_13_label" aria-expanded="false">
+          <label class="md-nav__title" for="__nav_7_1_4_3_13">
+            <span class="md-nav__icon md-icon"></span>
+            
+  
+  xyce
+
+          </label>
+          <ul class="md-nav__list" data-md-scrollfix>
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/xyce/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Overview
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/xyce/parser/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  parser
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/xyce/preprocess/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  preprocess
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/xyce/transformer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  transformer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/morphnet/netlist/xyce/writer/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  writer
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../reference/port_check/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  port_check
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+              
+            
+              
+                
+  
+  
+  
+  
+    <li class="md-nav__item">
+      <a href="../../changelog/" class="md-nav__link">
+        
+  
+  
+  <span class="md-ellipsis">
+    
+  
+  Changelog
+
+    
+  </span>
+  
+  
+
+      </a>
+    </li>
+  
+
+              
+            
+          </ul>
+        </nav>
+      
+    </li>
+  
+
+    
+  </ul>
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+            
+              
+              <div class="md-sidebar md-sidebar--secondary" data-md-component="sidebar" data-md-type="toc" >
+                <div class="md-sidebar__scrollwrap">
+                  
+                    
+                    
+                    
+                      
+                    
+                    
+                      <input class="md-nav__toggle md-toggle" type="checkbox" id="__toc">
+                      <div class="md-sidebar-button__wrapper">
+                        <label class="md-sidebar-button" for="__toc"></label>
+                      </div>
+                    
+                  
+                  <div class="md-sidebar__inner">
+                    
+
+
+<nav class="md-nav md-nav--secondary" aria-label="On this page">
+  
+  
+  
+    
+  
+  
+    <label class="md-nav__title" for="__toc">
+      <span class="md-nav__icon md-icon"></span>
+      On this page
+    </label>
+    <ul class="md-nav__list" data-md-component="toc" data-md-scrollfix>
+      
+        <li class="md-nav__item">
+  <a href="#spice" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SPICE
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#hspice" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        HSPICE
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#xyce" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Xyce
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spectre" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Spectre
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#spectre-with-spice-blocks" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Spectre with SPICE blocks
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#verilog-ams" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Verilog-AMS
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#systemverilog" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        SystemVerilog
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#photonic-circuits" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Photonic circuits
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+        <li class="md-nav__item">
+  <a href="#defining-a-netlist-in-python" class="md-nav__link">
+    <span class="md-ellipsis">
+      <span class="md-typeset">
+        Defining a netlist in Python
+      </span>
+    </span>
+  </a>
+  
+</li>
+      
+    </ul>
+  
+</nav>
+                  </div>
+                </div>
+              </div>
+            
+          
+          
+            <div class="md-content" data-md-component="content">
+              
+              <article class="md-content__inner md-typeset">
+                
+
+
+
+                  
+  
+  
+
+
+<p><a class="md-button" href="../netlist_formats/netlist_formats.ipynb"><span class="twemoji"><svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><path d="M5 20h14v-2H5m14-9h-4V3H9v6H5l7 7z"/></svg></span> Download notebook (.ipynb)</a></p>
+<h1 id="parsing-netlist-formats">Parsing netlist formats</h1>
+<p><code>kfnetlist.morphnet</code> reads seven netlist formats into one schema document,
+the morphnet <code>Netlist</code> (circuits, subcircuit instances, connections,
+parameters, directives). <code>morphnet.to_netlists()</code> then turns every circuit
+into a <code>kfnetlist.Netlist</code> connectivity graph.</p>
+<table>
+<thead>
+<tr>
+<th>Format</th>
+<th>Parser</th>
+<th>Writer</th>
+<th>Typical extension</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>SPICE (ngspice / generic)</td>
+<td><code>parse_spice</code></td>
+<td><code>write_spice</code></td>
+<td><code>.sp</code>, <code>.cir</code></td>
+</tr>
+<tr>
+<td>HSPICE</td>
+<td><code>parse_hspice</code></td>
+<td><code>write_hspice</code></td>
+<td><code>.sp</code></td>
+</tr>
+<tr>
+<td>Xyce</td>
+<td><code>parse_xyce</code></td>
+<td><code>write_xyce</code></td>
+<td><code>.cir</code></td>
+</tr>
+<tr>
+<td>Spectre</td>
+<td><code>parse_spectre</code></td>
+<td><code>write_spectre</code></td>
+<td><code>.scs</code></td>
+</tr>
+<tr>
+<td>Spectre with <code>simulator lang=spice</code> blocks</td>
+<td><code>parse_spectre_spice</code></td>
+<td><code>write_spectre_spice</code></td>
+<td><code>.scs</code></td>
+</tr>
+<tr>
+<td>Verilog-AMS</td>
+<td><code>parse_vams</code></td>
+<td><code>write_vams</code></td>
+<td><code>.vams</code>, <code>.va</code></td>
+</tr>
+<tr>
+<td>SystemVerilog (structural)</td>
+<td><code>parse_systemverilog</code></td>
+<td><code>write_systemverilog</code></td>
+<td><code>.sv</code></td>
+</tr>
+</tbody>
+</table>
+<p>This page defines one example netlist per format, parses it, and shows
+what ends up in the morphnet <code>Netlist</code> and in <code>kfnetlist.Netlist</code>. The
+<a href="../format_conversion/">conversion page</a> writes them back out in other formats.</p>
+<p><strong>Waveguide or electrical?</strong> Every parser applies the same rule to terminal
+names: <code>o1</code>, <code>o2</code>, ... are waveguide (optical) terminals, while <code>e1</code>, <code>e2</code>,
+... and names without a prefix are electrical. A net that touches an <code>o&lt;N&gt;</code>
+terminal is a waveguide net.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">collections</span><span class="w"> </span><span class="kn">import</span> <span class="n">defaultdict</span>
+
+<span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist</span><span class="w"> </span><span class="kn">import</span> <span class="n">NetlistPort</span><span class="p">,</span> <span class="n">morphnet</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist.morphnet.netlist</span><span class="w"> </span><span class="kn">import</span> <span class="p">(</span>
+    <span class="n">parse_hspice</span><span class="p">,</span>
+    <span class="n">parse_spectre</span><span class="p">,</span>
+    <span class="n">parse_spectre_spice</span><span class="p">,</span>
+    <span class="n">parse_spice</span><span class="p">,</span>
+    <span class="n">parse_systemverilog</span><span class="p">,</span>
+    <span class="n">parse_vams</span><span class="p">,</span>
+    <span class="n">parse_xyce</span><span class="p">,</span>
+<span class="p">)</span>
+<span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist.morphnet.netlist.value_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">format_si_value</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">value</span><span class="p">(</span><span class="n">param</span><span class="p">:</span> <span class="n">morphnet</span><span class="o">.</span><span class="n">Parameter</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="nb">str</span><span class="p">:</span>
+    <span class="n">pv</span> <span class="o">=</span> <span class="n">param</span><span class="o">.</span><span class="n">default_value</span>
+    <span class="k">if</span> <span class="n">pv</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">and</span> <span class="n">pv</span><span class="o">.</span><span class="n">prefixed_value</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
+        <span class="k">return</span> <span class="n">format_si_value</span><span class="p">(</span><span class="n">pv</span><span class="o">.</span><span class="n">prefixed_value</span><span class="p">)</span>
+    <span class="k">return</span> <span class="n">param</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"expr"</span><span class="p">,</span> <span class="s2">"?"</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">summary</span><span class="p">(</span><span class="n">netlist</span><span class="p">:</span> <span class="n">morphnet</span><span class="o">.</span><span class="n">Netlist</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Print what a parser put into a morphnet Netlist."""</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"top circuit:"</span><span class="p">,</span> <span class="n">netlist</span><span class="o">.</span><span class="n">top_circuit</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">d</span> <span class="ow">in</span> <span class="n">netlist</span><span class="o">.</span><span class="n">directives</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="s2">"directive:"</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">kind</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="nb">filter</span><span class="p">(</span><span class="kc">None</span><span class="p">,</span> <span class="p">(</span><span class="n">d</span><span class="o">.</span><span class="n">name</span><span class="p">,</span> <span class="n">d</span><span class="o">.</span><span class="n">value</span><span class="p">))))</span>
+    <span class="k">for</span> <span class="n">ext</span> <span class="ow">in</span> <span class="n">netlist</span><span class="o">.</span><span class="n">ext_circuits</span><span class="p">:</span>
+        <span class="n">ports</span> <span class="o">=</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">ext</span><span class="o">.</span><span class="n">ports</span><span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"external circuit: </span><span class="si">{</span><span class="n">ext</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">(</span><span class="si">{</span><span class="n">ports</span><span class="si">}</span><span class="s2">) </span><span class="si">{</span><span class="n">ext</span><span class="o">.</span><span class="n">properties</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">c</span> <span class="ow">in</span> <span class="n">netlist</span><span class="o">.</span><span class="n">circuits</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="se">\n</span><span class="s2">circuit </span><span class="si">{</span><span class="n">c</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">if</span> <span class="n">c</span><span class="o">.</span><span class="n">parameters</span><span class="p">:</span>
+            <span class="nb">print</span><span class="p">(</span>
+                <span class="s2">"  parameters:"</span><span class="p">,</span> <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">=</span><span class="si">{</span><span class="n">value</span><span class="p">(</span><span class="n">p</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+            <span class="p">)</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">"  ports:"</span><span class="p">,</span>
+            <span class="s2">", "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2"> (</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">direction</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">, </span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span><span class="si">}</span><span class="s2">)"</span>
+                <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">ports</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+        <span class="k">for</span> <span class="n">s</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">subcircuits</span><span class="p">:</span>
+            <span class="n">params</span> <span class="o">=</span> <span class="s2">" "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">p</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">=</span><span class="si">{</span><span class="n">value</span><span class="p">(</span><span class="n">p</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">s</span><span class="o">.</span><span class="n">parameters</span><span class="p">)</span>
+            <span class="n">model</span> <span class="o">=</span> <span class="n">s</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="s2">"model_name"</span><span class="p">,</span> <span class="s2">""</span><span class="p">)</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  instance </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">s</span><span class="o">.</span><span class="n">circuit_name</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">model</span><span class="si">}</span><span class="s2"> </span><span class="si">{</span><span class="n">params</span><span class="si">}</span><span class="s2">"</span><span class="o">.</span><span class="n">rstrip</span><span class="p">())</span>
+        <span class="n">nets</span><span class="p">:</span> <span class="nb">dict</span><span class="p">[</span><span class="nb">str</span><span class="p">,</span> <span class="nb">list</span><span class="p">[</span><span class="nb">str</span><span class="p">]]</span> <span class="o">=</span> <span class="n">defaultdict</span><span class="p">(</span><span class="nb">list</span><span class="p">)</span>
+        <span class="n">domains</span> <span class="o">=</span> <span class="p">{}</span>
+        <span class="k">for</span> <span class="n">conn</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">connections</span><span class="p">:</span>
+            <span class="k">for</span> <span class="n">ref</span> <span class="ow">in</span> <span class="p">(</span><span class="n">conn</span><span class="o">.</span><span class="n">source</span><span class="p">,</span> <span class="n">conn</span><span class="o">.</span><span class="n">target</span><span class="p">):</span>
+                <span class="k">if</span> <span class="n">ref</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+                    <span class="k">continue</span>
+                <span class="n">pin</span> <span class="o">=</span> <span class="p">(</span>
+                    <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">ref</span><span class="o">.</span><span class="n">instance_name</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">ref</span><span class="o">.</span><span class="n">port_name</span><span class="si">}</span><span class="s2">"</span>
+                    <span class="k">if</span> <span class="n">ref</span><span class="o">.</span><span class="n">instance_name</span>
+                    <span class="k">else</span> <span class="n">ref</span><span class="o">.</span><span class="n">port_name</span>
+                <span class="p">)</span>
+                <span class="k">if</span> <span class="n">pin</span> <span class="ow">not</span> <span class="ow">in</span> <span class="n">nets</span><span class="p">[</span><span class="n">conn</span><span class="o">.</span><span class="n">name</span><span class="p">]:</span>
+                    <span class="n">nets</span><span class="p">[</span><span class="n">conn</span><span class="o">.</span><span class="n">name</span><span class="p">]</span><span class="o">.</span><span class="n">append</span><span class="p">(</span><span class="n">pin</span><span class="p">)</span>
+            <span class="n">domains</span><span class="p">[</span><span class="n">conn</span><span class="o">.</span><span class="n">name</span><span class="p">]</span> <span class="o">=</span> <span class="n">conn</span><span class="o">.</span><span class="n">domain</span><span class="o">.</span><span class="n">name</span><span class="o">.</span><span class="n">lower</span><span class="p">()</span>
+        <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">pins</span> <span class="ow">in</span> <span class="n">nets</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  net </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2"> [</span><span class="si">{</span><span class="n">domains</span><span class="p">[</span><span class="n">name</span><span class="p">]</span><span class="si">}</span><span class="s2">]: </span><span class="si">{</span><span class="s1">', '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">pins</span><span class="p">)</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+        <span class="k">for</span> <span class="n">key</span><span class="p">,</span> <span class="n">text</span> <span class="ow">in</span> <span class="n">c</span><span class="o">.</span><span class="n">properties</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+            <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"  </span><span class="si">{</span><span class="n">key</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="s1">' '</span><span class="o">.</span><span class="n">join</span><span class="p">(</span><span class="n">text</span><span class="o">.</span><span class="n">split</span><span class="p">())</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+
+
+<span class="k">def</span><span class="w"> </span><span class="nf">show_kfnetlist</span><span class="p">(</span><span class="n">netlist</span><span class="p">:</span> <span class="n">morphnet</span><span class="o">.</span><span class="n">Netlist</span><span class="p">,</span> <span class="n">cell</span><span class="p">:</span> <span class="nb">str</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
+<span class="w">    </span><span class="sd">"""Print the kfnetlist.Netlist that morphnet.to_netlists() builds for `cell`."""</span>
+    <span class="n">nl</span> <span class="o">=</span> <span class="n">morphnet</span><span class="o">.</span><span class="n">to_netlists</span><span class="p">(</span><span class="n">netlist</span><span class="p">)[</span><span class="n">cell</span><span class="p">]</span>
+    <span class="n">nl</span><span class="o">.</span><span class="n">sort</span><span class="p">()</span>
+    <span class="nb">print</span><span class="p">(</span><span class="s2">"ports:"</span><span class="p">,</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">nl</span><span class="o">.</span><span class="n">ports</span><span class="p">])</span>
+    <span class="k">for</span> <span class="n">name</span><span class="p">,</span> <span class="n">inst</span> <span class="ow">in</span> <span class="n">nl</span><span class="o">.</span><span class="n">instances</span><span class="o">.</span><span class="n">items</span><span class="p">():</span>
+        <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"instance </span><span class="si">{</span><span class="n">name</span><span class="si">}</span><span class="s2">: component=</span><span class="si">{</span><span class="n">inst</span><span class="o">.</span><span class="n">component</span><span class="si">!r}</span><span class="s2"> settings=</span><span class="si">{</span><span class="n">inst</span><span class="o">.</span><span class="n">settings</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+    <span class="k">for</span> <span class="n">net</span> <span class="ow">in</span> <span class="n">nl</span><span class="o">.</span><span class="n">nets</span><span class="p">:</span>
+        <span class="nb">print</span><span class="p">(</span>
+            <span class="s2">"net:"</span><span class="p">,</span>
+            <span class="s2">" -- "</span><span class="o">.</span><span class="n">join</span><span class="p">(</span>
+                <span class="n">m</span><span class="o">.</span><span class="n">name</span> <span class="k">if</span> <span class="nb">isinstance</span><span class="p">(</span><span class="n">m</span><span class="p">,</span> <span class="n">NetlistPort</span><span class="p">)</span> <span class="k">else</span> <span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">m</span><span class="o">.</span><span class="n">instance</span><span class="si">}</span><span class="s2">.</span><span class="si">{</span><span class="n">m</span><span class="o">.</span><span class="n">port</span><span class="si">}</span><span class="s2">"</span>
+                <span class="k">for</span> <span class="n">m</span> <span class="ow">in</span> <span class="n">net</span>
+            <span class="p">),</span>
+        <span class="p">)</span>
+</code></pre></div>
+<h2 id="spice">SPICE</h2>
+<p>A generic SPICE deck: device models, a CMOS inverter subcircuit, and a
+buffer built from two inverters. Primitive devices (<code>R</code>, <code>C</code>, <code>L</code>, <code>D</code>,
+<code>Q</code>, <code>M</code>, <code>V</code>, <code>I</code>) become instances of external circuits (<code>resistor</code>,
+<code>mosfet</code>, ...) with fixed pin names (<code>p</code>/<code>n</code>, <code>d</code>/<code>g</code>/<code>s</code>/<code>b</code>, ...). The
+model name is kept in the instance's <code>model_name</code> property.</p>
+<div class="highlight"><pre><span></span><code><span class="n">SPICE</span> <span class="o">=</span> <span class="s2">"""</span><span class="se">\</span>
+<span class="s2">* CMOS buffer</span>
+<span class="s2">.model nch nmos level=49 vth0=0.4</span>
+<span class="s2">.model pch pmos level=49 vth0=-0.4</span>
+
+<span class="s2">.subckt inverter in out vdd vss</span>
+<span class="s2">M1 out in vdd vdd pch W=2u L=180n</span>
+<span class="s2">M2 out in vss vss nch W=1u L=180n</span>
+<span class="s2">.ends inverter</span>
+
+<span class="s2">.subckt buffer a y vdd vss</span>
+<span class="s2">X1 a mid vdd vss inverter</span>
+<span class="s2">X2 mid y vdd vss inverter</span>
+<span class="s2">C1 y vss 10f</span>
+<span class="s2">.ends buffer</span>
+<span class="s2">.end</span>
+<span class="s2">"""</span>
+<span class="n">spice</span> <span class="o">=</span> <span class="n">parse_spice</span><span class="p">(</span><span class="n">SPICE</span><span class="p">)</span>
+<span class="n">summary</span><span class="p">(</span><span class="n">spice</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>top circuit: buffer
+external circuit: mosfet(d, g, s, b) {'spice_prefix': 'M'}
+external circuit: capacitor(p, n) {'spice_prefix': 'C'}
+external circuit: nch() {'model_type': 'nmos'}
+external circuit: pch() {'model_type': 'pmos'}
+
+circuit inverter
+  ports: in (inout, electrical), out (inout, electrical), vdd (inout, electrical), vss (inout, electrical)
+  instance M1: mosfet pch W=2u L=180n
+  instance M2: mosfet nch W=1u L=180n
+  net in [electrical]: in, M1.g, M2.g
+  net out [electrical]: out, M1.d, M2.d
+  net vdd [electrical]: vdd, M1.s, M1.b
+  net vss [electrical]: vss, M2.s, M2.b
+
+circuit buffer
+  ports: a (inout, electrical), y (inout, electrical), vdd (inout, electrical), vss (inout, electrical)
+  instance X1: inverter
+  instance X2: inverter
+  instance C1: capacitor  value=10f
+  net a [electrical]: a, X1.in
+  net y [electrical]: y, X2.out, C1.p
+  net vdd [electrical]: vdd, X1.vdd, X2.vdd
+  net vss [electrical]: vss, X1.vss, X2.vss, C1.n
+  net mid [electrical]: X1.out, X2.in
+</code></pre></div>
+<p><code>to_netlists()</code> returns one <code>kfnetlist.Netlist</code> per circuit. Instances keep
+their parameters as <code>settings</code>; SI values become plain floats:</p>
+<div class="highlight"><pre><span></span><code><span class="n">show_kfnetlist</span><span class="p">(</span><span class="n">spice</span><span class="p">,</span> <span class="s2">"inverter"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>ports: ['in', 'out', 'vdd', 'vss']
+instance M1: component='mosfet' settings={'L': 1.8000000000000002e-07, 'W': 2e-06}
+instance M2: component='mosfet' settings={'L': 1.8000000000000002e-07, 'W': 1e-06}
+net: in -- M1.g -- M2.g
+net: out -- M1.d -- M2.d
+net: vdd -- M1.b -- M1.s
+net: vss -- M2.b -- M2.s
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">show_kfnetlist</span><span class="p">(</span><span class="n">spice</span><span class="p">,</span> <span class="s2">"buffer"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>ports: ['a', 'vdd', 'vss', 'y']
+instance C1: component='capacitor' settings={'value': 1.0000000000000002e-14}
+instance X1: component='inverter' settings={}
+instance X2: component='inverter' settings={}
+net: a -- X1.in
+net: vdd -- X1.vdd -- X2.vdd
+net: vss -- C1.n -- X1.vss -- X2.vss
+net: y -- C1.p -- X2.out
+net: X1.out -- X2.in
+</code></pre></div>
+<h2 id="hspice">HSPICE</h2>
+<p>HSPICE is parsed with the SPICE grammar plus HSPICE preprocessing (for
+example, <code>$</code> comments). Here is an RC low-pass filter with an HSPICE inline
+comment:</p>
+<div class="highlight"><pre><span></span><code><span class="n">HSPICE</span> <span class="o">=</span> <span class="s2">"""</span><span class="se">\</span>
+<span class="s2">* RC low-pass</span>
+<span class="s2">.subckt rc_lowpass in_ out gnd</span>
+<span class="s2">R1 in_ out 1k     $ series resistor</span>
+<span class="s2">C1 out gnd 100p   $ shunt capacitor</span>
+<span class="s2">.ends rc_lowpass</span>
+<span class="s2">.end</span>
+<span class="s2">"""</span>
+<span class="n">hspice</span> <span class="o">=</span> <span class="n">parse_hspice</span><span class="p">(</span><span class="n">HSPICE</span><span class="p">)</span>
+<span class="n">summary</span><span class="p">(</span><span class="n">hspice</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>top circuit: rc_lowpass
+external circuit: resistor(p, n) {'spice_prefix': 'R'}
+external circuit: capacitor(p, n) {'spice_prefix': 'C'}
+
+circuit rc_lowpass
+  ports: in_ (inout, electrical), out (inout, electrical), gnd (inout, electrical)
+  instance R1: resistor  value=1k
+  instance C1: capacitor  value=100p
+  net in_ [electrical]: in_, R1.p
+  net out [electrical]: out, R1.n, C1.p
+  net gnd [electrical]: gnd, C1.n
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">show_kfnetlist</span><span class="p">(</span><span class="n">hspice</span><span class="p">,</span> <span class="s2">"rc_lowpass"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>ports: ['gnd', 'in_', 'out']
+instance C1: component='capacitor' settings={'value': 1e-10}
+instance R1: component='resistor' settings={'value': 1000.0}
+net: gnd -- C1.n
+net: in_ -- R1.p
+net: out -- C1.p -- R1.n
+</code></pre></div>
+<h2 id="xyce">Xyce</h2>
+<p>Xyce decks are case-insensitive and declare subcircuit parameters with
+<code>PARAMS:</code>. A resistive divider, where each resistor value is a subcircuit
+parameter:</p>
+<div class="highlight"><pre><span></span><code><span class="n">XYCE</span> <span class="o">=</span> <span class="s2">"""</span><span class="se">\</span>
+<span class="s2">* Xyce divider</span>
+<span class="s2">.SUBCKT divider vin vout gnd PARAMS: rtop=10k rbot=10k</span>
+<span class="s2">R1 vin vout 10k</span>
+<span class="s2">R2 vout gnd 10k</span>
+<span class="s2">.ENDS divider</span>
+<span class="s2">.END</span>
+<span class="s2">"""</span>
+<span class="n">xyce</span> <span class="o">=</span> <span class="n">parse_xyce</span><span class="p">(</span><span class="n">XYCE</span><span class="p">)</span>
+<span class="n">summary</span><span class="p">(</span><span class="n">xyce</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>top circuit: divider
+external circuit: resistor(p, n) {'spice_prefix': 'R'}
+
+circuit divider
+  parameters: rtop=10k, rbot=10k
+  ports: vin (inout, electrical), vout (inout, electrical), gnd (inout, electrical)
+  instance R1: resistor  value=10k
+  instance R2: resistor  value=10k
+  net vin [electrical]: vin, R1.p
+  net vout [electrical]: vout, R1.n, R2.p
+  net gnd [electrical]: gnd, R2.n
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">show_kfnetlist</span><span class="p">(</span><span class="n">xyce</span><span class="p">,</span> <span class="s2">"divider"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>ports: ['gnd', 'vin', 'vout']
+instance R1: component='resistor' settings={'value': 10000.0}
+instance R2: component='resistor' settings={'value': 10000.0}
+net: gnd -- R2.n
+net: vin -- R1.p
+net: vout -- R1.n -- R2.p
+</code></pre></div>
+<h2 id="spectre">Spectre</h2>
+<p>Spectre puts terminals in parentheses and names the master after them.
+A two-stage hierarchy:</p>
+<div class="highlight"><pre><span></span><code><span class="n">SPECTRE</span> <span class="o">=</span> <span class="s2">"""</span><span class="se">\</span>
+<span class="s2">subckt inverter (in_ out vdd vss)</span>
+<span class="s2">MP (out in_ vdd vdd) pch w=2u l=180n</span>
+<span class="s2">MN (out in_ vss vss) nch w=1u l=180n</span>
+<span class="s2">ends inverter</span>
+
+<span class="s2">subckt buffer (a y vdd vss)</span>
+<span class="s2">I1 (a mid vdd vss) inverter</span>
+<span class="s2">I2 (mid y vdd vss) inverter</span>
+<span class="s2">ends buffer</span>
+<span class="s2">"""</span>
+<span class="n">spectre</span> <span class="o">=</span> <span class="n">parse_spectre</span><span class="p">(</span><span class="n">SPECTRE</span><span class="p">)</span>
+<span class="n">summary</span><span class="p">(</span><span class="n">spectre</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>top circuit: buffer
+external circuit: mosfet(d, g, s, b) {'spice_prefix': 'M'}
+
+circuit inverter
+  ports: in_ (inout, electrical), out (inout, electrical), vdd (inout, electrical), vss (inout, electrical)
+  instance MP: mosfet pch w=2u l=180n
+  instance MN: mosfet nch w=1u l=180n
+  net in_ [electrical]: in_, MP.g, MN.g
+  net out [electrical]: out, MP.d, MN.d
+  net vdd [electrical]: vdd, MP.s, MP.b
+  net vss [electrical]: vss, MN.s, MN.b
+
+circuit buffer
+  ports: a (inout, electrical), y (inout, electrical), vdd (inout, electrical), vss (inout, electrical)
+  instance I1: inverter
+  instance I2: inverter
+  net a [electrical]: a, I1.in_
+  net y [electrical]: y, I2.out
+  net vdd [electrical]: vdd, I1.vdd, I2.vdd
+  net vss [electrical]: vss, I1.vss, I2.vss
+  net mid [electrical]: I1.out, I2.in_
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">show_kfnetlist</span><span class="p">(</span><span class="n">spectre</span><span class="p">,</span> <span class="s2">"buffer"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>ports: ['a', 'vdd', 'vss', 'y']
+instance I1: component='inverter' settings={}
+instance I2: component='inverter' settings={}
+net: a -- I1.in_
+net: vdd -- I1.vdd -- I2.vdd
+net: vss -- I1.vss -- I2.vss
+net: y -- I2.out
+net: I1.out -- I2.in_
+</code></pre></div>
+<h2 id="spectre-with-spice-blocks">Spectre with SPICE blocks</h2>
+<p>Spectre decks often switch language with <code>simulator lang=...</code>. The
+<code>spectre_spice</code> parser handles both halves in one file:</p>
+<div class="highlight"><pre><span></span><code><span class="n">SPECTRE_SPICE</span> <span class="o">=</span> <span class="s2">"""</span><span class="se">\</span>
+<span class="s2">simulator lang=spice</span>
+<span class="s2">.subckt rdiv a b mid</span>
+<span class="s2">R1 a mid 1k</span>
+<span class="s2">R2 mid b 1k</span>
+<span class="s2">.ends rdiv</span>
+
+<span class="s2">simulator lang=spectre</span>
+<span class="s2">subckt top (vin gnd)</span>
+<span class="s2">X0 (vin gnd tap) rdiv</span>
+<span class="s2">C0 (tap gnd) capacitor c=1p</span>
+<span class="s2">ends top</span>
+<span class="s2">"""</span>
+<span class="n">spectre_spice</span> <span class="o">=</span> <span class="n">parse_spectre_spice</span><span class="p">(</span><span class="n">SPECTRE_SPICE</span><span class="p">)</span>
+<span class="n">summary</span><span class="p">(</span><span class="n">spectre_spice</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>top circuit: top
+external circuit: resistor(p, n) {'spice_prefix': 'R'}
+external circuit: capacitor(p, n) {'spice_prefix': 'C'}
+
+circuit rdiv
+  ports: a (inout, electrical), b (inout, electrical), mid (inout, electrical)
+  instance R1: resistor  value=1k
+  instance R2: resistor  value=1k
+  net a [electrical]: a, R1.p
+  net b [electrical]: b, R2.n
+  net mid [electrical]: mid, R1.n, R2.p
+
+circuit top
+  ports: vin (inout, electrical), gnd (inout, electrical)
+  instance X0: rdiv
+  instance C0: capacitor  c=1p
+  net vin [electrical]: vin, X0.a
+  net gnd [electrical]: gnd, X0.b, C0.n
+  net tap [electrical]: X0.mid, C0.p
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">show_kfnetlist</span><span class="p">(</span><span class="n">spectre_spice</span><span class="p">,</span> <span class="s2">"top"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>ports: ['gnd', 'vin']
+instance C0: component='capacitor' settings={'c': 1e-12}
+instance X0: component='rdiv' settings={}
+net: gnd -- C0.n -- X0.b
+net: vin -- X0.a
+net: C0.p -- X0.mid
+</code></pre></div>
+<h2 id="verilog-ams">Verilog-AMS</h2>
+<p>Verilog-AMS modules declare port directions and disciplines (the discipline
+is kept as <code>Port.discipline</code>). <code>analog</code> blocks are not structure: they are
+kept as text in the circuit's <code>analog_block</code> property.</p>
+<div class="highlight"><pre><span></span><code><span class="n">VAMS</span> <span class="o">=</span> <span class="s2">"""</span><span class="se">\</span>
+<span class="s2">`include "disciplines.vams"</span>
+<span class="s2">module res_model (p, n);</span>
+<span class="s2">  inout p, n;</span>
+<span class="s2">  electrical p, n;</span>
+<span class="s2">  parameter real r = 1k;</span>
+<span class="s2">  analog V(p, n) &lt;+ r * I(p, n);</span>
+<span class="s2">endmodule</span>
+
+<span class="s2">module divider (vin, vout, gnd);</span>
+<span class="s2">  input vin;</span>
+<span class="s2">  output vout;</span>
+<span class="s2">  inout gnd;</span>
+<span class="s2">  electrical vin, vout, gnd;</span>
+<span class="s2">  res_model #(.r(10k)) R1 (.p(vin), .n(vout));</span>
+<span class="s2">  res_model #(.r(10k)) R2 (.p(vout), .n(gnd));</span>
+<span class="s2">endmodule</span>
+<span class="s2">"""</span>
+<span class="n">vams</span> <span class="o">=</span> <span class="n">parse_vams</span><span class="p">(</span><span class="n">VAMS</span><span class="p">)</span>
+<span class="n">summary</span><span class="p">(</span><span class="n">vams</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>top circuit: divider
+directive: INCLUDE disciplines.vams
+
+circuit res_model
+  parameters: r=1k
+  ports: p (inout, electrical), n (inout, electrical)
+  analog_block: analog V(p, n) &lt;+ r * I(p, n);
+
+circuit divider
+  ports: vin (input, electrical), vout (output, electrical), gnd (inout, electrical)
+  instance R1: res_model  r=10k
+  instance R2: res_model  r=10k
+  net vin [electrical]: vin, R1.p
+  net vout [electrical]: vout, R1.n, R2.p
+  net gnd [electrical]: gnd, R2.n
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">show_kfnetlist</span><span class="p">(</span><span class="n">vams</span><span class="p">,</span> <span class="s2">"divider"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>ports: ['gnd', 'vin', 'vout']
+instance R1: component='res_model' settings={'r': 10000.0}
+instance R2: component='res_model' settings={'r': 10000.0}
+net: gnd -- R2.n
+net: vin -- R1.p
+net: vout -- R1.n -- R2.p
+</code></pre></div>
+<h2 id="systemverilog">SystemVerilog</h2>
+<p>The SystemVerilog parser reads the structural part of the language
+(SystemVerilog 3.1a, Annex A):</p>
+<ul>
+<li>ANSI headers <code>(input wire [3:0] a, output y)</code> and non-ANSI port lists with
+  body declarations;</li>
+<li><code>parameter</code>/<code>localparam</code>, also in the <code>#(...)</code> header; numbers, sized
+  literals (<code>4'b1010</code>) and expressions (kept as text in an <code>expr</code> property);</li>
+<li>instances with named <code>.p(n)</code>, positional, implicit <code>.p</code>, wildcard <code>.*</code> and
+  empty <code>.p()</code> connections, several per statement;</li>
+<li><code>assign a = b;</code> and <code>alias a = b = c;</code>, which merge nets.</li>
+</ul>
+<p>Behavioral code (<code>always</code>, <code>initial</code>, <code>function</code>, <code>task</code>, <code>generate</code>,
+<code>class</code>, <code>assign</code> with logic on the right, ...) is kept as text in
+<code>behavioral_block_N</code> properties.</p>
+<div class="highlight"><pre><span></span><code><span class="n">SYSTEMVERILOG</span> <span class="o">=</span> <span class="s2">"""</span><span class="se">\</span>
+<span class="s2">`timescale 1ns/1ps</span>
+<span class="s2">module nand2 (input a, b, output y, inout vdd, vss);</span>
+<span class="s2">  pmos_t P1 (.d(y), .g(a), .s(vdd)), P2 (.d(y), .g(b), .s(vdd));</span>
+<span class="s2">  nmos_t N1 (.d(y), .g(a), .s(mid)), N2 (.d(mid), .g(b), .s(vss));</span>
+<span class="s2">endmodule</span>
+
+<span class="s2">module latch (s_n, r_n, q, q_n, vdd, vss);</span>
+<span class="s2">  input s_n, r_n;</span>
+<span class="s2">  output q, q_n;</span>
+<span class="s2">  inout vdd, vss;</span>
+<span class="s2">  wire qi;</span>
+<span class="s2">  nand2 U1 (.a(s_n), .b(q_n), .y(qi), .*);</span>
+<span class="s2">  nand2 U2 (.a(r_n), .b(q), .y(q_n), .*);</span>
+<span class="s2">  assign q = qi;</span>
+<span class="s2">  initial $display("latch ready");</span>
+<span class="s2">endmodule</span>
+<span class="s2">"""</span>
+<span class="n">systemverilog</span> <span class="o">=</span> <span class="n">parse_systemverilog</span><span class="p">(</span><span class="n">SYSTEMVERILOG</span><span class="p">)</span>
+<span class="n">summary</span><span class="p">(</span><span class="n">systemverilog</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>top circuit: latch
+directive: TIMESCALE 1ns/1ps
+
+circuit nand2
+  ports: a (input, electrical), b (input, electrical), y (output, electrical), vdd (inout, electrical), vss (inout, electrical)
+  instance P1: pmos_t
+  instance P2: pmos_t
+  instance N1: nmos_t
+  instance N2: nmos_t
+  net a [electrical]: a, P1.g, N1.g
+  net b [electrical]: b, P2.g, N2.g
+  net y [electrical]: y, P1.d, P2.d, N1.d
+  net vdd [electrical]: vdd, P1.s, P2.s
+  net vss [electrical]: vss, N2.s
+  net mid [electrical]: N1.s, N2.d
+
+circuit latch
+  ports: s_n (input, electrical), r_n (input, electrical), q (output, electrical), q_n (output, electrical), vdd (inout, electrical), vss (inout, electrical)
+  instance U1: nand2
+  instance U2: nand2
+  net s_n [electrical]: s_n, U1.a
+  net r_n [electrical]: r_n, U2.a
+  net q [electrical]: q, U1.y, U2.b
+  net q_n [electrical]: q_n, U1.b, U2.y
+  net vdd [electrical]: vdd, U1.vdd, U2.vdd
+  net vss [electrical]: vss, U1.vss, U2.vss
+  behavioral_block_0: initial $display("latch ready");
+</code></pre></div>
+<div class="highlight"><pre><span></span><code><span class="n">show_kfnetlist</span><span class="p">(</span><span class="n">systemverilog</span><span class="p">,</span> <span class="s2">"latch"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>ports: ['q', 'q_n', 'r_n', 's_n', 'vdd', 'vss']
+instance U1: component='nand2' settings={}
+instance U2: component='nand2' settings={}
+net: q -- U1.y -- U2.b
+net: q_n -- U1.b -- U2.y
+net: r_n -- U2.a
+net: s_n -- U1.a
+net: vdd -- U1.vdd -- U2.vdd
+net: vss -- U1.vss -- U2.vss
+</code></pre></div>
+<p><code>assign q = qi;</code> merged <code>qi</code> into the port net <code>q</code>, and <code>.*</code> connected <code>vdd</code>
+and <code>vss</code> by name.</p>
+<h2 id="photonic-circuits">Photonic circuits</h2>
+<p>The same parsers read photonic netlists. Terminals named <code>o&lt;N&gt;</code> are
+waveguide terminals; heater and bias pins (<code>e1</code>, <code>vdd</code>, ...) stay
+electrical. A Mach-Zehnder interferometer with a thermal phase shifter, in
+SystemVerilog:</p>
+<div class="highlight"><pre><span></span><code><span class="n">MZI_SV</span> <span class="o">=</span> <span class="s2">"""</span><span class="se">\</span>
+<span class="s2">module mzi #(parameter real arm_length = 100e-6) (</span>
+<span class="s2">  input o1, o2, output o3, o4,   // optical</span>
+<span class="s2">  input e1, inout gnd            // heater drive</span>
+<span class="s2">);</span>
+<span class="s2">  dc #(.gap(200n)) Xdc1 (.o1(o1), .o2(o2), .o3(top_a), .o4(bot_a));</span>
+<span class="s2">  dc #(.gap(200n)) Xdc2 (.o1(top_b), .o2(bot_b), .o3(o3), .o4(o4));</span>
+<span class="s2">  heater_wg #(.length(arm_length)) Xtop (.o1(top_a), .o2(top_b), .e1(e1), .e2(gnd));</span>
+<span class="s2">  wg #(.length(arm_length)) Xbot (.o1(bot_a), .o2(bot_b));</span>
+<span class="s2">endmodule</span>
+<span class="s2">"""</span>
+<span class="n">mzi_sv</span> <span class="o">=</span> <span class="n">parse_systemverilog</span><span class="p">(</span><span class="n">MZI_SV</span><span class="p">)</span>
+<span class="n">summary</span><span class="p">(</span><span class="n">mzi_sv</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>top circuit: mzi
+
+circuit mzi
+  parameters: arm_length=0.0001
+  ports: o1 (input, waveguide), o2 (input, waveguide), o3 (output, waveguide), o4 (output, waveguide), e1 (input, electrical), gnd (inout, electrical)
+  instance Xdc1: dc  gap=200n
+  instance Xdc2: dc  gap=200n
+  instance Xtop: heater_wg  length=arm_length
+  instance Xbot: wg  length=arm_length
+  net o1 [waveguide]: o1, Xdc1.o1
+  net o2 [waveguide]: o2, Xdc1.o2
+  net o3 [waveguide]: o3, Xdc2.o3
+  net o4 [waveguide]: o4, Xdc2.o4
+  net e1 [electrical]: e1, Xtop.e1
+  net gnd [electrical]: gnd, Xtop.e2
+  net top_a [waveguide]: Xdc1.o3, Xtop.o1
+  net bot_a [waveguide]: Xdc1.o4, Xbot.o1
+  net top_b [waveguide]: Xdc2.o1, Xtop.o2
+  net bot_b [waveguide]: Xdc2.o2, Xbot.o2
+</code></pre></div>
+<p>The same MZI as a SPICE subcircuit. SPICE has no port names on subcircuit
+calls, so the instance pins of undeclared subcircuits are numbered and only
+the nets that reach an <code>o&lt;N&gt;</code> terminal of <code>mzi</code> itself are waveguide. Define the
+subcircuits in the deck (as here) and every net keeps its domain:</p>
+<div class="highlight"><pre><span></span><code><span class="n">MZI_SPICE</span> <span class="o">=</span> <span class="s2">"""</span><span class="se">\</span>
+<span class="s2">.subckt dc o1 o2 o3 o4 gap=200n</span>
+<span class="s2">.ends dc</span>
+<span class="s2">.subckt wg o1 o2 length=100u</span>
+<span class="s2">.ends wg</span>
+<span class="s2">.subckt heater_wg o1 o2 e1 e2 length=100u</span>
+<span class="s2">.ends heater_wg</span>
+<span class="s2">.subckt mzi o1 o2 o3 o4 e1 gnd</span>
+<span class="s2">Xdc1 o1 o2 top_a bot_a dc</span>
+<span class="s2">Xdc2 top_b bot_b o3 o4 dc</span>
+<span class="s2">Xtop top_a top_b e1 gnd heater_wg</span>
+<span class="s2">Xbot bot_a bot_b wg</span>
+<span class="s2">.ends mzi</span>
+<span class="s2">"""</span>
+<span class="n">mzi_spice</span> <span class="o">=</span> <span class="n">parse_spice</span><span class="p">(</span><span class="n">MZI_SPICE</span><span class="p">)</span>
+<span class="n">summary</span><span class="p">(</span><span class="n">mzi_spice</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>top circuit: mzi
+
+circuit dc
+  parameters: gap=200n
+  ports: o1 (inout, waveguide), o2 (inout, waveguide), o3 (inout, waveguide), o4 (inout, waveguide)
+
+circuit wg
+  parameters: length=100u
+  ports: o1 (inout, waveguide), o2 (inout, waveguide)
+
+circuit heater_wg
+  parameters: length=100u
+  ports: o1 (inout, waveguide), o2 (inout, waveguide), e1 (inout, electrical), e2 (inout, electrical)
+
+circuit mzi
+  ports: o1 (inout, waveguide), o2 (inout, waveguide), o3 (inout, waveguide), o4 (inout, waveguide), e1 (inout, electrical), gnd (inout, electrical)
+  instance Xdc1: dc
+  instance Xdc2: dc
+  instance Xtop: heater_wg
+  instance Xbot: wg
+  net o1 [waveguide]: o1, Xdc1.o1
+  net o2 [waveguide]: o2, Xdc1.o2
+  net o3 [waveguide]: o3, Xdc2.o3
+  net o4 [waveguide]: o4, Xdc2.o4
+  net e1 [electrical]: e1, Xtop.e1
+  net gnd [electrical]: gnd, Xtop.e2
+  net top_a [waveguide]: Xdc1.o3, Xtop.o1
+  net bot_a [waveguide]: Xdc1.o4, Xbot.o1
+  net top_b [waveguide]: Xdc2.o1, Xtop.o2
+  net bot_b [waveguide]: Xdc2.o2, Xbot.o2
+</code></pre></div>
+<p>Both describe the same graph:</p>
+<div class="highlight"><pre><span></span><code><span class="n">show_kfnetlist</span><span class="p">(</span><span class="n">mzi_sv</span><span class="p">,</span> <span class="s2">"mzi"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>ports:
+
+ ['e1', 'gnd', 'o1', 'o2', 'o3', 'o4']
+instance Xbot: component='wg' settings={}
+instance Xdc1: component='dc' settings={'gap': 2.0000000000000002e-07}
+instance Xdc2: component='dc' settings={'gap': 2.0000000000000002e-07}
+instance Xtop: component='heater_wg' settings={}
+net: e1 -- Xtop.e1
+net: gnd -- Xtop.e2
+net: o1 -- Xdc1.o1
+net: o2 -- Xdc1.o2
+net: o3 -- Xdc2.o3
+net: o4 -- Xdc2.o4
+net: Xbot.o1 -- Xdc1.o4
+net: Xbot.o2 -- Xdc2.o2
+net: Xdc1.o3 -- Xtop.o1
+net: Xdc2.o1 -- Xtop.o2
+</code></pre></div>
+<p>Only the <code>o&lt;N&gt;</code> pattern counts: <code>out</code>, <code>osc</code> or <code>opt</code> stay electrical.</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist.morphnet.netlist.net_utils</span><span class="w"> </span><span class="kn">import</span> <span class="n">domain_of</span>
+
+<span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"o1"</span><span class="p">,</span> <span class="s2">"o12"</span><span class="p">,</span> <span class="s2">"e1"</span><span class="p">,</span> <span class="s2">"out"</span><span class="p">,</span> <span class="s2">"osc"</span><span class="p">,</span> <span class="s2">"vdd"</span><span class="p">):</span>
+    <span class="nb">print</span><span class="p">(</span><span class="sa">f</span><span class="s2">"</span><span class="si">{</span><span class="n">name</span><span class="si">:</span><span class="s2">&gt;4</span><span class="si">}</span><span class="s2">: </span><span class="si">{</span><span class="n">domain_of</span><span class="p">(</span><span class="n">name</span><span class="p">)</span><span class="o">.</span><span class="n">name</span><span class="si">}</span><span class="s2">"</span><span class="p">)</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>  o1: WAVEGUIDE
+ o12: WAVEGUIDE
+  e1: ELECTRICAL
+ out: ELECTRICAL
+ osc: ELECTRICAL
+ vdd: ELECTRICAL
+</code></pre></div>
+<h2 id="defining-a-netlist-in-python">Defining a netlist in Python</h2>
+<p>Netlists can also be built directly with the morphnet builder API (see
+<a href="../basic-usage/">Basic Usage</a>), and then written in any format:</p>
+<div class="highlight"><pre><span></span><code><span class="kn">from</span><span class="w"> </span><span class="nn">kfnetlist.morphnet.netlist</span><span class="w"> </span><span class="kn">import</span> <span class="n">write_systemverilog</span>
+
+<span class="n">WG</span> <span class="o">=</span> <span class="n">morphnet</span><span class="o">.</span><span class="n">SignalDomain</span><span class="o">.</span><span class="n">WAVEGUIDE</span>
+<span class="n">ring</span> <span class="o">=</span> <span class="n">morphnet</span><span class="o">.</span><span class="n">circuit</span><span class="p">(</span><span class="s2">"ring_filter"</span><span class="p">,</span> <span class="n">parameters</span><span class="o">=</span><span class="p">[(</span><span class="s2">"radius"</span><span class="p">,</span> <span class="mf">10e-6</span><span class="p">)])</span>
+<span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"o1"</span><span class="p">,</span> <span class="s2">"o2"</span><span class="p">,</span> <span class="s2">"o3"</span><span class="p">,</span> <span class="s2">"o4"</span><span class="p">):</span>
+    <span class="n">ring</span><span class="o">.</span><span class="n">add_terminal</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="n">domain</span><span class="o">=</span><span class="n">WG</span><span class="p">)</span>
+<span class="n">ring</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">morphnet</span><span class="o">.</span><span class="n">subcircuit</span><span class="p">(</span><span class="s2">"Xring"</span><span class="p">,</span> <span class="s2">"ring_coupler"</span><span class="p">,</span> <span class="n">gap</span><span class="o">=</span><span class="mf">150e-9</span><span class="p">))</span>
+<span class="k">for</span> <span class="n">name</span> <span class="ow">in</span> <span class="p">(</span><span class="s2">"o1"</span><span class="p">,</span> <span class="s2">"o2"</span><span class="p">,</span> <span class="s2">"o3"</span><span class="p">,</span> <span class="s2">"o4"</span><span class="p">):</span>
+    <span class="n">ring</span><span class="o">.</span><span class="n">connect</span><span class="p">(</span><span class="n">name</span><span class="p">,</span> <span class="p">(</span><span class="s2">""</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span> <span class="p">(</span><span class="s2">"Xring"</span><span class="p">,</span> <span class="n">name</span><span class="p">),</span> <span class="n">domain</span><span class="o">=</span><span class="n">WG</span><span class="p">)</span>
+
+<span class="n">doc</span> <span class="o">=</span> <span class="n">morphnet</span><span class="o">.</span><span class="n">Netlist</span><span class="p">(</span><span class="n">name</span><span class="o">=</span><span class="s2">"ring"</span><span class="p">,</span> <span class="n">top_circuit</span><span class="o">=</span><span class="s2">"ring_filter"</span><span class="p">)</span><span class="o">.</span><span class="n">add</span><span class="p">(</span><span class="n">ring</span><span class="p">)</span>
+<span class="n">summary</span><span class="p">(</span><span class="n">doc</span><span class="p">)</span>
+<span class="nb">print</span><span class="p">()</span>
+<span class="nb">print</span><span class="p">(</span><span class="n">write_systemverilog</span><span class="p">(</span><span class="n">doc</span><span class="p">))</span>
+</code></pre></div>
+<div class="highlight"><pre><span></span><code>top circuit: ring_filter
+
+circuit ring_filter
+  parameters: radius=1e-05
+  ports: o1 (inout, waveguide), o2 (inout, waveguide), o3 (inout, waveguide), o4 (inout, waveguide)
+  instance Xring: ring_coupler  gap=1.5e-07
+  net o1 [waveguide]: o1, Xring.o1
+  net o2 [waveguide]: o2, Xring.o2
+  net o3 [waveguide]: o3, Xring.o3
+  net o4 [waveguide]: o4, Xring.o4
+
+module ring_filter #(parameter radius = 1e-05) (
+  inout o1,
+  inout o2,
+  inout o3,
+  inout o4
+);
+  ring_coupler #(.gap(1.5e-07)) Xring (.o1(o1), .o2(o2), .o3(o3), .o4(o4));
+endmodule
+</code></pre></div>
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+                
+
+              </article>
+            </div>
+          
+          
+<script>var target=document.getElementById(location.hash.slice(1));target&&target.name&&(target.checked=target.name.startsWith("__tabbed_"))</script>
+        </div>
+        
+      </main>
+      
+        <footer class="md-footer">
+  
+  <div class="md-footer-meta md-typeset">
+    <div class="md-footer-meta__inner md-grid">
+      <div class="md-copyright">
+  
+  
+    Made with
+    <a href="https://zensical.org/" target="_blank" rel="noopener">
+      Zensical
+    </a>
+  
+</div>
+      
+    </div>
+  </div>
+</footer>
+      
+    </div>
+    <div class="md-dialog" data-md-component="dialog">
+      <div class="md-dialog__inner md-typeset"></div>
+    </div>
+    
+    
+    
+      
+      
+      <script id="__config" type="application/json">{"annotate":null,"base":"../..","features":["navigation.tabs","navigation.tabs.sticky"],"search":"../../assets/javascripts/workers/search.7d14d953.min.js","tags":null,"translations":{"clipboard.copied":"Copied to clipboard","clipboard.copy":"Copy to clipboard","search.result.more.one":"1 more on this page","search.result.more.other":"# more on this page","search.result.none":"No matching documents","search.result.one":"1 matching document","search.result.other":"# matching documents","search.result.placeholder":"Type to start searching","search.result.term.missing":"Missing","select.version":"Select version"},"version":{"default":"latest","provider":"mike"}}</script>
+    
+    
+      <script src="../../assets/javascripts/bundle.ed145cee.min.js"></script>
+      
+    
+  </body>
+</html>

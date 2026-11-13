@@ -70,6 +70,12 @@
         <loc>https://gdsfactory.github.io/dev/morphnet/advanced-usage/</loc>
       </url>
       <url>
+        <loc>https://gdsfactory.github.io/dev/morphnet/netlist_formats/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/morphnet/format_conversion/</loc>
+      </url>
+      <url>
         <loc>https://gdsfactory.github.io/dev/morphnet/ring_oscillator/</loc>
       </url>
       <url>
@@ -170,6 +176,21 @@
       </url>
       <url>
         <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/spice/writer/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/systemverilog/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/systemverilog/parser/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/systemverilog/preprocess/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/systemverilog/transformer/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/systemverilog/writer/</loc>
       </url>
       <url>
         <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/value_utils/</loc>
