@@ -17,12 +17,12 @@ from kfnetlist.morphnet.morphnet_schema import (
     ParameterValue,
     Port,
     PortDirection,
-    SignalDomain,
     Simulation,
 )
 from kfnetlist.morphnet.netlist.net_utils import (
     NetMap,
     add_port_to_net,
+    domain_of,
     net_map_to_connections,
 )
 from kfnetlist.morphnet.netlist.simulation_data import (
@@ -37,6 +37,8 @@ from kfnetlist.morphnet.netlist.value_utils import (
     format_si_value,
     parse_parameter_number,
 )
+
+CIRCUIT_TO_PREFIX: dict[str, str] = {v: k for k, v in DEVICE_PREFIX_TO_CIRCUIT.items()}
 
 SPECTRE_ANALYSIS_TYPES: set[str] = {
     "tran",
@@ -164,7 +166,8 @@ class SpectreTransformer(Transformer[Token, Netlist]):
             elif isinstance(item, str):
                 net_names.append(item)
 
-        if cell_name in SPECTRE_ANALYSIS_TYPES:
+        # A subckt defined in the deck named like an analysis (`dc`) is an instance
+        if cell_name in SPECTRE_ANALYSIS_TYPES and cell_name not in self.all_subckts:
             opts: dict[str, str] = {}
             for pname, pval in params.items():
                 opts[pname] = _param_value_to_str(pval)
@@ -295,7 +298,7 @@ class SpectreTransformer(Transformer[Token, Netlist]):
             Port(
                 name=pn,
                 direction=PortDirection.INOUT,
-                domain=SignalDomain.ELECTRICAL,
+                domain=domain_of(pn),
             )
             for pn in port_names
         ]
@@ -307,15 +310,18 @@ class SpectreTransformer(Transformer[Token, Netlist]):
             add_port_to_net(net_map, port.name, "", port.name)
 
         for inst in instances:
-            device_prefix = inst.device_prefix
+            # Spectre picks the device from the master, not the instance name:
+            # a defined subckt or a built-in master (`capacitor`) wins over the
+            # SPICE-style name prefix, which is only the fallback.
+            subckt_mod = nested_subckts.get(inst.cell_name) or self.all_subckts.get(
+                inst.cell_name
+            )
+            device_prefix = CIRCUIT_TO_PREFIX.get(inst.cell_name, inst.device_prefix)
             port_template = DEVICE_PORT_TEMPLATES.get(device_prefix)
 
             # In Spectre, nets and cell name are already separated by grammar
-            if device_prefix == "X" or port_template is None:
+            if subckt_mod is not None or device_prefix == "X" or port_template is None:
                 # Subcircuit or unknown: resolve ports from definition
-                subckt_mod = nested_subckts.get(inst.cell_name) or self.all_subckts.get(
-                    inst.cell_name
-                )
                 if subckt_mod is not None:
                     inst_port_names = [p.name for p in subckt_mod.ports]
                 else:
@@ -348,7 +354,7 @@ class SpectreTransformer(Transformer[Token, Netlist]):
                         Port(
                             name=pn,
                             direction=PortDirection.INOUT,
-                            domain=SignalDomain.ELECTRICAL,
+                            domain=domain_of(pn),
                         )
                         for pn in port_template
                     ]

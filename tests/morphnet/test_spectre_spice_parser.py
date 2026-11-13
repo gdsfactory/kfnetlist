@@ -88,3 +88,28 @@ ends test
         }
         assert "spice_models.lib" in include_values
         assert "spectre_models.scs" in include_values
+
+
+def test_spectre_instance_of_spice_subckt_uses_its_port_names() -> None:
+    netlist = parse_spectre_spice(
+        """\
+simulator lang=spice
+.subckt rdiv a b mid
+R1 a mid 1k
+R2 mid b 1k
+.ends rdiv
+simulator lang=spectre
+subckt top (vin gnd)
+X0 (vin gnd tap) rdiv
+C0 (tap gnd) capacitor c=1p
+ends top
+"""
+    )
+    top = next(c for c in netlist.circuits if c.name == "top")
+    pins = {
+        r.port_name
+        for c in top.connections
+        for r in (c.source, c.target)
+        if r and r.instance_name == "X0"
+    }
+    assert pins == {"a", "b", "mid"}

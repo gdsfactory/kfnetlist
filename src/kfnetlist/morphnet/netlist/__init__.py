@@ -6,6 +6,8 @@ from kfnetlist.morphnet.netlist.spectre_spice.parser import parse_spectre_spice
 from kfnetlist.morphnet.netlist.spectre_spice.writer import write_spectre_spice
 from kfnetlist.morphnet.netlist.spice.parser import parse_spice
 from kfnetlist.morphnet.netlist.spice.writer import write_spice
+from kfnetlist.morphnet.netlist.systemverilog.parser import parse_systemverilog
+from kfnetlist.morphnet.netlist.systemverilog.writer import write_systemverilog
 from kfnetlist.morphnet.netlist.vams.parser import parse_vams
 from kfnetlist.morphnet.netlist.vams.writer import write_vams
 from kfnetlist.morphnet.netlist.xyce.parser import parse_xyce
@@ -16,12 +18,14 @@ __all__ = [
     "parse_spectre",
     "parse_spectre_spice",
     "parse_spice",
+    "parse_systemverilog",
     "parse_vams",
     "parse_xyce",
     "write_hspice",
     "write_spectre",
     "write_spectre_spice",
     "write_spice",
+    "write_systemverilog",
     "write_vams",
     "write_xyce",
 ]

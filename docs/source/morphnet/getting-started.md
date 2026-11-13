@@ -110,6 +110,7 @@ src/kfnetlist/morphnet/
     spectre/           # Spectre parser, writer, transformer, preprocessor
     spectre_spice/     # Spectre-SPICE parser, writer, preprocessor
     spice/             # Generic SPICE parser, writer, transformer, preprocessor
+    systemverilog/     # SystemVerilog parser, writer, transformer, preprocessor
     vams/              # Verilog-AMS parser, writer, transformer, preprocessor
     xyce/              # Xyce parser, writer, transformer, preprocessor
     net_utils.py       # Connectivity utilities

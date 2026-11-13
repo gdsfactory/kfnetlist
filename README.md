@@ -3,7 +3,8 @@
 ![Bidirectional netlist conversion between Spectre, Verilog-AMS and SPICE](docs/assets/netlist-conversion.gif)
 
 **Build circuit netlists in Python and convert them both ways between SPICE, HSPICE,
-Xyce, Spectre, Spectre-SPICE and Verilog-AMS.**
+Xyce, Spectre, Spectre-SPICE, Verilog-AMS and SystemVerilog, for electrical and
+photonic circuits.**
 
 **kfnetlist** is a standalone, Rust-backed netlist schema for
 [kfactory](https://github.com/gdsfactory/kfactory) and netlist tooling.

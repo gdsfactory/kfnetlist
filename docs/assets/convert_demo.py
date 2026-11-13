@@ -1,6 +1,6 @@
 """Convert a netlist between formats: ``python convert_demo.py SRC DST < netlist``.
 
-Formats: spice, hspice, xyce, spectre, spectre_spice, vams.
+Formats: spice, hspice, xyce, spectre, spectre_spice, vams, systemverilog.
 """
 
 import sys

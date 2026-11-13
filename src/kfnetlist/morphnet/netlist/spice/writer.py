@@ -17,6 +17,7 @@ from kfnetlist.morphnet.morphnet_schema import (
 )
 from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
 from kfnetlist.morphnet.netlist.value_utils import (
+    DEVICE_PORT_TEMPLATES,
     DEVICE_PREFIX_TO_CIRCUIT,
     format_si_value,
 )
@@ -163,7 +164,9 @@ class SpiceWriter:
             # Primitive device: R1 net1 net2 value param=val ...
             inst_name = ref.name
             port_order = (
-                [p.name for p in ext_circuit.ports] if ext_circuit else ["p", "n"]
+                [p.name for p in ext_circuit.ports]
+                if ext_circuit
+                else DEVICE_PORT_TEMPLATES[prefix]
             )
             nets = [inst_nets.get((inst_name, pn), "?") for pn in port_order]
             nets_str = " ".join(nets)

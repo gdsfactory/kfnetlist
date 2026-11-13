@@ -63,7 +63,7 @@ class ProtoModel(BaseModel):
         field_alias_map = _build_alias_map(cls)
 
         descriptor = type(proto_msg).DESCRIPTOR
-        for field_descriptor in descriptor.fields:  # ty: ignore[unresolved-attribute]
+        for field_descriptor in descriptor.fields:  # ty: ignore[missing-attribute]
             proto_field_name = field_descriptor.name
             python_field_name = field_alias_map.get(proto_field_name, proto_field_name)
             if python_field_name not in cls.model_fields:

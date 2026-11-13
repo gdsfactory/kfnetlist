@@ -1,9 +1,20 @@
 from __future__ import annotations
 
+import re
+
 from kfnetlist.morphnet.morphnet_schema import Connection, PortReference, SignalDomain
 
 # Type alias: net name → list of port references on that net
 NetMap = dict[str, list[PortReference]]
+
+OPTICAL_PORT_RE: re.Pattern[str] = re.compile(r"o\d")
+
+
+def domain_of(port_name: str) -> SignalDomain:
+    """``o1``, ``o2``, ... are waveguide terminals; ``e1``, ``vdd``, ... are electrical."""
+    if OPTICAL_PORT_RE.match(port_name):
+        return SignalDomain.WAVEGUIDE
+    return SignalDomain.ELECTRICAL
 
 
 def net_map_to_connections(net_map: NetMap) -> list[Connection]:
@@ -20,13 +31,18 @@ def net_map_to_connections(net_map: NetMap) -> list[Connection]:
         if len(port_refs) < 2:
             continue
         source = port_refs[0]
+        domain = (
+            SignalDomain.WAVEGUIDE
+            if any(domain_of(r.port_name) == SignalDomain.WAVEGUIDE for r in port_refs)
+            else SignalDomain.ELECTRICAL
+        )
         for target in port_refs[1:]:
             connections.append(
                 Connection(
                     name=net_name,
                     source=source,
                     target=target,
-                    domain=SignalDomain.UNSPECIFIED,
+                    domain=domain,
                 )
             )
     return connections

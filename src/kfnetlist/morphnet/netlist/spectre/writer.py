@@ -16,6 +16,7 @@ from kfnetlist.morphnet.morphnet_schema import (
 )
 from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
 from kfnetlist.morphnet.netlist.value_utils import (
+    DEVICE_PORT_TEMPLATES,
     DEVICE_PREFIX_TO_CIRCUIT,
     format_si_value,
 )
@@ -142,6 +143,8 @@ class SpectreWriter:
                 port_order = [p.name for p in ref_circuit.ports]
             elif ext_circuit:
                 port_order = [p.name for p in ext_circuit.ports]
+            elif prefix:
+                port_order = DEVICE_PORT_TEMPLATES[prefix]
             else:
                 port_order = self.infer_port_order(ref, inst_nets)
 

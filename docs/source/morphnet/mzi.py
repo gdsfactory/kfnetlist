@@ -24,8 +24,10 @@
 #
 # Adapted from morphnet's `examples/mzi.py`. The changes:
 #
-# - Each delay arm now sits *between* the couplers (`inp`, then `out`); the
+# - Each delay arm now sits *between* the couplers (`o1`, then `o2`); the
 #   original wired the arm input and the next coupler to the same net.
+# - Optical terminals follow the gdsfactory naming `o1`, `o2`, ... (inputs
+#   first), which every netlist parser reads as waveguide terminals.
 # - The external circuits declare their ports.
 # - Nets that reach a circuit terminal are named after it.
 # - Instance names start with `X`, SPICE's prefix for subcircuit calls, so the
@@ -46,12 +48,12 @@ IN, OUT = morphnet.PortDirection.INPUT, morphnet.PortDirection.OUTPUT
 
 # %%
 dc = morphnet.circuit("dc_coupler", parameters=[("gap", 200e-9), ("length", 10e-6)])
-for name in ("i1", "i2", "o1", "o2"):
-    dc.add_terminal(name, direction=IN if name[0] == "i" else OUT, domain=WG)
+for name in ("o1", "o2", "o3", "o4"):
+    dc.add_terminal(name, direction=IN if name in ("o1", "o2") else OUT, domain=WG)
 
 dc.add(morphnet.subcircuit("Xcoupler", "wg_directional_coupler"))
-for name in ("i1", "i2", "o1", "o2"):
-    dc.connect(name, ("", name), ("Xcoupler", name))
+for name in ("o1", "o2", "o3", "o4"):
+    dc.connect(name, ("", name), ("Xcoupler", name), domain=WG)
 
 # %% [markdown]
 # ## MZI top cell
@@ -60,8 +62,8 @@ for name in ("i1", "i2", "o1", "o2"):
 
 # %%
 mzi = morphnet.circuit("mzi", parameters=[("arm_length", 100e-6)])
-for name in ("in1", "in2", "out1", "out2"):
-    mzi.add_terminal(name, direction=IN if name.startswith("in") else OUT, domain=WG)
+for name in ("o1", "o2", "o3", "o4"):
+    mzi.add_terminal(name, direction=IN if name in ("o1", "o2") else OUT, domain=WG)
 
 mzi.add(
     morphnet.subcircuit("Xdc1", "dc_coupler"),
@@ -69,14 +71,17 @@ mzi.add(
     morphnet.subcircuit("Xarm_top", "wg_delay"),
     morphnet.subcircuit("Xarm_bot", "wg_delay"),
 )
-mzi.connect("in1", ("", "in1"), ("Xdc1", "i1"))
-mzi.connect("in2", ("", "in2"), ("Xdc1", "i2"))
-mzi.connect("top_a", ("Xdc1", "o1"), ("Xarm_top", "inp"))
-mzi.connect("top_b", ("Xarm_top", "out"), ("Xdc2", "i1"))
-mzi.connect("bot_a", ("Xdc1", "o2"), ("Xarm_bot", "inp"))
-mzi.connect("bot_b", ("Xarm_bot", "out"), ("Xdc2", "i2"))
-mzi.connect("out1", ("Xdc2", "o1"), ("", "out1"))
-mzi.connect("out2", ("Xdc2", "o2"), ("", "out2"))
+for net, *ends in [
+    ("o1", ("", "o1"), ("Xdc1", "o1")),
+    ("o2", ("", "o2"), ("Xdc1", "o2")),
+    ("top_a", ("Xdc1", "o3"), ("Xarm_top", "o1")),
+    ("top_b", ("Xarm_top", "o2"), ("Xdc2", "o1")),
+    ("bot_a", ("Xdc1", "o4"), ("Xarm_bot", "o1")),
+    ("bot_b", ("Xarm_bot", "o2"), ("Xdc2", "o2")),
+    ("o3", ("Xdc2", "o3"), ("", "o3")),
+    ("o4", ("Xdc2", "o4"), ("", "o4")),
+]:
+    mzi.connect(net, *ends, domain=WG)
 
 # %% [markdown]
 # ## Netlist with a photonic PDK library
@@ -96,13 +101,13 @@ ckt.add_ext(
         "wg_directional_coupler",
         class_name="dc",
         library_name="photonic_pdk",
-        ports=[morphnet.port(p, domain=WG) for p in ("i1", "i2", "o1", "o2")],
+        ports=[morphnet.port(p, domain=WG) for p in ("o1", "o2", "o3", "o4")],
     ),
     morphnet.ext_circuit(
         "wg_delay",
         class_name="delay_line",
         library_name="photonic_pdk",
-        ports=[morphnet.port(p, domain=WG) for p in ("inp", "out")],
+        ports=[morphnet.port(p, domain=WG) for p in ("o1", "o2")],
     ),
 )
 ckt.add(mzi, dc)

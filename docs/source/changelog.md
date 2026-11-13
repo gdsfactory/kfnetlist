@@ -1,5 +1,39 @@
 # Changelog
 
+## 0.4.1
+
+- **SystemVerilog** — `parse_systemverilog()` / `write_systemverilog()` in
+  `kfnetlist.morphnet.netlist` read and write structural SystemVerilog
+  (SystemVerilog 3.1a, Annex A) with an LALR Lark grammar:
+  - ANSI and non-ANSI ports, `parameter`/`localparam`, net declarations;
+  - instances with named, positional, `.name`, `.*` and empty connections;
+  - `assign a = b;` / `alias` net merges.
+
+  Behavioral code is kept as text in `behavioral_block_N` circuit properties and
+  written back by the SystemVerilog writer.
+- **Waveguide terminals by name** — every parser marks terminals named `o1`, `o2`,
+  ... as `SignalDomain.WAVEGUIDE`; `e1`, ... and unprefixed names are
+  `ELECTRICAL`. A connection is waveguide when any terminal on its net is. Parsed
+  connections are now always `ELECTRICAL` or `WAVEGUIDE` instead of `UNSPECIFIED`.
+  The helper is `kfnetlist.morphnet.netlist.net_utils.domain_of()`.
+- **Conversion fixes**:
+  - The SPICE and Spectre writers use the device pin order (`d g s b` for a MOSFET)
+    for built-in devices that have no external-circuit declaration, which is the
+    case after parsing Verilog-AMS or SystemVerilog. SPICE used to write `? ?`
+    and Spectre wrote the pins in net order.
+  - The Spectre parser picks the device from the master: a subcircuit defined in
+    the deck, or a built-in master like `capacitor`, wins over the instance-name
+    letter (`I1 (...) inverter` was read as a current source). A subcircuit
+    named like an analysis (`dc`) is an instance, not an analysis.
+  - The Spectre-SPICE parser names the pins of instances whose subcircuit is
+    defined in the other language section (they used to be `p0`, `p1`, ...).
+- **Docs** — new notebooks
+  [Parsing netlist formats](morphnet/netlist_formats.md) (an example netlist per
+  format, electrical and photonic) and
+  [Converting between formats](morphnet/format_conversion.md) (pairwise
+  conversions, a 7 × 7 conversion matrix, a photonic MZI round trip). The MZI
+  notebook uses `o1`...`o4` terminals.
+
 ## 0.4.0
 
 - **Loads on macOS 27** ([#31](https://github.com/gdsfactory/kfnetlist/issues/31)) —

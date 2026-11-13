@@ -4,7 +4,7 @@ build-backend = "maturin"
 
 [project]
 name = "kfnetlist"
-description = "Netlist schema for kfactory with bidirectional netlist format conversion (SPICE, HSPICE, Xyce, Spectre, Verilog-AMS)"
+description = "Netlist schema for kfactory with bidirectional netlist format conversion (SPICE, HSPICE, Xyce, Spectre, Verilog-AMS, SystemVerilog)"
 classifiers = [
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
@@ -13,7 +13,7 @@ classifiers = [
     "Operating System :: OS Independent",
 ]
 requires-python = ">=3.12"
-version = "0.4.0"
+version = "0.4.1"
 authors = [{ name = "gdsfactory community", email = "contact@gdsfactory.com" }]
 dependencies = [
     "lark>=1.3.1",
@@ -72,8 +72,9 @@ exclude = [
 include = ["src/kfnetlist/morphnet/**", "tests/morphnet/**"]
 
 [tool.ty.overrides.rules]
-invalid-attribute-override = "ignore"
-unresolved-attribute = "ignore"
+incompatible-attribute-override = "ignore"
+missing-attribute = "ignore"
+missing-union-attribute = "ignore"
 unused-ignore-comment = "ignore"
 pydantic-discarded-extra-argument = "ignore"
 
@@ -87,7 +88,7 @@ deprecated = "ignore"
 [tool.tbump]
 
 [tool.tbump.version]
-current = "0.4.0"
+current = "0.4.1"
 regex = '''
   (?P<major>\d+)
   \.
