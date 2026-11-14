@@ -9,6 +9,7 @@
               - netlist:
                   - Overview: reference/morphnet/netlist/index.md
                   - grammars: reference/morphnet/netlist/grammars/index.md
+                  - hdl: reference/morphnet/netlist/hdl.md
                   - hspice:
                       - Overview: reference/morphnet/netlist/hspice/index.md
                       - parser: reference/morphnet/netlist/hspice/parser.md

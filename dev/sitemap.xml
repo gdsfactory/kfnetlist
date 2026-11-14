@@ -112,6 +112,9 @@
         <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/grammars/</loc>
       </url>
       <url>
+        <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/hdl/</loc>
+      </url>
+      <url>
         <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/hspice/</loc>
       </url>
       <url>
