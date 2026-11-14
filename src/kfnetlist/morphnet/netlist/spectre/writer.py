@@ -143,7 +143,9 @@ class SpectreWriter:
                 port_order = [p.name for p in ref_circuit.ports]
             elif ext_circuit:
                 port_order = [p.name for p in ext_circuit.ports]
-            elif prefix:
+            elif prefix and all(
+                (ref.name, pn) in inst_nets for pn in DEVICE_PORT_TEMPLATES[prefix]
+            ):
                 port_order = DEVICE_PORT_TEMPLATES[prefix]
             else:
                 port_order = self.infer_port_order(ref, inst_nets)
