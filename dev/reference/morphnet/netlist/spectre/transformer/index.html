@@ -4048,7 +4048,14 @@
 <span class="normal">500</span>
 <span class="normal">501</span>
 <span class="normal">502</span>
-<span class="normal">503</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectreTransformer</span><span class="p">(</span><span class="n">Transformer</span><span class="p">[</span><span class="n">Token</span><span class="p">,</span> <span class="n">Netlist</span><span class="p">]):</span>
+<span class="normal">503</span>
+<span class="normal">504</span>
+<span class="normal">505</span>
+<span class="normal">506</span>
+<span class="normal">507</span>
+<span class="normal">508</span>
+<span class="normal">509</span>
+<span class="normal">510</span></pre></div></td><td class="code"><div><pre><span></span><code><span class="k">class</span><span class="w"> </span><span class="nc">SpectreTransformer</span><span class="p">(</span><span class="n">Transformer</span><span class="p">[</span><span class="n">Token</span><span class="p">,</span> <span class="n">Netlist</span><span class="p">]):</span>
 <span class="w">    </span><span class="sd">"""Transform a Spectre parse tree into a Netlist model."""</span>
 
     <span class="k">def</span><span class="w"> </span><span class="fm">__init__</span><span class="p">(</span><span class="bp">self</span><span class="p">)</span> <span class="o">-&gt;</span> <span class="kc">None</span><span class="p">:</span>
@@ -4252,8 +4259,15 @@
             <span class="n">device_prefix</span> <span class="o">=</span> <span class="n">CIRCUIT_TO_PREFIX</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">inst</span><span class="o">.</span><span class="n">cell_name</span><span class="p">,</span> <span class="n">inst</span><span class="o">.</span><span class="n">device_prefix</span><span class="p">)</span>
             <span class="n">port_template</span> <span class="o">=</span> <span class="n">DEVICE_PORT_TEMPLATES</span><span class="o">.</span><span class="n">get</span><span class="p">(</span><span class="n">device_prefix</span><span class="p">)</span>
 
-            <span class="c1"># In Spectre, nets and cell name are already separated by grammar</span>
-            <span class="k">if</span> <span class="n">subckt_mod</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span> <span class="ow">or</span> <span class="n">device_prefix</span> <span class="o">==</span> <span class="s2">"X"</span> <span class="ow">or</span> <span class="n">port_template</span> <span class="ow">is</span> <span class="kc">None</span><span class="p">:</span>
+            <span class="c1"># In Spectre, nets and cell name are already separated by grammar.</span>
+            <span class="c1"># A built-in master with more or fewer nets than its pin template</span>
+            <span class="c1"># (a 3-terminal `resistor`) keeps every net positionally.</span>
+            <span class="k">if</span> <span class="p">(</span>
+                <span class="n">subckt_mod</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span>
+                <span class="ow">or</span> <span class="n">device_prefix</span> <span class="o">==</span> <span class="s2">"X"</span>
+                <span class="ow">or</span> <span class="n">port_template</span> <span class="ow">is</span> <span class="kc">None</span>
+                <span class="ow">or</span> <span class="nb">len</span><span class="p">(</span><span class="n">inst</span><span class="o">.</span><span class="n">net_names</span><span class="p">)</span> <span class="o">!=</span> <span class="nb">len</span><span class="p">(</span><span class="n">port_template</span><span class="p">)</span>
+            <span class="p">):</span>
                 <span class="c1"># Subcircuit or unknown: resolve ports from definition</span>
                 <span class="k">if</span> <span class="n">subckt_mod</span> <span class="ow">is</span> <span class="ow">not</span> <span class="kc">None</span><span class="p">:</span>
                     <span class="n">inst_port_names</span> <span class="o">=</span> <span class="p">[</span><span class="n">p</span><span class="o">.</span><span class="n">name</span> <span class="k">for</span> <span class="n">p</span> <span class="ow">in</span> <span class="n">subckt_mod</span><span class="o">.</span><span class="n">ports</span><span class="p">]</span>
