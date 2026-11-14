@@ -419,6 +419,14 @@ class TestBuses:
             ("a[3]", "I_I[1]", "out1", "I_O[1]", "in1", "WAVEGUIDE"),
         }
 
+    def test_leaf_pin_domains(self) -> None:
+        WG = SignalDomain.WAVEGUIDE
+        pins = {"MZM_1X2": {"out0": WG, "out1": WG}}
+        switch = parse_vams(self.SWITCH, pin_domains=pins).circuits[0]
+        domains = {c.name: c.domain for c in switch.connections}
+        assert all(domains[f"a[{i}]"] == WG for i in range(4))
+        assert domains["in[0]"] == SignalDomain.ELECTRICAL  # MZM_1X2.in0 not mapped
+
     def test_positional_ports_use_the_definition(self) -> None:
         text = """\
 module cell (p, n);

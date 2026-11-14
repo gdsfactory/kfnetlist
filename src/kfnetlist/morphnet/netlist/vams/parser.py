@@ -13,6 +13,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Netlist,
     SignalDomain,
 )
+from kfnetlist.morphnet.netlist.net_utils import PinDomains
 from kfnetlist.morphnet.netlist.vams.preprocess import preprocess_vams
 from kfnetlist.morphnet.netlist.vams.transformer import VamsTransformer
 
@@ -45,11 +46,12 @@ class VamsParser:
         text: str,
         defines: Mapping[str, str] | None = None,
         disciplines: Mapping[str, SignalDomain] | None = None,
+        pin_domains: PinDomains | None = None,
     ) -> Netlist:
         result = preprocess_vams(text, defines)
         lark = cls.get_lark()
         tree = lark.parse(result.text)
-        transformer = VamsTransformer(result.analog_blocks, disciplines)
+        transformer = VamsTransformer(result.analog_blocks, disciplines, pin_domains)
         try:
             netlist = transformer.transform(tree)
         except VisitError as e:
@@ -79,6 +81,7 @@ def parse_vams(
     text: str,
     defines: Mapping[str, str] | None = None,
     disciplines: Mapping[str, SignalDomain] | None = None,
+    pin_domains: PinDomains | None = None,
 ) -> Netlist:
     """Parse Verilog-AMS netlist text into a Netlist model.
 
@@ -94,5 +97,7 @@ def parse_vams(
         disciplines: Discipline -> domain, e.g. ``{"optical":
             SignalDomain.WAVEGUIDE}``. A net touching a waveguide port or net is
             waveguide; untyped terminals named ``o1``, ``o2``, ... are waveguide.
+        pin_domains: Cell -> pin -> domain for leaf cells, e.g. ``{"MZM_1X2":
+            {"in0": SignalDomain.WAVEGUIDE}}``; see ``parse_systemverilog``.
     """
-    return VamsParser.parse(text, defines, disciplines)
+    return VamsParser.parse(text, defines, disciplines, pin_domains)

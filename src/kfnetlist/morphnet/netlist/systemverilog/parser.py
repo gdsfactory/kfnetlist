@@ -13,6 +13,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Netlist,
     SignalDomain,
 )
+from kfnetlist.morphnet.netlist.net_utils import PinDomains
 from kfnetlist.morphnet.netlist.systemverilog.preprocess import (
     preprocess_systemverilog,
 )
@@ -44,6 +45,7 @@ class SystemVerilogParser:
         text: str,
         defines: Mapping[str, str] | None = None,
         disciplines: Mapping[str, SignalDomain] | None = None,
+        pin_domains: PinDomains | None = None,
     ) -> Netlist:
         result = preprocess_systemverilog(text, defines)
         directives: list[Directive] = []
@@ -55,7 +57,7 @@ class SystemVerilogParser:
         tree = cls.get_lark().parse(result.text)
         try:
             return SystemVerilogTransformer(
-                result.blocks, directives, disciplines
+                result.blocks, directives, disciplines, pin_domains
             ).transform(tree)
         except VisitError as e:
             raise e.orig_exc from None
@@ -65,6 +67,7 @@ def parse_systemverilog(
     text: str,
     defines: Mapping[str, str] | None = None,
     disciplines: Mapping[str, SignalDomain] | None = None,
+    pin_domains: PinDomains | None = None,
 ) -> Netlist:
     """Parse structural SystemVerilog text into a Netlist model.
 
@@ -84,5 +87,10 @@ def parse_systemverilog(
             named ``o1``, ``o2``, ... are waveguide; all others are electrical.
             Types often exist only in a simulation view (`` `ifdef IS_SIM``):
             pass the matching ``defines``, or every port is a plain ``wire``.
+        pin_domains: Cell -> pin -> domain, for cells without typed ports
+            (leaf models, or the plain-wire view), e.g. ``{"MZM_1X2": {"in0":
+            SignalDomain.WAVEGUIDE, "out0": SignalDomain.WAVEGUIDE}}``. Nets
+            between such pins (``MZM_1X2.out0`` -> ``MZM_2X1.in0``) become
+            waveguide. Takes precedence over ``disciplines``.
     """
-    return SystemVerilogParser.parse(text, defines, disciplines)
+    return SystemVerilogParser.parse(text, defines, disciplines, pin_domains)

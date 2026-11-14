@@ -333,6 +333,36 @@ class TestBuses:
             SignalDomain.ELECTRICAL
         }
 
+    def test_leaf_pin_domains(self) -> None:
+        # plain-wire view: only the leaf cells' pins say what is optical
+        WG, EL = SignalDomain.WAVEGUIDE, SignalDomain.ELECTRICAL
+        pins = {
+            "MZM_1X2": {"in0": WG, "out0": WG, "out1": WG, "sel": EL},
+            "MZM_2X1": {"in0": WG, "in1": WG, "out0": WG, "sel": EL},
+        }
+        switch = parse_systemverilog(SWITCH, pin_domains=pins).circuits[0]
+        assert {c.name: c.domain for c in switch.connections} == {
+            "in[1]": WG, "in[0]": WG, "out[1]": WG, "out[0]": WG,
+            "a[0]": WG, "a[1]": WG, "a[2]": WG, "a[3]": WG,
+            "sel[3]": EL, "sel[2]": EL, "sel[1]": EL, "sel[0]": EL,
+        }  # fmt: skip
+        assert [p.domain for p in switch.ports] == [WG, WG, EL]
+
+    def test_pin_domains_override_types_of_defined_cells(self) -> None:
+        text = """\
+module cell (input connection o1, inout connection e1);
+endmodule
+module top (inout a);
+  cell X1 (.o1(a), .e1());
+endmodule
+"""
+        WG, EL = SignalDomain.WAVEGUIDE, SignalDomain.ELECTRICAL
+        netlist = parse_systemverilog(
+            text, disciplines={"connection": WG}, pin_domains={"cell": {"o1": EL}}
+        )
+        assert [p.domain for p in netlist.circuits[0].ports] == [EL, WG]
+        assert {c.domain for c in netlist.circuits[1].connections} == {EL}
+
     def test_arrays_of_defined_modules_slice_or_broadcast(self) -> None:
         text = """\
 module cell (input [1:0] a, input en, output y);

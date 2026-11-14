@@ -24,29 +24,46 @@ def domain_of(port_name: str) -> SignalDomain:
     return SignalDomain.ELECTRICAL
 
 
+PinDomains = Mapping[str, Mapping[str, SignalDomain]]  # cell -> pin -> domain
+
+
 def propagate_domains(
-    netlist: Netlist, disciplines: Mapping[str, SignalDomain] | None = None
+    netlist: Netlist,
+    disciplines: Mapping[str, SignalDomain] | None = None,
+    pin_domains: PinDomains | None = None,
 ) -> None:
     """Resolve port and net domains in place.
 
     1. A port whose type/discipline is in ``disciplines`` gets that domain
        (e.g. ``{"connection": WAVEGUIDE, "mzmselect": ELECTRICAL}``); so does a
-       net whose declared type (``discipline`` property) is in it.
+       net whose declared type (``discipline`` property) is in it. A cell pin
+       in ``pin_domains`` (``{"MZM_1X2": {"in0": WAVEGUIDE, "R1": ELECTRICAL}}``)
+       has that domain, whether the cell is defined in the netlist or a leaf;
+       it takes precedence over ``disciplines``.
     2. A net touching any waveguide terminal is waveguide; untyped ports on
        it become waveguide too, across the hierarchy, until nothing changes.
     3. Terminals neither typed nor reached keep the ``o<N>`` name rule.
     """
     disciplines = disciplines or {}
+    pin_domains = pin_domains or {}
     ports = {
         c.name: {p.name: p for p in c.ports}
         for c in [*netlist.ext_circuits, *netlist.circuits]
     }
     typed: set[int] = set()
-    for circuit_ports in ports.values():
+    for cell, circuit_ports in ports.items():
         for p in circuit_ports.values():
-            if p.discipline in disciplines:
-                p.domain = disciplines[p.discipline]
+            domain = pin_domains.get(cell, {}).get(
+                p.name, disciplines.get(p.discipline)
+            )
+            if domain is not None:
+                p.domain = domain
                 typed.add(id(p))
+
+    def leaf_domain(cell: str, pin: str) -> SignalDomain:
+        """Domain of a pin of a cell without a definition."""
+        domain = pin_domains.get(cell, {}).get(BIT_RE.sub("", pin))
+        return domain_of(pin) if domain is None else domain
 
     changed = True
     while changed:
@@ -58,23 +75,22 @@ def propagate_domains(
                 nets.setdefault(conn.name, []).append(conn)
             for conns in nets.values():
                 refs = [r for c in conns for r in (c.source, c.target) if r is not None]
-                owners = [
-                    ports.get(
-                        cells.get(r.instance_name, "")
-                        if r.instance_name
-                        else circuit.name,
-                        {},
-                    ).get(BIT_RE.sub("", r.port_name))
+                owner_cells = [
+                    cells.get(r.instance_name, "") if r.instance_name else circuit.name
                     for r in refs
+                ]
+                owners = [
+                    ports.get(cell, {}).get(BIT_RE.sub("", r.port_name))
+                    for cell, r in zip(owner_cells, refs)
                 ]
                 waveguide = any(
                     disciplines.get(c.properties.get("discipline", ""))
                     == SignalDomain.WAVEGUIDE
                     for c in conns
                 ) or any(
-                    (p.domain if p is not None else domain_of(r.port_name))
+                    (p.domain if p is not None else leaf_domain(cell, r.port_name))
                     == SignalDomain.WAVEGUIDE
-                    for r, p in zip(refs, owners)
+                    for r, p, cell in zip(refs, owners, owner_cells)
                 )
                 domain = (
                     SignalDomain.WAVEGUIDE if waveguide else SignalDomain.ELECTRICAL

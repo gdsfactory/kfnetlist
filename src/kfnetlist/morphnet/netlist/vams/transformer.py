@@ -33,6 +33,7 @@ from kfnetlist.morphnet.netlist.hdl import (
 )
 from kfnetlist.morphnet.netlist.net_utils import (
     NetMap,
+    PinDomains,
     add_port_to_net,
     domain_of,
     propagate_domains,
@@ -191,10 +192,12 @@ class VamsTransformer(Transformer[Token, Netlist]):
         self,
         analog_blocks: list[str] | None = None,
         disciplines: Mapping[str, SignalDomain] | None = None,
+        pin_domains: PinDomains | None = None,
     ) -> None:
         super().__init__()
         self.analog_blocks = analog_blocks or []
         self.disciplines = disciplines or {}
+        self.pin_domains = pin_domains or {}
 
     # ── Leaf transformers ───────────────────────────────────────────────
 
@@ -684,5 +687,5 @@ class VamsTransformer(Transformer[Token, Netlist]):
             circuits=circuits,
             ext_circuits=list(ext_circuits.values()),
         )
-        propagate_domains(netlist, self.disciplines)
+        propagate_domains(netlist, self.disciplines, self.pin_domains)
         return netlist

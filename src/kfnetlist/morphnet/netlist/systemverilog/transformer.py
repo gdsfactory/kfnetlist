@@ -34,6 +34,7 @@ from kfnetlist.morphnet.netlist.hdl import (
 )
 from kfnetlist.morphnet.netlist.net_utils import (
     NetMap,
+    PinDomains,
     add_port_to_net,
     domain_of,
     propagate_domains,
@@ -206,11 +207,13 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
         blocks: list[str] | None = None,
         directives: list[Directive] | None = None,
         disciplines: Mapping[str, SignalDomain] | None = None,
+        pin_domains: PinDomains | None = None,
     ) -> None:
         super().__init__()
         self.blocks = blocks or []
         self.directives = directives or []
         self.disciplines = disciplines or {}
+        self.pin_domains = pin_domains or {}
 
     # ── Expressions ─────────────────────────────────────────────────────
 
@@ -441,7 +444,7 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
             properties=properties,
             directives=self.directives,
         )
-        propagate_domains(netlist, self.disciplines)
+        propagate_domains(netlist, self.disciplines, self.pin_domains)
         return netlist
 
     def _build_circuit(
