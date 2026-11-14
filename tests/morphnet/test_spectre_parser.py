@@ -1,4 +1,5 @@
 from kfnetlist.morphnet.netlist.spectre.parser import parse_spectre
+from kfnetlist.morphnet.netlist.spectre.writer import write_spectre
 
 
 class TestBasicParsing:
@@ -133,6 +134,23 @@ ends top
         if c.target
     }
     assert ("I1", "a") in pins and ("Xr", "p") in pins
+
+
+def test_builtin_master_with_extra_nets_keeps_every_net() -> None:
+    netlist = parse_spectre(
+        """\
+subckt mzi (e1 e2 arm)
+Xheater (e1 e2 arm) resistor length=100u
+ends mzi
+"""
+    )
+    pins = {
+        (c.target.port_name, c.name)
+        for c in netlist.circuits[0].connections
+        if c.target and c.target.instance_name == "Xheater"
+    }
+    assert pins == {("p0", "e1"), ("p1", "e2"), ("p2", "arm")}
+    assert "Xheater (e1 e2 arm) resistor" in write_spectre(netlist)
 
 
 def test_subckt_named_like_an_analysis_is_an_instance() -> None:

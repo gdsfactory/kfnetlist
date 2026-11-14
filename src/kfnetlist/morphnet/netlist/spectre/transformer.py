@@ -319,8 +319,15 @@ class SpectreTransformer(Transformer[Token, Netlist]):
             device_prefix = CIRCUIT_TO_PREFIX.get(inst.cell_name, inst.device_prefix)
             port_template = DEVICE_PORT_TEMPLATES.get(device_prefix)
 
-            # In Spectre, nets and cell name are already separated by grammar
-            if subckt_mod is not None or device_prefix == "X" or port_template is None:
+            # In Spectre, nets and cell name are already separated by grammar.
+            # A built-in master with more or fewer nets than its pin template
+            # (a 3-terminal `resistor`) keeps every net positionally.
+            if (
+                subckt_mod is not None
+                or device_prefix == "X"
+                or port_template is None
+                or len(inst.net_names) != len(port_template)
+            ):
                 # Subcircuit or unknown: resolve ports from definition
                 if subckt_mod is not None:
                     inst_port_names = [p.name for p in subckt_mod.ports]
