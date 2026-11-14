@@ -1,3 +1,5 @@
+from pathlib import Path
+
 import pytest
 
 from kfnetlist.morphnet.netlist import (
@@ -83,3 +85,49 @@ def test_devices_without_declaration_keep_pin_order(write) -> None:
     # writers must still use the d, g, s, b template.
     text = write(parse_vams(write_vams(parse_spice(INVERTER))))
     assert "out in vdd vdd" in text
+
+
+def connection_set(netlist) -> set[tuple]:
+    return {
+        (c.name, c.domain, (c.source.instance_name, c.source.port_name),
+         (c.target.instance_name, c.target.port_name))
+        for circuit in netlist.circuits
+        for c in circuit.connections
+        if c.source is not None and c.target is not None
+    }  # fmt: skip
+
+
+def test_buses_round_trip() -> None:
+    from kfnetlist.morphnet.morphnet_schema import SignalDomain
+
+    sv = (Path(__file__).parent / "netlists/systemverilog/switch_2x2.sv").read_text()
+    types = {"connection": SignalDomain.WAVEGUIDE}
+    parsed = parse_systemverilog(sv, {"IS_SIM": "1"}, types)
+    text = write_systemverilog(parsed)
+    assert "  input connection in [1:0],\n" in text
+    assert "  connection a [3:0];\n" in text
+    assert (
+        "MZM_1X2 \\I_I[1]  (.in0(in[1]), .sel(sel[1]), .out0(a[2]), .out1(a[3]));"
+        in text
+    )
+    reparsed = parse_systemverilog(text, disciplines=types)
+    assert connection_set(reparsed) == connection_set(parsed)
+    assert [(p.name, p.width) for p in reparsed.circuits[0].ports] == [
+        ("in", 2), ("out", 2), ("sel", 4)
+    ]  # fmt: skip
+    assert write_systemverilog(reparsed) == text
+
+
+def test_bus_connections_are_grouped() -> None:
+    text = """\
+module cell (input [3:0] a, output y);
+endmodule
+module top (input [3:0] bus, input [1:0] b, output y);
+  cell C1 (.a({b, bus[3:2]}), .y(y));
+  cell C2 (.a(bus), .y());
+endmodule
+"""
+    written = write_systemverilog(parse_systemverilog(text))
+    assert "  input [3:0] bus,\n" in written
+    assert "  cell C1 (.a({b, bus[3:2]}), .y(y));" in written
+    assert "  cell C2 (.a(bus), .y());" in written

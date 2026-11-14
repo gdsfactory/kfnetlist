@@ -9,8 +9,24 @@ from kfnetlist.morphnet.morphnet_schema import (
     Circuit,
     SubCircuit,
 )
-from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
+from kfnetlist.morphnet.netlist.hdl import (
+    Buses,
+    Range,
+    bus_pins,
+    declared_range,
+    connection_expr,
+    net_buses,
+    port_pins,
+)
+from kfnetlist.morphnet.netlist.net_utils import BIT_RE, connections_to_instance_nets
+from kfnetlist.morphnet.netlist.systemverilog.writer import sv_name
 from kfnetlist.morphnet.netlist.value_utils import format_si_value
+
+
+def declaration(keyword: str, names: list[str], rng: Range | None) -> str:
+    """``input a, b`` / ``optical [3:0] bus``."""
+    dim = f" [{rng[0]}:{rng[1]}]" if rng else ""
+    return f"{keyword}{dim} {', '.join(names)}"
 
 
 class VamsWriter:
@@ -78,19 +94,41 @@ class VamsWriter:
         ports_str = ", ".join(port_names)
         lines.append(f"module {circuit.name} ({ports_str});")
 
-        dirs_by_dir: dict[str, list[str]] = {}
+        ranges = {
+            p.name: declared_range(p.width, p.properties.get("range"))
+            for p in circuit.ports
+        }
+        dirs_by_dir: dict[tuple[str, Range | None], list[str]] = {}
         for port in circuit.ports:
             d = port.direction.name.lower()
-            dirs_by_dir.setdefault(d, []).append(port.name)
-        for d, names in dirs_by_dir.items():
-            lines.append(f"  {d} {', '.join(names)};")
+            dirs_by_dir.setdefault((d, ranges[port.name]), []).append(port.name)
+        for (d, rng), names in dirs_by_dir.items():
+            lines.append(f"  {declaration(d, names, rng)};")
 
-        disc_by_disc: dict[str, list[str]] = {}
+        # disciplines of ports, then of internal nets (`name[i]` nets are buses)
+        port_names = set(ranges)
+        internal = net_buses(
+            [c.name for c in circuit.connections if c.name not in port_names]
+        )
+        net_types = {
+            BIT_RE.sub("", c.name): c.properties.get("discipline", "")
+            for c in circuit.connections
+        }
+        disc_by_disc: dict[tuple[str, Range | None], list[str]] = {}
         for port in circuit.ports:
             if port.discipline:
-                disc_by_disc.setdefault(port.discipline, []).append(port.name)
-        for disc, names in disc_by_disc.items():
-            lines.append(f"  {disc} {', '.join(names)};")
+                key = (port.discipline, ranges[port.name])
+                disc_by_disc.setdefault(key, []).append(port.name)
+        for net, net_type in net_types.items():
+            if net not in port_names and (net in internal or net_type):
+                key = (net_type or "wire", internal.get(net))
+                disc_by_disc.setdefault(key, []).append(net)
+        for (disc, rng), names in disc_by_disc.items():
+            lines.append(f"  {declaration(disc, names, rng)};")
+        buses: Buses = {
+            **{b: r for b, r in internal.items() if b not in port_names},
+            **{n: r for n, r in ranges.items() if r is not None},
+        }
 
         for param in circuit.parameters:
             is_local = param.properties.get("localparam") == "true"
@@ -108,7 +146,7 @@ class VamsWriter:
 
         for ref in circuit.subcircuits:
             lines.append(
-                self.write_instance(ref, inst_nets, ext_by_name, circuit_by_name)
+                self.write_instance(ref, inst_nets, ext_by_name, circuit_by_name, buses)
             )
 
         analog_block = circuit.properties.get("analog_block")
@@ -123,6 +161,7 @@ class VamsWriter:
         inst_nets: dict[tuple[str, str], str],
         ext_by_name: dict[str, ExternalCircuit],
         circuit_by_name: dict[str, Circuit],
+        buses: Buses | None = None,
     ) -> str:
         params_str = ""
         if ref.parameters:
@@ -135,20 +174,23 @@ class VamsWriter:
 
         ref_circuit = circuit_by_name.get(ref.circuit_name)
         ext_circuit = ext_by_name.get(ref.circuit_name)
-        if ref_circuit is not None:
-            port_order = [p.name for p in ref_circuit.ports]
-        elif ext_circuit is not None:
-            port_order = [p.name for p in ext_circuit.ports]
+        target = ref_circuit or ext_circuit
+        if target is not None:
+            port_order = [
+                (p.name, port_pins(p.name, p.width, p.properties.get("range")))
+                for p in target.ports
+            ]
         else:
-            port_order = self.infer_port_order(ref, inst_nets)
+            port_order = bus_pins(self.infer_port_order(ref, inst_nets))
 
         port_parts: list[str] = []
-        for pn in port_order:
-            net = inst_nets.get((ref.name, pn), "?")
-            port_parts.append(f".{pn}({net})")
+        for pn, pins in port_order:
+            nets = [inst_nets.get((ref.name, pin)) for pin in pins]
+            expr = connection_expr(f"{ref.name}.{pn}", nets, buses or {}, sv_name)
+            port_parts.append(f".{pn}({expr})")
         ports_str = ", ".join(port_parts)
 
-        return f"  {ref.circuit_name}{params_str} {ref.name} ({ports_str});"
+        return f"  {ref.circuit_name}{params_str} {sv_name(ref.name)} ({ports_str});"
 
     def format_param_value(self, pval: object) -> str:
         from kfnetlist.morphnet.morphnet_schema import ParameterValue

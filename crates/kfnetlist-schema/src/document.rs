@@ -193,17 +193,27 @@ impl CircuitDocument {
             )
             .map_err(error)?;
         }
+        // An instance named like `X[3]` (an expanded Verilog instance array) is a plain
+        // reference, not gdsfactory array syntax.
+        let member = |text: &str| -> Result<NetMember> {
+            match text.split_once(',') {
+                Some((inst, port))
+                    if self.instances.contains_key(inst.trim()) && !port.contains(',') =>
+                {
+                    Ok(NetMember::Ref(PortRef {
+                        instance: inst.trim().into(),
+                        port: port.trim().into(),
+                    }))
+                }
+                _ => parse_port_ref(text),
+            }
+        };
         for (src, tgt) in &self.connections {
-            nl.create_net([parse_port_ref(src)?, parse_port_ref(tgt)?])
-                .map_err(error)?;
+            nl.create_net([member(src)?, member(tgt)?]).map_err(error)?;
         }
         for net in &self.nets {
-            nl.create_net(
-                net.iter()
-                    .map(|s| parse_port_ref(s))
-                    .collect::<Result<Vec<_>>>()?,
-            )
-            .map_err(error)?;
+            nl.create_net(net.iter().map(|s| member(s)).collect::<Result<Vec<_>>>()?)
+                .map_err(error)?;
         }
         for (name, reference) in &self.ports {
             if name == reference {
@@ -211,7 +221,7 @@ impl CircuitDocument {
             }
             nl.create_net([
                 NetMember::Port(NetlistPort { name: name.clone() }),
-                parse_port_ref(reference)?,
+                member(reference)?,
             ])
             .map_err(error)?;
         }

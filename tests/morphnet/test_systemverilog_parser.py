@@ -1,12 +1,20 @@
+from pathlib import Path
+
 import pytest
 
 from kfnetlist import NetlistPort, morphnet
-from kfnetlist.morphnet.morphnet_schema import DirectiveKind, Parameter, SignalDomain
+from kfnetlist.morphnet.morphnet_schema import (
+    DirectiveKind,
+    Netlist,
+    Parameter,
+    SignalDomain,
+)
 from kfnetlist.morphnet.netlist import parse_systemverilog
 
 
-def nets(text: str, cell: str) -> set[frozenset[str]]:
-    nl = morphnet.to_netlists(parse_systemverilog(text))[cell]
+def nets(text: str | Netlist, cell: str) -> set[frozenset[str]]:
+    netlist = parse_systemverilog(text) if isinstance(text, str) else text
+    nl = morphnet.to_netlists(netlist)[cell]
     return {
         frozenset(
             m.name if isinstance(m, NetlistPort) else f"{m.instance}.{m.port}"
@@ -123,12 +131,32 @@ endmodule
     def test_bit_select_net_names(self) -> None:
         text = """\
 module top (input [1:0] bus);
+  wire [1:0] n;
   buf_cell U1 (.a(bus[0]), .y(n[1])), U2 (.a(n[1]), .y(bus[1]));
 endmodule
 """
-        assert frozenset({"U1.y", "U2.a"}) in nets(text, "top")
+        assert nets(text, "top") == {
+            frozenset({"bus[0]", "U1.a"}),
+            frozenset({"bus[1]", "U2.y"}),
+            frozenset({"U1.y", "U2.a"}),
+        }
         top = parse_systemverilog(text).circuits[0]
         assert "n[1]" in {c.name for c in top.connections}
+        assert (top.ports[0].width, top.ports[0].properties) == (2, {"range": "1:0"})
+
+    @pytest.mark.parametrize(
+        ("body", "error"),
+        [
+            ("buf_cell U1 (.a(n[1]));", "not a bus"),  # undeclared bus
+            ("buf_cell U1 (.a(bus[2]));", "outside bus"),  # out of range
+            ("wire [2:0] w;\n  assign w = bus;", "width mismatch"),
+            ("sub U1 (.a(bus));", "2 bits for 1 instance"),  # sub.a is 1 bit
+        ],
+    )
+    def test_bus_errors_raise(self, body: str, error: str) -> None:
+        text = f"module sub (input a);\nendmodule\nmodule top (input [1:0] bus);\n  {body}\nendmodule\n"
+        with pytest.raises(ValueError, match=error):
+            parse_systemverilog(text)
 
 
 class TestNetMerging:
@@ -251,3 +279,120 @@ endmodule
         frozenset({"Xarm_top.o2", "Xdc2.o1"}),
         frozenset({"Xarm_bot.o2", "Xdc2.o2"}),
     }
+
+
+SWITCH = (Path(__file__).parent / "netlists/systemverilog/switch_2x2.sv").read_text()
+SWITCH_TYPES = {
+    "connection": SignalDomain.WAVEGUIDE,
+    "mzmselect": SignalDomain.ELECTRICAL,
+}
+SWITCH_NETS = {
+    frozenset({"in[1]", "I_I[1].in0"}),
+    frozenset({"in[0]", "I_I[0].in0"}),
+    frozenset({"out[1]", "I_O[1].out0"}),
+    frozenset({"out[0]", "I_O[0].out0"}),
+    frozenset({"sel[3]", "I_O[1].sel"}),
+    frozenset({"sel[2]", "I_O[0].sel"}),
+    frozenset({"sel[1]", "I_I[1].sel"}),
+    frozenset({"sel[0]", "I_I[0].sel"}),
+    frozenset({"I_I[0].out0", "I_O[0].in0"}),  # a[0]
+    frozenset({"I_I[0].out1", "I_O[1].in0"}),  # a[1]
+    frozenset({"I_I[1].out0", "I_O[0].in1"}),  # a[2]
+    frozenset({"I_I[1].out1", "I_O[1].in1"}),  # a[3]
+}
+
+
+class TestBuses:
+    def test_switch_simulation_view(self) -> None:
+        netlist = parse_systemverilog(SWITCH, {"IS_SIM": "1"}, SWITCH_TYPES)
+        switch = netlist.circuits[0]
+        assert [(p.name, p.width, p.discipline) for p in switch.ports] == [
+            ("in", 2, "connection"),
+            ("out", 2, "connection"),
+            ("sel", 4, "mzmselect"),
+        ]
+        assert [s.name for s in switch.subcircuits] == [
+            "I_I[1]",
+            "I_I[0]",
+            "I_O[1]",
+            "I_O[0]",
+        ]
+        assert nets(netlist, "SWITCH_2X2") == SWITCH_NETS
+        WG, EL = SignalDomain.WAVEGUIDE, SignalDomain.ELECTRICAL
+        assert {c.name: c.domain for c in switch.connections} == {
+            "in[1]": WG, "in[0]": WG, "out[1]": WG, "out[0]": WG,
+            "a[0]": WG, "a[1]": WG, "a[2]": WG, "a[3]": WG,
+            "sel[3]": EL, "sel[2]": EL, "sel[1]": EL, "sel[0]": EL,
+        }  # fmt: skip
+
+    def test_switch_default_view_is_electrical(self) -> None:
+        # without IS_SIM the `else branch declares plain wires: no types to map
+        netlist = parse_systemverilog(SWITCH, disciplines=SWITCH_TYPES)
+        assert nets(netlist, "SWITCH_2X2") == SWITCH_NETS
+        assert {c.domain for c in netlist.circuits[0].connections} == {
+            SignalDomain.ELECTRICAL
+        }
+
+    def test_leaf_pin_domains(self) -> None:
+        # plain-wire view: only the leaf cells' pins say what is optical
+        WG, EL = SignalDomain.WAVEGUIDE, SignalDomain.ELECTRICAL
+        pins = {
+            "MZM_1X2": {"in0": WG, "out0": WG, "out1": WG, "sel": EL},
+            "MZM_2X1": {"in0": WG, "in1": WG, "out0": WG, "sel": EL},
+        }
+        switch = parse_systemverilog(SWITCH, pin_domains=pins).circuits[0]
+        assert {c.name: c.domain for c in switch.connections} == {
+            "in[1]": WG, "in[0]": WG, "out[1]": WG, "out[0]": WG,
+            "a[0]": WG, "a[1]": WG, "a[2]": WG, "a[3]": WG,
+            "sel[3]": EL, "sel[2]": EL, "sel[1]": EL, "sel[0]": EL,
+        }  # fmt: skip
+        assert [p.domain for p in switch.ports] == [WG, WG, EL]
+
+    def test_pin_domains_override_types_of_defined_cells(self) -> None:
+        text = """\
+module cell (input connection o1, inout connection e1);
+endmodule
+module top (inout a);
+  cell X1 (.o1(a), .e1());
+endmodule
+"""
+        WG, EL = SignalDomain.WAVEGUIDE, SignalDomain.ELECTRICAL
+        netlist = parse_systemverilog(
+            text, disciplines={"connection": WG}, pin_domains={"cell": {"o1": EL}}
+        )
+        assert [p.domain for p in netlist.circuits[0].ports] == [EL, WG]
+        assert {c.domain for c in netlist.circuits[1].connections} == {EL}
+
+    def test_arrays_of_defined_modules_slice_or_broadcast(self) -> None:
+        text = """\
+module cell (input [1:0] a, input en, output y);
+endmodule
+module top (input [3:0] bus, input en, output [1:0] ys);
+  cell C[1:0] (.a(bus), .en(en), .y(ys));
+  leaf L (.x({2{en}}));
+endmodule
+"""
+        assert nets(parse_systemverilog(text), "top") == {
+            frozenset({"bus[3]", "C[1].a[1]"}),
+            frozenset({"bus[2]", "C[1].a[0]"}),
+            frozenset({"bus[1]", "C[0].a[1]"}),
+            frozenset({"bus[0]", "C[0].a[0]"}),
+            frozenset({"en", "C[1].en", "C[0].en", "L.x[1]", "L.x[0]"}),
+            frozenset({"ys[1]", "C[1].y"}),
+            frozenset({"ys[0]", "C[0].y"}),
+        }
+
+    def test_packed_and_unpacked_user_types(self) -> None:
+        text = """\
+module m (input connection [1:0] a, b, output connection c [2:0], d);
+  input connection [4:1] e;
+endmodule
+"""
+        ports = parse_systemverilog(text).circuits[0].ports
+        assert [(p.name, p.width, p.discipline) for p in ports] == [
+            ("a", 2, "connection"),
+            ("b", 2, "connection"),
+            ("c", 3, "connection"),
+            ("d", 0, "connection"),
+        ]
+        assert ports[2].properties == {"range": "2:0"}

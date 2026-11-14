@@ -1,12 +1,19 @@
 from __future__ import annotations
 
+from collections.abc import Mapping
 from importlib.resources import files as resource_files
 from typing import ClassVar
 
 from lark import Lark
 from lark.exceptions import VisitError
 
-from kfnetlist.morphnet.morphnet_schema import Directive, DirectiveKind, Netlist
+from kfnetlist.morphnet.morphnet_schema import (
+    Directive,
+    DirectiveKind,
+    Netlist,
+    SignalDomain,
+)
+from kfnetlist.morphnet.netlist.net_utils import PinDomains
 from kfnetlist.morphnet.netlist.systemverilog.preprocess import (
     preprocess_systemverilog,
 )
@@ -33,8 +40,14 @@ class SystemVerilogParser:
         return cls.lark_instance
 
     @classmethod
-    def parse(cls, text: str) -> Netlist:
-        result = preprocess_systemverilog(text)
+    def parse(
+        cls,
+        text: str,
+        defines: Mapping[str, str] | None = None,
+        disciplines: Mapping[str, SignalDomain] | None = None,
+        pin_domains: PinDomains | None = None,
+    ) -> Netlist:
+        result = preprocess_systemverilog(text, defines)
         directives: list[Directive] = []
         for kind_str, value in result.directives:
             dk = DIRECTIVE_KIND_MAP.get(kind_str, DirectiveKind.UNSPECIFIED)
@@ -43,14 +56,41 @@ class SystemVerilogParser:
             directives.append(Directive(kind=dk, value=value))
         tree = cls.get_lark().parse(result.text)
         try:
-            return SystemVerilogTransformer(result.blocks, directives).transform(tree)
+            return SystemVerilogTransformer(
+                result.blocks, directives, disciplines, pin_domains
+            ).transform(tree)
         except VisitError as e:
             raise e.orig_exc from None
 
 
-def parse_systemverilog(text: str) -> Netlist:
+def parse_systemverilog(
+    text: str,
+    defines: Mapping[str, str] | None = None,
+    disciplines: Mapping[str, SignalDomain] | None = None,
+    pin_domains: PinDomains | None = None,
+) -> Netlist:
     """Parse structural SystemVerilog text into a Netlist model.
 
-    Terminals named ``o1``, ``o2``, ... are waveguide; all others are electrical.
+    Nets are bit level: a bus port ``input [3:0] in`` is one ``Port`` with
+    ``width=4`` whose bits ``in[3]`` … ``in[0]`` are the net members, so a
+    bit-select ``.a(in[0])`` meets the port. Instance arrays ``X I[3:0] (...)``
+    expand to instances ``I[3]`` … ``I[0]``. Width mismatches and selects of
+    undeclared buses raise ``ValueError``.
+
+    Args:
+        text: SystemVerilog source.
+        defines: Predefined macros for `` `ifdef `` (``{"IS_SIM": "1"}``). With
+            none, the `` `else `` branches are taken.
+        disciplines: Port/net type -> domain, e.g. ``{"connection":
+            SignalDomain.WAVEGUIDE}``. A net touching a typed waveguide port is
+            waveguide, as are the other terminals on it. Untyped terminals
+            named ``o1``, ``o2``, ... are waveguide; all others are electrical.
+            Types often exist only in a simulation view (`` `ifdef IS_SIM``):
+            pass the matching ``defines``, or every port is a plain ``wire``.
+        pin_domains: Cell -> pin -> domain, for cells without typed ports
+            (leaf models, or the plain-wire view), e.g. ``{"MZM_1X2": {"in0":
+            SignalDomain.WAVEGUIDE, "out0": SignalDomain.WAVEGUIDE}}``. Nets
+            between such pins (``MZM_1X2.out0`` -> ``MZM_2X1.in0``) become
+            waveguide. Takes precedence over ``disciplines``.
     """
-    return SystemVerilogParser.parse(text)
+    return SystemVerilogParser.parse(text, defines, disciplines, pin_domains)

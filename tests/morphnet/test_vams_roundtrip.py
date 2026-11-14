@@ -90,3 +90,27 @@ endmodule
         discs1 = {p.name: p.discipline for p in circuit1.circuits[0].ports}
         discs2 = {p.name: p.discipline for p in circuit2.circuits[0].ports}
         assert discs1 == discs2
+
+    def test_buses_and_instance_arrays(self) -> None:
+        from pathlib import Path
+
+        from kfnetlist.morphnet.morphnet_schema import SignalDomain
+
+        text = (Path(__file__).parent / "netlists/vams/switch_2x2.vams").read_text()
+        types = {"optical": SignalDomain.WAVEGUIDE}
+        circuit1 = parse_vams(text, {"IS_SIM": "1"}, types)
+        output = write_vams(circuit1)
+        assert "  input [1:0] in;\n" in output
+        assert "  optical [1:0] in, out;\n" in output
+        assert "  optical [3:0] a;\n" in output
+        circuit2 = parse_vams(output, disciplines=types)
+
+        def conns(nl):
+            return {
+                (c.name, c.domain, c.source.instance_name, c.source.port_name,
+                 c.target.instance_name, c.target.port_name)
+                for c in nl.circuits[0].connections
+            }  # fmt: skip
+
+        assert conns(circuit1) == conns(circuit2)
+        assert write_vams(circuit2) == output

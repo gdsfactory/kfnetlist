@@ -1,13 +1,20 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 
-from kfnetlist.morphnet.morphnet_schema import Connection, PortReference, SignalDomain
+from kfnetlist.morphnet.morphnet_schema import (
+    Connection,
+    Netlist,
+    PortReference,
+    SignalDomain,
+)
 
 # Type alias: net name → list of port references on that net
 NetMap = dict[str, list[PortReference]]
 
 OPTICAL_PORT_RE: re.Pattern[str] = re.compile(r"o\d")
+BIT_RE: re.Pattern[str] = re.compile(r"\[-?\d+\]$")  # `in[3]` is a bit of port `in`
 
 
 def domain_of(port_name: str) -> SignalDomain:
@@ -15,6 +22,101 @@ def domain_of(port_name: str) -> SignalDomain:
     if OPTICAL_PORT_RE.match(port_name):
         return SignalDomain.WAVEGUIDE
     return SignalDomain.ELECTRICAL
+
+
+PinDomains = Mapping[str, Mapping[str, SignalDomain]]  # cell -> pin -> domain
+
+
+def propagate_domains(
+    netlist: Netlist,
+    disciplines: Mapping[str, SignalDomain] | None = None,
+    pin_domains: PinDomains | None = None,
+) -> None:
+    """Resolve port and net domains in place.
+
+    1. A port whose type/discipline is in ``disciplines`` gets that domain
+       (e.g. ``{"connection": WAVEGUIDE, "mzmselect": ELECTRICAL}``); so does a
+       net whose declared type (``discipline`` property) is in it. A cell pin
+       in ``pin_domains`` (``{"MZM_1X2": {"in0": WAVEGUIDE, "R1": ELECTRICAL}}``)
+       has that domain, whether the cell is defined in the netlist or a leaf;
+       it takes precedence over ``disciplines``.
+    2. A net touching any waveguide terminal is waveguide; untyped ports on
+       it become waveguide too, across the hierarchy, until nothing changes.
+    3. Terminals neither typed nor reached keep the ``o<N>`` name rule.
+    """
+    disciplines = disciplines or {}
+    pin_domains = pin_domains or {}
+    ports = {
+        c.name: {p.name: p for p in c.ports}
+        for c in [*netlist.ext_circuits, *netlist.circuits]
+    }
+    typed: set[int] = set()
+    for cell, circuit_ports in ports.items():
+        for p in circuit_ports.values():
+            domain = pin_domains.get(cell, {}).get(
+                p.name, disciplines.get(p.discipline)
+            )
+            if domain is not None:
+                p.domain = domain
+                typed.add(id(p))
+
+    def leaf_domain(cell: str, pin: str) -> SignalDomain:
+        """Domain of a pin of a cell without a definition."""
+        domain = pin_domains.get(cell, {}).get(BIT_RE.sub("", pin))
+        return domain_of(pin) if domain is None else domain
+
+    changed = True
+    while changed:
+        changed = False
+        for circuit in netlist.circuits:
+            cells = {s.name: s.circuit_name for s in circuit.subcircuits}
+            nets: dict[str, list[Connection]] = {}
+            for conn in circuit.connections:
+                nets.setdefault(conn.name, []).append(conn)
+            for conns in nets.values():
+                refs = [r for c in conns for r in (c.source, c.target) if r is not None]
+                owner_cells = [
+                    cells.get(r.instance_name, "") if r.instance_name else circuit.name
+                    for r in refs
+                ]
+                owners = [
+                    ports.get(cell, {}).get(BIT_RE.sub("", r.port_name))
+                    for cell, r in zip(owner_cells, refs)
+                ]
+                waveguide = any(
+                    disciplines.get(c.properties.get("discipline", ""))
+                    == SignalDomain.WAVEGUIDE
+                    for c in conns
+                ) or any(
+                    (p.domain if p is not None else leaf_domain(cell, r.port_name))
+                    == SignalDomain.WAVEGUIDE
+                    for r, p, cell in zip(refs, owners, owner_cells)
+                )
+                domain = (
+                    SignalDomain.WAVEGUIDE if waveguide else SignalDomain.ELECTRICAL
+                )
+                for c in conns:
+                    c.domain = domain
+                for p in owners:
+                    if (
+                        waveguide
+                        and p is not None
+                        and id(p) not in typed
+                        and p.domain != domain
+                    ):
+                        p.domain = domain
+                        changed = True
+
+
+def typed_connections(net_map: NetMap, types: Mapping[str, str]) -> list[Connection]:
+    """``net_map_to_connections``, recording each net's declared type (``wire``,
+    ``connection``, ``optical``) as the ``discipline`` property."""
+    connections = net_map_to_connections(net_map)
+    for conn in connections:
+        net_type = types.get(BIT_RE.sub("", conn.name))
+        if net_type:
+            conn.properties = {**conn.properties, "discipline": net_type}
+    return connections
 
 
 def net_map_to_connections(net_map: NetMap) -> list[Connection]:

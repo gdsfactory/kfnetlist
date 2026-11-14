@@ -17,13 +17,18 @@ module_def: _MODULE_KW IDENT param_port_list? port_list? _SEMI module_item* _END
 end_label: ":" IDENT
 
 // ── Parameter port list: #(parameter real gap = 200e-9, n = 2) (A.1.4) ─
-param_port_list: "#" "(" param_port ("," param_port)* ")"
+param_port_list: "#" "(" (param_port ("," param_port)*)? ")"
 param_port: PARAM_KW? type_spec? param_assign
 
 // ── ANSI / non-ANSI port list (A.1.4) ─────────────────────────────────
 // (input wire [3:0] a, output o1, b)  or  (a, b, o1)
 port_list: "(" (ansi_port ("," ansi_port)*)? ")"
-ansi_port: PORT_DIR? type_spec? IDENT dims
+ansi_port: PORT_DIR? port_type? port_name
+// `a [3:0]`, or a user type first: `connection [3:0] a`, `connection a [3:0]`
+port_name: IDENT dims (IDENT dims)?
+?port_type: builtin_type
+          | SIGNING range*  -> implicit_type
+          | range+          -> implicit_type
 
 // ── Module items (A.1.5) ──────────────────────────────────────────────
 ?module_item: port_decl
@@ -36,12 +41,13 @@ ansi_port: PORT_DIR? type_spec? IDENT dims
             | placeholder
 
 // input [3:0] a, b;   inout optical o1;
-port_decl: PORT_DIR type_spec? IDENT dims ("," IDENT dims)* _SEMI
+port_decl: PORT_DIR port_type? port_name ("," port_name)* _SEMI
 
 // wire a, b = c;   logic [7:0] bus;   real r = 1.5;
 data_decl: builtin_type decl_assign ("," decl_assign)* _SEMI
-// user-defined type: my_type a, b;
+// user-defined type: my_type a, b;   my_type [3:0] bus;
 user_decl: IDENT decl_assign ("," decl_assign)* _SEMI
+         | IDENT range+ decl_assign ("," decl_assign)* _SEMI
 decl_assign: IDENT dims ("=" expr)?
 
 // parameter real gap = 200e-9, n = 2;   localparam W = 8;
@@ -88,6 +94,8 @@ placeholder: _PLACEHOLDER NUMBER _SEMI
      | QSTRING               -> string
      | net_ref
      | "(" expr ")"          -> paren
+     | "{" expr ("," expr)* "}"             -> concat
+     | "{" expr "{" expr ("," expr)* "}" "}" -> replicate
 
 net_ref: IDENT range*
 dims: range*

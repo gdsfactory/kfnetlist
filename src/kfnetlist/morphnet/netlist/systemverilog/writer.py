@@ -9,9 +9,19 @@ from kfnetlist.morphnet.morphnet_schema import (
     ExternalCircuit,
     Netlist,
     Parameter,
+    Port,
     SubCircuit,
 )
-from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
+from kfnetlist.morphnet.netlist.hdl import (
+    Buses,
+    Range,
+    bus_pins,
+    declared_range,
+    connection_expr,
+    net_buses,
+    port_pins,
+)
+from kfnetlist.morphnet.netlist.net_utils import BIT_RE, connections_to_instance_nets
 from kfnetlist.morphnet.netlist.value_utils import to_float
 
 IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*")
@@ -29,6 +39,24 @@ def sv_name(name: str) -> str:
     if IDENT_RE.fullmatch(name) and name not in RESERVED:
         return name
     return f"\\{name} "
+
+
+BUILTIN_TYPES = RESERVED - {"input", "output", "inout", "ref", "module", "macromodule",
+                            "endmodule", "assign", "alias", "parameter", "localparam"}  # fmt: skip
+
+
+def port_range(port: Port) -> Range | None:
+    return declared_range(port.width, port.properties.get("range"))
+
+
+def declaration(type_name: str, name: str, rng: Range | None) -> str:
+    """``wire [3:0] a`` for builtin types, ``connection a [3:0]`` for user types."""
+    if rng is None:
+        return " ".join(p for p in (type_name, sv_name(name)) if p)
+    dim = f"[{rng[0]}:{rng[1]}]"
+    if type_name and type_name not in BUILTIN_TYPES:
+        return f"{type_name} {sv_name(name)} {dim}"
+    return " ".join(p for p in (type_name, dim, sv_name(name)) if p)
 
 
 def format_param_value(param: Parameter) -> str:
@@ -83,15 +111,8 @@ class SystemVerilogWriter:
         if header_params:
             params = " #(" + ", ".join(self.param_decl(p) for p in header_params) + ")"
         ports = ",\n  ".join(
-            " ".join(
-                part
-                for part in (
-                    port.direction.name.lower(),
-                    port.discipline,
-                    sv_name(port.name),
-                )
-                if part
-            )
+            f"{port.direction.name.lower()} "
+            + declaration(port.discipline, port.name, port_range(port))
             for port in circuit.ports
         )
         ports = f"(\n  {ports}\n)" if ports else "()"
@@ -101,10 +122,33 @@ class SystemVerilogWriter:
             if p.properties.get("localparam") == "true":
                 lines.append(f"  {self.param_decl(p, 'localparam')};")
 
+        # buses: declared port ranges, then internal `name[i]` nets (declared here)
+        port_buses = {
+            p.name: rng for p in circuit.ports if (rng := port_range(p)) is not None
+        }
+        port_names = {p.name for p in circuit.ports}
+        net_types = {
+            BIT_RE.sub("", c.name): c.properties.get("discipline", "")
+            for c in circuit.connections
+        }
+        # a scalar port literally named `in[3]` (from kfnetlist) is not a bus bit
+        internal = net_buses(
+            [c.name for c in circuit.connections if c.name not in port_names]
+        )
+        buses: Buses = {
+            **{b: r for b, r in internal.items() if b not in port_names},
+            **port_buses,
+        }
+        for net, net_type in net_types.items():
+            if net in port_names or (net not in internal and not net_type):
+                continue
+            rng = internal.get(net)
+            lines.append(f"  {declaration(net_type or 'wire', net, rng)};")
+
         inst_nets = connections_to_instance_nets(circuit.connections)
         for ref in circuit.subcircuits:
             lines.append(
-                self.write_instance(ref, inst_nets, ext_by_name, circuit_by_name)
+                self.write_instance(ref, inst_nets, ext_by_name, circuit_by_name, buses)
             )
 
         lines.extend(
@@ -126,6 +170,7 @@ class SystemVerilogWriter:
         inst_nets: dict[tuple[str, str], str],
         ext_by_name: dict[str, ExternalCircuit],
         circuit_by_name: dict[str, Circuit],
+        buses: Buses | None = None,
     ) -> str:
         params = ""
         if ref.parameters:
@@ -142,14 +187,19 @@ class SystemVerilogWriter:
             ref.circuit_name
         )
         if target is not None:
-            port_order = [p.name for p in target.ports]
+            port_order = [
+                (p.name, port_pins(p.name, p.width, p.properties.get("range")))
+                for p in target.ports
+            ]
         else:
-            port_order = [pn for (inst, pn) in inst_nets if inst == ref.name]
+            port_order = bus_pins([pn for (inst, pn) in inst_nets if inst == ref.name])
 
-        conns = ", ".join(
-            f".{sv_name(pn)}({sv_name(inst_nets[(ref.name, pn)]) if (ref.name, pn) in inst_nets else ''})"
-            for pn in port_order
-        )
+        conns = []
+        for name, pins in port_order:
+            nets = [inst_nets.get((ref.name, pin)) for pin in pins]
+            expr = connection_expr(f"{ref.name}.{name}", nets, buses or {}, sv_name)
+            conns.append(f".{sv_name(name)}({expr})")
+        conns = ", ".join(conns)
         return f"  {sv_name(ref.circuit_name)}{params} {sv_name(ref.name)} ({conns});"
 
 
