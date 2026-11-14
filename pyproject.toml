@@ -49,6 +49,19 @@ module-name = "kfnetlist._native"
 features = ["pyo3/extension-module"]
 include = [{ path = ".cargo/config.toml", format = "sdist" }]
 
+# Pyodide (WebAssembly) wheel, built with cibuildwheel (CIBW_PLATFORM=pyodide).
+# Rust 1.93 is the toolchain Pyodide 314 pins; its wasm32-unknown-emscripten std uses
+# wasm exception handling (like Pyodide itself), so Rust panics become Python exceptions.
+[tool.cibuildwheel.pyodide]
+environment = { RUSTUP_TOOLCHAIN = "1.93.0" }
+test-requires = ["pytest", "pydantic"]
+# klayout has no Pyodide wheel on PyPI, and Pyodide cannot start subprocesses.
+test-command = """\
+pytest {project}/tests -ra -p no:cacheprovider \
+  --ignore={project}/tests/test_parser.py \
+  -k 'not test_placement_for_reads_transform_and_bbox and not test_schema_runs_without_python_model_or_codec_packages'\
+"""
+
 [tool.codespell]
 ignore-words-list = "ure, THE, BE, WE, TO, the, be, we, to, astroid, input, output, inout, in, out, TE"
 

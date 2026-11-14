@@ -53,6 +53,32 @@ jobs:
           name: wheels-${{ matrix.os }}-${{ matrix.target }}
           path: dist
 
+  # Build the Pyodide (WebAssembly) wheel and run the tests in Pyodide;
+  # see [tool.cibuildwheel.pyodide] in pyproject.toml
+  pyodide:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+
+      - uses: dtolnay/rust-toolchain@master
+        with:
+          toolchain: "1.93.0"
+          targets: wasm32-unknown-emscripten
+
+      - name: Build wheel
+        uses: pypa/cibuildwheel@v4.3.5
+        env:
+          CIBW_PLATFORM: pyodide
+          CIBW_BUILD: cp314-*
+        with:
+          output-dir: dist
+
+      - name: Upload wheel
+        uses: actions/upload-artifact@v4
+        with:
+          name: wheels-pyodide
+          path: dist
+
   # Build the source distribution
   sdist:
     runs-on: ubuntu-latest
@@ -73,7 +99,7 @@ jobs:
 
   # Publish all artifacts to PyPI
   publish:
-    needs: [build, sdist]
+    needs: [build, pyodide, sdist]
     runs-on: ubuntu-latest
     environment: pypi
     permissions:
