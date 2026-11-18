@@ -102,10 +102,21 @@ class SubcktData:
 
 
 class IncludeData:
-    __slots__ = ("path",)
+    __slots__ = ("lang", "path", "section")
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, section: str = "", lang: str = "") -> None:
         self.path = path
+        self.section = section
+        self.lang = lang
+
+    def to_directive(self) -> Directive:
+        """``include "p" section=s`` is a library include; ``lang=`` goes in ``name``."""
+        name = f"lang={self.lang}" if self.lang else ""
+        if self.section:
+            return Directive(
+                kind=DirectiveKind.LIB, name=name, value=f"{self.path} {self.section}"
+            )
+        return Directive(kind=DirectiveKind.INCLUDE, name=name, value=self.path)
 
 
 class ParamData:
@@ -209,9 +220,16 @@ class SpectreTransformer(Transformer[Token, Netlist]):
 
     # ── include ─────────────────────────────────────────────────────────
 
+    def include_opt(self, items: list[Token]) -> tuple[str, str]:
+        return (f"{items[0]}", str(items[1]))
+
     def include_stmt(self, items: list[Any]) -> IncludeData:
-        path = str(items[0]).strip("\"'")
-        return IncludeData(path=path)
+        opts = dict(items[1:])
+        return IncludeData(
+            path=str(items[0]).strip("\"'"),
+            section=opts.get("section", ""),
+            lang=opts.get("lang", ""),
+        )
 
     # ── save statement ───────────────────────────────────────────────────
 
@@ -283,9 +301,7 @@ class SpectreTransformer(Transformer[Token, Netlist]):
                 for pname, pval in item.params.items():
                     circuit_params.append(Parameter(name=pname, default_value=pval))
             elif isinstance(item, IncludeData):
-                directives.append(
-                    Directive(kind=DirectiveKind.INCLUDE, value=item.path)
-                )
+                directives.append(item.to_directive())
             elif isinstance(item, list):
                 for sub_item in item:
                     if isinstance(sub_item, InstanceData):
@@ -435,9 +451,7 @@ class SpectreTransformer(Transformer[Token, Netlist]):
             elif isinstance(item, OutputRequestData):
                 output_requests.append(item)
             elif isinstance(item, IncludeData):
-                directives.append(
-                    Directive(kind=DirectiveKind.INCLUDE, value=item.path)
-                )
+                directives.append(item.to_directive())
             elif isinstance(item, ParamData):
                 for pname, pval in item.params.items():
                     val = _param_value_to_str(pval)

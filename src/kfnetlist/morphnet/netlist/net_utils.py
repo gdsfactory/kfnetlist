@@ -152,15 +152,17 @@ def net_map_to_connections(net_map: NetMap) -> list[Connection]:
 
 def connections_to_instance_nets(
     connections: list[Connection],
+    ground: str = "",
 ) -> dict[tuple[str, str], str]:
     """Build (instance_name, port_name) → net_name lookup from Connection objects.
 
     Single pass over connections — O(n).  Used by writers to reconstruct
-    instance lines with the correct net names in port order.
+    instance lines with the correct net names in port order.  A net named
+    ``ground`` (when given) is emitted as node ``0``.
     """
     mapping: dict[tuple[str, str], str] = {}
     for conn in connections:
-        net_name = conn.name
+        net_name = "0" if ground and conn.name == ground else conn.name
         if conn.source is not None:
             key = (conn.source.instance_name, conn.source.port_name)
             mapping[key] = net_name

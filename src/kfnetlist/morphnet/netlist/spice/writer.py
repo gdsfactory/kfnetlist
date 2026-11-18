@@ -9,6 +9,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     ExternalCircuit,
     Measurement,
     Circuit,
+    Parameter,
     SubCircuit,
     OutputRequest,
     OutputRequestKind,
@@ -20,6 +21,8 @@ from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PORT_TEMPLATES,
     DEVICE_PREFIX_TO_CIRCUIT,
     format_si_value,
+    is_skipped,
+    param_text,
 )
 
 # Reverse lookup: module name → SPICE device prefix letter — O(1) per instance
@@ -32,14 +35,20 @@ class SpiceWriter:
     All lookups use dict-based O(1) access.
     """
 
+    ground: str = ""
+
     def format_param_value(self, pval: ParameterValue) -> str:
         """Format any ParameterValue variant as a SPICE-compatible string."""
         if pval.prefixed_value is not None:
             return format_si_value(pval.prefixed_value)
         return "0"
 
+    def param_text(self, param: Parameter) -> str | None:
+        return param_text(param, self.format_param_value)
+
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
+        self.ground = netlist.properties.get("ground_net", "")
 
         # Title line
         title = netlist.name or "untitled"
@@ -94,10 +103,9 @@ class SpiceWriter:
         """Emit a .model statement."""
         param_strs: list[str] = []
         for p in ext.parameters:
-            if p.default_value:
-                param_strs.append(
-                    f"{p.name}={self.format_param_value(p.default_value)}"
-                )
+            text = self.param_text(p)
+            if text is not None:
+                param_strs.append(f"{p.name}={text}")
         params_text = " ".join(param_strs)
         if params_text:
             lines.append(f".model {ext.name} {model_type} {params_text}")
@@ -113,23 +121,13 @@ class SpiceWriter:
     ) -> None:
         """Emit a .subckt / .ends block."""
         port_names = " ".join(p.name for p in circuit.ports)
-        lines.append(f".subckt {circuit.name} {port_names}")
-
-        # Emit .param for circuit parameters
+        header = [f".subckt {circuit.name}", port_names]
         for param in circuit.parameters:
-            if param.default_value:
-                val = self.format_param_value(param.default_value)
-                lines.append(f".param {param.name}={val}")
-
-        # Build (instance_name, port_name) → net_name — O(c)
-        inst_nets = connections_to_instance_nets(circuit.connections)
-
-        # Emit instances
-        for ref in circuit.subcircuits:
-            lines.append(
-                self.write_instance(ref, inst_nets, ext_by_name, circuit_by_name)
-            )
-
+            text = self.param_text(param)
+            if text is not None:
+                header.append(f"{param.name}={text}")
+        lines.append(" ".join(h for h in header if h))
+        lines.extend(self.instance_lines(circuit, ext_by_name, circuit_by_name))
         lines.append(f".ends {circuit.name}")
 
     def write_top_instances(
@@ -140,11 +138,37 @@ class SpiceWriter:
         lines: list[str],
     ) -> None:
         """Emit top-level instances (outside any subcircuit)."""
-        inst_nets = connections_to_instance_nets(circuit.connections)
-        for ref in circuit.subcircuits:
-            lines.append(
-                self.write_instance(ref, inst_nets, ext_by_name, circuit_by_name)
-            )
+        lines.extend(self.instance_lines(circuit, ext_by_name, circuit_by_name))
+
+    def instance_lines(
+        self,
+        circuit: Circuit,
+        ext_by_name: dict[str, ExternalCircuit],
+        circuit_by_name: dict[str, Circuit],
+    ) -> list[str]:
+        # Build (instance_name, port_name) → net_name — O(c)
+        inst_nets = connections_to_instance_nets(circuit.connections, self.ground)
+        return [
+            self.write_instance(ref, inst_nets, ext_by_name, circuit_by_name)
+            for ref in circuit.subcircuits
+            if not is_skipped(ref)
+        ]
+
+    def out_name(
+        self,
+        ref: SubCircuit,
+        ext_by_name: dict[str, ExternalCircuit],
+        circuit_by_name: dict[str, Circuit],
+    ) -> str:
+        """Instance name with its SPICE device letter prepended when missing."""
+        if ref.circuit_name in circuit_by_name:
+            letter = "X"
+        else:
+            ext = ext_by_name.get(ref.circuit_name)
+            letter = ext.properties.get("spice_prefix", "") if ext else ""
+        if letter and not ref.name.lower().startswith(letter.lower()):
+            return letter + ref.name
+        return ref.name
 
     def write_instance(
         self,
@@ -163,6 +187,7 @@ class SpiceWriter:
         if prefix:
             # Primitive device: R1 net1 net2 value param=val ...
             inst_name = ref.name
+            out_name = self.out_name(ref, ext_by_name, circuit_by_name)
             port_order = (
                 [p.name for p in ext_circuit.ports]
                 if ext_circuit
@@ -175,14 +200,15 @@ class SpiceWriter:
             value_str = ""
             other_params: list[str] = []
             for param in ref.parameters:
-                if param.name == "value" and param.default_value:
-                    value_str = self.format_param_value(param.default_value)
-                elif param.default_value:
-                    other_params.append(
-                        f"{param.name}={self.format_param_value(param.default_value)}"
-                    )
+                text = self.param_text(param)
+                if text is None:
+                    continue
+                if param.name == "value":
+                    value_str = text
+                else:
+                    other_params.append(f"{param.name}={text}")
 
-            parts = [inst_name, nets_str]
+            parts = [out_name, nets_str]
             if model_name:
                 parts.append(model_name)
             if value_str:
@@ -206,11 +232,15 @@ class SpiceWriter:
         nets_str = " ".join(nets)
 
         params_parts = [
-            f"{p.name}={self.format_param_value(p.default_value)}"
+            f"{p.name}={text}"
             for p in ref.parameters
-            if p.default_value
+            if (text := self.param_text(p)) is not None
         ]
-        parts = [inst_name, nets_str, subckt_name]
+        parts = [
+            self.out_name(ref, ext_by_name, circuit_by_name),
+            nets_str,
+            subckt_name,
+        ]
         parts.extend(params_parts)
         return " ".join(parts)
 

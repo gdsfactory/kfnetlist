@@ -1,3 +1,4 @@
+from kfnetlist.morphnet.morphnet_schema import DirectiveKind
 from kfnetlist.morphnet.netlist.spectre.parser import parse_spectre
 from kfnetlist.morphnet.netlist.spectre.writer import write_spectre
 
@@ -166,3 +167,41 @@ ends top
     top = netlist.circuits[1]
     assert [s.name for s in top.subcircuits] == ["Xdc1"]
     assert len(top.connections) == 2
+
+
+class TestIncludeSection:
+    def test_include_section_is_lib_directive(self) -> None:
+        netlist = parse_spectre('include "m.scs" section=tt\n')
+        (d,) = netlist.directives
+        assert (d.kind, d.value, d.name) == (DirectiveKind.LIB, "m.scs tt", "")
+
+    def test_include_section_lang(self) -> None:
+        netlist = parse_spectre('include "m.lib" section=tt lang=ngspice\n')
+        (d,) = netlist.directives
+        assert (d.kind, d.value, d.name) == (
+            DirectiveKind.LIB,
+            "m.lib tt",
+            "lang=ngspice",
+        )
+
+    def test_include_lang_only(self) -> None:
+        netlist = parse_spectre('include "m.lib" lang=ngspice\n')
+        (d,) = netlist.directives
+        assert (d.kind, d.value, d.name) == (
+            DirectiveKind.INCLUDE,
+            "m.lib",
+            "lang=ngspice",
+        )
+
+    def test_plain_include_unchanged(self) -> None:
+        (d,) = parse_spectre('include "m.scs"\n').directives
+        assert (d.kind, d.value, d.name) == (DirectiveKind.INCLUDE, "m.scs", "")
+
+    def test_round_trip(self) -> None:
+        for line in (
+            'include "m.scs" section=tt',
+            'include "m.lib" section=tt lang=ngspice',
+            'include "m.lib" lang=ngspice',
+            'include "m.scs"',
+        ):
+            assert line in write_spectre(parse_spectre(line + "\n")).splitlines()

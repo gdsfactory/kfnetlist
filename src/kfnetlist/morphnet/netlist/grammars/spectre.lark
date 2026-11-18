@@ -41,7 +41,8 @@ parameters_stmt: _PARAMETERS_KW param_assign+
 _PARAMETERS_KW: "parameters"
 
 // ── include ────────────────────────────────────────────────────────────
-include_stmt: _INCLUDE_KW FILE_PATH
+include_stmt: _INCLUDE_KW FILE_PATH include_opt*
+include_opt: IDENT "=" IDENT
 _INCLUDE_KW: "include"
 
 // ── section/endsection (library sections) ──────────────────────────────

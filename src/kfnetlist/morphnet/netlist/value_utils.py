@@ -1,8 +1,15 @@
 from __future__ import annotations
 
 import re
+from collections.abc import Callable
 
-from kfnetlist.morphnet.morphnet_schema import ParameterValue, PrefixedValue, SIPrefix
+from kfnetlist.morphnet.morphnet_schema import (
+    Parameter,
+    ParameterValue,
+    PrefixedValue,
+    SIPrefix,
+    SubCircuit,
+)
 
 # ---------------------------------------------------------------------------
 # SI suffix ↔ SIPrefix enum — O(1) lookups in both directions
@@ -53,6 +60,22 @@ DEVICE_PREFIX_TO_CIRCUIT: dict[str, str] = {
     "V": "vsource",
     "I": "isource",
 }
+
+
+def is_skipped(ref: SubCircuit) -> bool:
+    """Instances flagged ``sim_skip`` are kept in the IR but not simulated."""
+    return ref.properties.get("sim_skip") == "1"
+
+
+def param_text(param: Parameter, fmt: Callable[[ParameterValue], str]) -> str | None:
+    """Written value of a parameter: ``expr`` verbatim, else its formatted default."""
+    expr = param.properties.get("expr")
+    if expr:
+        return expr
+    if param.default_value:
+        return fmt(param.default_value)
+    return None
+
 
 # Deprecated name, kept for code written before the ExternalCircuit rename.
 DEVICE_PREFIX_TO_MODULE = DEVICE_PREFIX_TO_CIRCUIT
