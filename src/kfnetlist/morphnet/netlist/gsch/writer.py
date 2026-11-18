@@ -75,6 +75,32 @@ def attached_port(keys: dict[str, str], inst: str, pin: str) -> dict[str, str]:
     return {"component_id": keys[inst], "port_name": pin}
 
 
+def live_net_entry(
+    entry: dict[str, Any],
+    key: str,
+    by_key: dict[str, str],
+    junctions: set[str],
+    net_of: dict[tuple[str, str], str],
+    members: dict[str, list[tuple[str, str]]],
+) -> dict[str, Any] | None:
+    """``entry`` limited to the pins still on its net, ``None`` if none are.
+
+    Its net is the one it names (``id``, ``_id`` or key) while that net exists, else
+    the net its instance pins share. Pins of vias and tapers cannot be checked and stay.
+    """
+    pins = []  # (port, is a junction pin, net of an instance pin)
+    for port, ref in zip(entry.get("ports", []), terminal_refs(entry)):
+        if ref and ref[0] in by_key:
+            pins.append((port, False, net_of.get((by_key[ref[0]], ref[1].lower()))))
+        elif ref and ref[0] in junctions:
+            pins.append((port, True, None))
+    name = entry.get("id") or entry.get("_id") or key
+    shared = {net for _, junction, net in pins if not junction}
+    net = name if name in members else (shared.pop() if len(shared) == 1 else None)
+    kept = [p for p, junction, n in pins if junction or (net and n == net)]
+    return {**entry, "ports": kept} if kept else None
+
+
 def stash_of(sub: SubCircuit) -> dict[str, Any] | None:
     return json.loads(sub.properties.get(INFO) or "{}").get(STASH)
 
@@ -214,19 +240,21 @@ def write_gsch(netlist: Netlist) -> str:
         out[synthesized(entry, port.name)] = entry
 
     other = circuit_stash(circuit, "gsch_other")
-    alive = set(keys.values()) | {i["key"] for i in other}
+    junctions = {i["key"] for i in other}
+    alive = set(keys.values()) | junctions
+    by_key = {k: n for n, k in keys.items()}
     for item in circuit_stash(circuit, "gsch_wires"):
         out[item["key"]] = item["entry"]
     for item in other:
         entry = item["entry"]
         if entry_type(entry) == "net":
-            refs = terminal_refs(entry)
-            kept = [
-                t for t, r in zip(entry.get("ports", []), refs) if r and r[0] in alive
-            ]
-            entry = {**entry, "ports": kept}
+            live = live_net_entry(
+                entry, item["key"], by_key, junctions, net_of, members
+            )
+            if live is None:
+                continue
+            entry = live
         out[item["key"]] = entry
-    by_key = {k: n for n, k in keys.items()}
     for item in circuit_stash(circuit, "gsch_routes"):
         entry = item["entry"]
         ends = terminal_refs(entry)

@@ -262,18 +262,28 @@ def move_pin(nl: Netlist, inst: str, pin: str, to: str) -> None:
                 ref.port_name = to
 
 
-def rebind(nl: Netlist, inst: str, pin: str, net: str) -> None:
-    """Move ``inst.pin`` onto the net called ``net``."""
+def rebind(nl: Netlist, net: str, *pins: tuple[str, str]) -> None:
+    """Move the ``(instance, pin)`` pins onto the net called ``net``."""
     circuit = nl.circuits[0]
     net_map: NetMap = {}
     for c in circuit.connections:
         for ref in (c.source, c.target):
-            if ref and (ref.instance_name, ref.port_name) != (inst, pin):
+            if ref and (ref.instance_name, ref.port_name) not in pins:
                 members = net_map.setdefault(c.name, [])
                 if ref not in members:
                     members.append(ref)
-    add_port_to_net(net_map, net, inst, pin)
+    for inst, pin in pins:
+        add_port_to_net(net_map, net, inst, pin)
     circuit.connections = net_map_to_connections(net_map)
+
+
+def nets_by_name(nl: Netlist) -> dict[str, set[tuple[str, str]]]:
+    out: dict[str, set[tuple[str, str]]] = {}
+    for c in nl.circuits[0].connections:
+        out.setdefault(c.name, set()).update(
+            (r.instance_name, r.port_name) for r in (c.source, c.target) if r
+        )
+    return out
 
 
 def parsed_nets(nl: Netlist) -> set[frozenset[tuple[str, str]]]:
@@ -282,7 +292,7 @@ def parsed_nets(nl: Netlist) -> set[frozenset[tuple[str, str]]]:
 
 def test_moving_a_pin_to_another_net_is_written_for_mosaic_nets():
     nl = parse_gsch((FIXTURES / "ihp_rc_filter.gsch").read_text())
-    rebind(nl, "C1", "P", "W3")  # C1.P leaves net P1 for W3
+    rebind(nl, "W3", ("C1", "P"))  # C1.P leaves net P1 for W3
     assert json.loads(write_gsch(nl))["demo:C1"]["nets"] == {"N": "GND", "P": "W3"}
     assert parsed_nets(nl) == {
         frozenset({("V1", "P"), ("R1", "N"), ("C1", "P")}),
@@ -319,6 +329,52 @@ def test_polyline_is_dropped_when_its_pins_are_no_longer_one_net():
     out = json.loads(write_gsch(nl))
     assert "poly_coupling" not in out
     assert all(("A", "D") not in net for net in parsed_nets(nl))
+
+
+def sig_netlist() -> Netlist:
+    inst = {"type": "ckt", "model": "m", "x": 0, "y": 0}
+    doc: dict[str, dict] = {k: {**inst, "name": k.upper()} for k in "abc"}
+    doc["sig"] = {
+        "type": "net",
+        "ports": [{"component_id": k, "port_name": "o1"} for k in "abc"],
+    }
+    return parse_gsch(json.dumps(doc))
+
+
+def test_net_entry_keeps_only_the_pins_still_on_its_net():
+    nl = sig_netlist()
+    move_pin(nl, "B", "o1", "o2")  # B's o1 becomes o2: the net now holds B.o2
+    out = json.loads(write_gsch(nl))
+    assert [p["component_id"] for p in out["sig"]["ports"]] == ["a", "c"]
+    # B.o1 is not put back on `sig`, and the net keeps its name
+    assert nets_by_name(parse_gsch(json.dumps(out))) == {
+        "sig": {("A", "o1"), ("B", "o2"), ("C", "o1")}
+    }
+
+
+def test_net_entry_whose_pins_left_for_another_net_is_dropped():
+    nl = sig_netlist()
+    rebind(nl, "other", ("B", "o1"), ("C", "o1"))  # both leave `sig`
+    out = json.loads(write_gsch(nl))
+    assert "sig" not in out  # A.o1 alone is no net
+    assert nets_by_name(parse_gsch(json.dumps(out))) == {
+        "other": {("B", "o1"), ("C", "o1")}
+    }
+
+
+def test_net_entry_is_dropped_when_no_pin_is_left_on_its_net():
+    nl = sig_netlist()
+    nl.circuits[0].connections.clear()
+    assert "sig" not in json.loads(write_gsch(nl))
+
+
+def test_net_entry_follows_a_renamed_net_of_its_surviving_pins():
+    nl = sig_netlist()
+    for c in nl.circuits[0].connections:
+        c.name = "renamed"
+    out = json.loads(write_gsch(nl))
+    assert len(out["sig"]["ports"]) == 3  # all three still share one net
+    assert set(nets_by_name(parse_gsch(json.dumps(out)))) == {"renamed"}
 
 
 def test_edited_connectivity_round_trips_for_every_fixture():
