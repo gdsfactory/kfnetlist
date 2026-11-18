@@ -36,9 +36,18 @@ def rc() -> Netlist:
     return nl
 
 
-def connectivity(nl: Netlist):
+def connectivity(nl: Netlist, fold_pin_case: bool = False):
     nl.sort()
     instances = {k: (v.component, v.settings) for k, v in nl.instances.items()}
+    if fold_pin_case:  # Mosaic spells the pins of its symbols uppercase
+        nets = {
+            frozenset(
+                m.name if isinstance(m, NetlistPort) else (m.instance, m.port.upper())
+                for m in net
+            )
+            for net in nl.nets
+        }
+        return nets, nl.ports, instances
     return nl.nets, nl.ports, instances
 
 
@@ -50,20 +59,24 @@ def test_direct_round_trip_is_exact():
 
 
 @pytest.mark.parametrize(
-    ("write", "parse"),
+    ("write", "parse", "fold_pin_case"),
     [
-        (write_spice, parse_spice),
-        (write_spectre, parse_spectre),
-        (write_vams, parse_vams),
-        (write_systemverilog, parse_systemverilog),
-        (write_gsch, partial(parse_gsch, name="rc")),  # a .gsch has no circuit name
+        (write_spice, parse_spice, False),
+        (write_spectre, parse_spectre, False),
+        (write_vams, parse_vams, False),
+        (write_systemverilog, parse_systemverilog, False),
+        (
+            write_gsch,
+            partial(parse_gsch, name="rc"),
+            True,
+        ),  # no circuit name in a .gsch
     ],
 )
-def test_every_format_round_trips_connectivity(write, parse):
+def test_every_format_round_trips_connectivity(write, parse, fold_pin_case):
     nl = rc()
     text = write(morphnet.from_netlists({"rc": nl}, "rc"))
     back = morphnet.to_netlists(parse(text))["rc"]
-    assert connectivity(back) == connectivity(nl)
+    assert connectivity(back, fold_pin_case) == connectivity(nl, fold_pin_case)
 
 
 def test_positional_writers_use_device_pin_order():

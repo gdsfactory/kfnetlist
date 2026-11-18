@@ -24,13 +24,18 @@ MOSAIC_TYPES = set(
 )
 
 
-def structure(netlist: Netlist):
-    """Everything the writer must preserve: nets, pins, instances."""
+def structure(netlist: Netlist, fold_pin_case: bool = False):
+    """Everything the writer must preserve: nets, pins, instances.
+
+    ``fold_pin_case``: Mosaic symbols spell pins uppercase (``p`` -> ``P``).
+    """
     circuit = netlist.circuits[0]
     nets: dict[str, set[tuple[str, str]]] = {}
     for c in circuit.connections:
         nets.setdefault(c.name, set()).update(
-            (r.instance_name, r.port_name) for r in (c.source, c.target) if r
+            (r.instance_name, r.port_name.upper() if fold_pin_case else r.port_name)
+            for r in (c.source, c.target)
+            if r
         )
     return (
         {frozenset(m) for m in nets.values()},
@@ -125,13 +130,11 @@ def test_inline_models_survive():
     )
 
 
-# spclo_gc2 is excluded: the bridge's serde_json parses floats with 1 ULP of error
-# (95.34302520751953 -> ...52) unless built with its `float_roundtrip` feature.
-@pytest.mark.parametrize("name", [n for n in NAMES if n != "spclo_gc2"])
+@pytest.mark.parametrize("name", NAMES)
 def test_stash_survives_the_kfnetlist_bridge(name):
     nl = parse_gsch((FIXTURES / f"{name}.gsch").read_text())
     back = morphnet.from_netlists(morphnet.to_netlists(nl), nl.top_circuit)
-    # the bridge may reorder JSON object keys, never change values
+    # the bridge may reorder JSON object keys, never change values (floats included)
     assert json.loads(write_gsch(back)) == json.loads(write_gsch(nl))
 
 
@@ -180,7 +183,8 @@ def test_other_formats_write_a_valid_schematic_with_the_same_connectivity(
         *(s.name for s in nl.circuits[0].subcircuits),
         *(p.name for p in nl.circuits[0].ports),
     }
-    assert structure(parse_gsch(text, name=nl.top_circuit)) == structure(nl)
+    reparsed = parse_gsch(text, name=nl.top_circuit)
+    assert structure(reparsed, fold_pin_case=True) == structure(nl, True)
 
 
 def test_rc_is_written_as_mosaic_symbols_with_values():
@@ -188,10 +192,19 @@ def test_rc_is_written_as_mosaic_symbols_with_values():
     assert out["R1"]["type"] == "resistor"
     assert "model" not in out["R1"]
     assert out["R1"]["props"] == {"value": "1k"}
-    assert out["R1"]["nets"] == {"p": "in", "n": "out"}
+    # Mosaic's resistor pins are `P` and `N`: SPICE's `p`/`n` would not connect
+    assert out["R1"]["nets"] == {"P": "in", "N": "out"}
     assert out["in"]["nets"] == {"P": "in"}
-    assert out["in"]["attached_port"] == {"component_id": "R1", "port_name": "p"}
+    assert out["in"]["attached_port"] == {"component_id": "R1", "port_name": "P"}
     assert out["in"]["nature"] == "electric"
+
+
+def test_only_pins_of_the_mosaic_symbol_are_uppercased():
+    nl = parse_spice(RC)
+    nl.circuits[0].subcircuits[0].circuit_name = "nmos"  # pins D G S B
+    out = json.loads(write_gsch(nl))
+    assert out["R1"]["nets"] == {"p": "in", "n": "out"}  # not nmos pins: verbatim
+    assert out["C1"]["nets"] == {"P": "out", "N": "gnd"}  # capacitor: uppercased
 
 
 def test_photonic_module_is_written_as_ckt_models_and_photonic_ports():

@@ -38,6 +38,14 @@ DEVICE_TYPES = frozenset(
     "terminator crossing ring-single ring-double spiral splitter-1x2 coupler "
     "coupler-ring mmi-1x2 mmi-2x2 mzi-1x2 mzi-2x2 grating-coupler".split()
 )
+# Pins of Mosaic's built-in electrical symbols; Mosaic only connects these spellings.
+MOSAIC_PINS = {
+    **dict.fromkeys(
+        ("resistor", "capacitor", "inductor", "diode", "vsource", "isource"), ("P", "N")
+    ),
+    **dict.fromkeys(("nmos", "pmos"), ("D", "G", "S", "B")),
+    **dict.fromkeys(("npn", "pnp"), ("C", "B", "E")),
+}
 IDENTITY = [1, 0, 0, 1, 0, 0]
 PITCH = 4  # Mosaic grid units between synthesized symbols
 
@@ -88,15 +96,21 @@ def write_gsch(netlist: Netlist) -> str:
     info = json.loads(circuit.properties.get(INFO) or "{}")
     # ponytail: files written from non-gsch sources have no Mosaic wires, so Mosaic
     # recomputes `nets` on its first edit; Livewire keeps them.
-    inst_nets = connections_to_instance_nets(circuit.connections)
+    stashes = {sub.name: stash_of(sub) for sub in circuit.subcircuits}
+    symbols = {  # synthesized built-in symbols: instance -> Mosaic pins
+        sub.name: MOSAIC_PINS[sub.circuit_name]
+        for sub in circuit.subcircuits
+        if not stashes[sub.name] and sub.circuit_name in MOSAIC_PINS
+    }
     pins: dict[str, dict[str, str]] = {}
     members: dict[str, list[tuple[str, str]]] = {}  # net -> instance pins
-    for (inst, pin), net in inst_nets.items():
+    for (inst, pin), net in connections_to_instance_nets(circuit.connections).items():
+        if pin.upper() in symbols.get(inst, ()):  # `p` -> `P`
+            pin = pin.upper()
         pins.setdefault(inst, {})[pin] = net
         if inst:
             members.setdefault(net, []).append((inst, pin))
 
-    stashes = {sub.name: stash_of(sub) for sub in circuit.subcircuits}
     taken = {s["key"] for s in stashes.values() if s}
     taken |= {
         i["key"]
