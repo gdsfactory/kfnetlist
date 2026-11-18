@@ -1,5 +1,6 @@
 use super::{error, proto as p, CircuitDocument, NetlistDocument, Result, SubCircuitDocument};
 use indexmap::IndexMap;
+use kfnetlist_core::{merge_directives, Directive};
 use prost::Message;
 use serde::{de::DeserializeOwned, Serialize};
 use serde_json::{Map, Value};
@@ -17,6 +18,127 @@ fn get<T: DeserializeOwned + Default>(props: &Properties, key: &str) -> Result<T
         .transpose()
         .map(|v| v.unwrap_or_default())
 }
+/// Properties morphnet owns (no `__` prefix); the `__` ones are this crate's encoding.
+fn public(props: &Properties) -> Properties {
+    props
+        .iter()
+        .filter(|(k, _)| !k.starts_with("__"))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect()
+}
+
+/// Morphnet data with no kfnetlist counterpart, kept in kfnetlist `info["__morphnet__"]`.
+/// Each field is stored only when it differs from what the kfnetlist data regenerates.
+#[derive(Default, Serialize, serde::Deserialize)]
+#[serde(default)]
+struct Stash {
+    #[serde(skip_serializing_if = "Properties::is_empty")]
+    properties: Properties,
+    #[serde(skip_serializing_if = "String::is_empty")]
+    class_name: String,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    parameters: Vec<p::Parameter>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    terminals: Vec<p::Terminal>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    model_interfaces: Vec<p::ModelInterface>,
+    /// Net name -> connection template (domain, weight, properties).
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    nets: BTreeMap<String, p::Connection>,
+    /// Net name -> pin order, where a `Netlist` (which sorts net members) loses it.
+    #[serde(skip_serializing_if = "BTreeMap::is_empty")]
+    order: BTreeMap<String, Vec<String>>,
+    /// Document-level fields (circuits and directives emptied), on the toplevel module only.
+    #[serde(skip_serializing_if = "Option::is_none")]
+    netlist: Option<p::Netlist>,
+}
+const STASH: &str = "__morphnet__";
+impl Stash {
+    /// Split `info` into the `__info__` payload and the stash.
+    fn take(info: &Map<String, Value>) -> Result<(Map<String, Value>, Self)> {
+        let mut info = info.clone();
+        let stash = info
+            .remove(STASH)
+            .map(serde_json::from_value)
+            .transpose()
+            .map_err(error)?
+            .unwrap_or_default();
+        Ok((info, stash))
+    }
+    fn store(&self, info: &mut Map<String, Value>) -> Result<()> {
+        let value = serde_json::to_value(self).map_err(error)?;
+        if value.as_object().is_some_and(|m| !m.is_empty()) {
+            info.insert(STASH.into(), value);
+        } else {
+            info.remove(STASH);
+        }
+        Ok(())
+    }
+}
+
+/// The kfnetlist setting a parameter carries: its number, else its `expr` text.
+fn setting(param: &p::Parameter) -> Option<Value> {
+    param.default_value.as_ref().and_then(number).or_else(|| {
+        param
+            .properties
+            .get("expr")
+            .map(|e| Value::from(e.as_str()))
+    })
+}
+fn same(a: &Value, b: &Value) -> bool {
+    a == b || a.as_f64().is_some_and(|x| Some(x) == b.as_f64())
+}
+/// Restore stashed parameters still matching `settings`; regenerate the rest. A stashed
+/// parameter missing from `settings` was removed, unless `keep_unset` (a kfnetlist
+/// `Netlist` has no circuit-level settings, so there absence means "not carried").
+fn merge_parameters(
+    stashed: &[p::Parameter],
+    mut fresh: Vec<p::Parameter>,
+    settings: &Map<String, Value>,
+    keep_unset: bool,
+) -> Vec<p::Parameter> {
+    let mut out = Vec::new();
+    for s in stashed {
+        if s.name.is_empty() {
+            out.push(s.clone()); // positional: never a setting
+            continue;
+        }
+        match (settings.get(&s.name), setting(s)) {
+            (Some(now), Some(was)) if same(now, &was) => {
+                fresh.retain(|f| f.name != s.name);
+                out.push(s.clone());
+            }
+            (Some(_), Some(_)) => {
+                if let Some(i) = fresh.iter().position(|f| f.name == s.name) {
+                    out.push(fresh.remove(i));
+                }
+            }
+            (None, Some(_)) if !keep_unset => {} // setting removed
+            _ => out.push(s.clone()),            // never a setting (model_ref, no value)
+        }
+    }
+    out.extend(fresh);
+    out
+}
+fn directive_to_proto(d: &Directive) -> p::Directive {
+    let kind = format!("DIRECTIVE_KIND_{}", d.kind.to_uppercase());
+    p::Directive {
+        kind: p::DirectiveKind::from_str_name(&kind).unwrap_or_default() as i32,
+        name: d.name.clone(),
+        value: d.value.clone(),
+    }
+}
+fn directive_from_proto(d: &p::Directive) -> Directive {
+    let kind = p::DirectiveKind::try_from(d.kind).unwrap_or_default();
+    Directive {
+        kind: kind
+            .as_str_name()
+            .trim_start_matches("DIRECTIVE_KIND_")
+            .to_lowercase(),
+        name: d.name.clone(),
+        value: d.value.clone(),
+    }
+}
 fn parameter(value: &Value) -> Option<p::ParameterValue> {
     value.as_f64().map(|v| p::ParameterValue {
         value: Some(p::parameter_value::Value::PrefixedValue(p::PrefixedValue {
@@ -30,7 +152,6 @@ const SI_EXPONENT: [i32; 25] = [
     0, -30, -27, -24, -21, -18, -15, -12, -9, -6, -3, -2, -1, 1, 2, 3, 6, 9, 12, 15, 18, 21, 24,
     27, 30,
 ];
-// ponytail: non-numeric values (model_ref) are dropped from settings; map them when a consumer needs them.
 fn number(value: &p::ParameterValue) -> Option<Value> {
     match &value.value {
         Some(p::parameter_value::Value::PrefixedValue(v)) => {
@@ -75,6 +196,14 @@ fn reference(t: &p::TerminalReference) -> String {
         format!("{},{}", t.instance_name, t.terminal_name)
     }
 }
+/// String and bool settings become an `expr` parameter (bools as `true`/`false`).
+fn expr(value: &Value) -> Option<String> {
+    match value {
+        Value::String(s) => Some(s.clone()),
+        Value::Bool(b) => Some(b.to_string()),
+        _ => None,
+    }
+}
 fn connection(name: String, source: &str, target: &str) -> p::Connection {
     p::Connection {
         name,
@@ -84,28 +213,42 @@ fn connection(name: String, source: &str, target: &str) -> p::Connection {
     }
 }
 impl SubCircuitDocument {
-    fn to_proto_subcircuit(&self, name: &str) -> Result<p::SubCircuit> {
-        let mut properties = Properties::new();
-        put(&mut properties, "__array__", &self.array)?;
-        put(&mut properties, "__info__", &self.info)?;
-        let mut parameters = Vec::new();
-        for (key, value) in &self.settings {
-            if let Some(v) = parameter(value) {
-                parameters.push(p::Parameter {
+    fn proto_parameters(&self) -> Vec<p::Parameter> {
+        self.settings
+            .iter()
+            .filter_map(|(key, value)| {
+                let mut param = p::Parameter {
                     name: key.clone(),
-                    default_value: Some(v),
+                    default_value: parameter(value),
                     ..Default::default()
-                });
-            }
-            // Keep exact JSON types/integers alongside the numeric protobuf representation.
+                };
+                if param.default_value.is_none() {
+                    param.properties.insert("expr".into(), expr(value)?);
+                }
+                Some(param)
+            })
+            .collect()
+    }
+    fn to_proto_subcircuit(&self, name: &str) -> Result<p::SubCircuit> {
+        let (info, stash) = Stash::take(&self.info)?;
+        let mut properties = stash.properties;
+        put(&mut properties, "__array__", &self.array)?;
+        put(&mut properties, "__info__", &info)?;
+        for (key, value) in &self.settings {
+            // Keep exact JSON types/integers alongside the protobuf representation.
             put(&mut properties, &format!("__setting__{key}"), value)?;
         }
         Ok(p::SubCircuit {
             name: name.into(),
             circuit_name: self.component.clone(),
-            parameters,
+            class_name: stash.class_name,
+            parameters: merge_parameters(
+                &stash.parameters,
+                self.proto_parameters(),
+                &self.settings,
+                false,
+            ),
             properties,
-            ..Default::default()
         })
     }
     fn from_proto_subcircuit(r: &p::SubCircuit) -> Result<Self> {
@@ -113,74 +256,130 @@ impl SubCircuitDocument {
             .parameters
             .iter()
             .filter(|p| !p.name.is_empty())
-            .filter_map(|p| Some((p.name.clone(), number(p.default_value.as_ref()?)?)))
+            .filter_map(|p| Some((p.name.clone(), setting(p)?)))
             .collect();
         for (k, v) in &r.properties {
             if let Some(k) = k.strip_prefix("__setting__") {
                 settings.insert(k.into(), serde_json::from_str(v).map_err(error)?);
             }
         }
-        Ok(Self {
+        let mut doc = Self {
             component: r.circuit_name.clone(),
             settings,
             array: get(&r.properties, "__array__")?,
             info: get(&r.properties, "__info__")?,
-        })
+        };
+        let parameters = if r.parameters == doc.proto_parameters() {
+            Vec::new()
+        } else {
+            r.parameters.clone()
+        };
+        Stash {
+            properties: public(&r.properties),
+            class_name: r.class_name.clone(),
+            parameters,
+            ..Default::default()
+        }
+        .store(&mut doc.info)?;
+        Ok(doc)
     }
 }
+/// Restore stashed terminals whose pins are all still ports; plain terminals for the rest.
+fn merge_terminals(stashed: &[p::Terminal], ports: &IndexMap<String, String>) -> Vec<p::Terminal> {
+    let mut used = HashSet::new();
+    let mut out = Vec::new();
+    for t in stashed {
+        let pins = terminal_pins(t);
+        if pins.iter().all(|pin| ports.contains_key(pin)) {
+            used.extend(pins);
+            out.push(t.clone());
+        }
+    }
+    out.extend(
+        ports
+            .keys()
+            .filter(|name| !used.contains(*name))
+            .map(|name| p::Terminal {
+                name: name.clone(),
+                ..Default::default()
+            }),
+    );
+    out
+}
 impl CircuitDocument {
-    fn to_proto_circuit(&self, name: &str) -> Result<p::Circuit> {
-        let mut properties = Properties::new();
-        put(&mut properties, "__name__", &self.name)?;
-        put(&mut properties, "__placements__", &self.placements)?;
-        put(&mut properties, "__routes__", &self.routes)?;
-        put(&mut properties, "__info__", &self.info)?;
-        put(&mut properties, "__nets__", &"named")?;
+    fn proto_parameters(&self) -> Result<Vec<p::Parameter>> {
         let mut parameters = Vec::new();
         for (name, value) in &self.settings {
             let mut properties = Properties::new();
             put(&mut properties, "__json_value__", value)?;
+            let default_value = parameter(value);
+            if default_value.is_none() {
+                if let Some(e) = expr(value) {
+                    properties.insert("expr".into(), e);
+                }
+            }
             parameters.push(p::Parameter {
                 name: name.clone(),
-                default_value: parameter(value),
+                default_value,
                 properties,
                 ..Default::default()
             });
         }
+        Ok(parameters)
+    }
+    fn to_proto_circuit(&self, name: &str) -> Result<p::Circuit> {
+        let (info, stash) = Stash::take(&self.info)?;
+        let mut properties = stash.properties;
+        put(&mut properties, "__name__", &self.name)?;
+        put(&mut properties, "__placements__", &self.placements)?;
+        put(&mut properties, "__routes__", &self.routes)?;
+        put(&mut properties, "__info__", &info)?;
+        put(&mut properties, "__nets__", &"named")?;
+        let parameters = merge_parameters(
+            &stash.parameters,
+            self.proto_parameters()?,
+            &self.settings,
+            true,
+        );
         let subcircuits = self
             .instances
             .iter()
             .map(|(name, i)| i.to_proto_subcircuit(name))
             .collect::<Result<_>>()?;
-        let terminals = self
-            .ports
-            .keys()
-            .map(|name| p::Terminal {
-                name: name.clone(),
-                ..Default::default()
-            })
-            .collect();
+        let terminals = merge_terminals(&stash.terminals, &self.ports);
         // morphnet's encoding, which its writers read: a net is a star of connections named
         // after the net, from the port's net node (empty instance) or else the first pin.
-        // `__from__`/`__members__` (ignored by morphnet) restore the exact document.
-        // Same order as the pre-morphnet encoding: connections, ports, nets.
+        // `__from__`/`__members__`/`__named__` (ignored by morphnet) restore the exact
+        // document. Same order as the pre-morphnet encoding: connections, ports, nets.
         let groups = self
             .connections
             .iter()
-            .map(|(src, tgt)| ("conn", vec![src.clone(), tgt.clone()]))
+            .map(|(src, tgt)| ("conn", vec![src.clone(), tgt.clone()], None))
             .chain(
                 self.ports
                     .iter()
                     .filter(|(name, target)| name != target)
-                    .map(|(name, target)| ("port", vec![name.clone(), target.clone()])),
+                    .map(|(name, target)| ("port", vec![name.clone(), target.clone()], None)),
             )
-            .chain(self.nets.iter().map(|members| ("net", members.clone())));
+            .chain(
+                self.nets
+                    .iter()
+                    .enumerate()
+                    .map(|(i, members)| ("net", members.clone(), self.net_name(i))),
+            );
         let mut connections = Vec::new();
-        for (i, (from, members)) in groups.enumerate() {
-            // ponytail: document nets carry no names, so Netlist net names become the port
-            // name or net_<i>; add names to document::CircuitDocument to keep them.
+        for (i, (from, mut members, named)) in groups.enumerate() {
+            if let Some(order) = named.and_then(|n| stash.order.get(n)) {
+                if self.netlist_order(order) == Some(members.clone()) {
+                    members = order.clone();
+                }
+            }
+            // Unnamed nets are named after their port, else net_<i>.
             let port = members.iter().find(|m| !m.contains(','));
-            let net = port.cloned().unwrap_or_else(|| format!("net_{i}"));
+            let net = named
+                .map(str::to_owned)
+                .or_else(|| port.cloned())
+                .unwrap_or_else(|| format!("net_{i}"));
             let source = port
                 .or(members.first())
                 .cloned()
@@ -199,14 +398,24 @@ impl CircuitDocument {
             }
             for c in &mut star {
                 put(&mut c.properties, "__from__", &from)?;
+                if let Some(t) = stash.nets.get(&net) {
+                    c.domain = t.domain;
+                    c.weight = t.weight;
+                    c.properties.extend(t.properties.clone());
+                }
             }
             put(&mut star[0].properties, "__members__", &members)?;
+            if named.is_some() {
+                put(&mut star[0].properties, "__named__", &true)?;
+            }
             connections.extend(star);
         }
         Ok(p::Circuit {
             name: name.into(),
+            class_name: stash.class_name,
             terminals,
             parameters,
+            model_interfaces: stash.model_interfaces,
             subcircuits,
             connections,
             properties,
@@ -229,7 +438,10 @@ impl CircuitDocument {
                         ("conn", [src, tgt]) => {
                             self.connections.insert(src.clone(), tgt.clone());
                         }
-                        ("net", _) => self.nets.push(members),
+                        ("net", _) => {
+                            let named = c.properties.contains_key("__named__");
+                            self.push_net(members, named.then(|| c.name.clone()));
+                        }
                         _ => return Err(super::Error(format!("invalid net {:?}", c.name))),
                     }
                 }
@@ -247,8 +459,11 @@ impl CircuitDocument {
                 }
             }
         }
-        self.nets
-            .extend(foreign.into_values().filter(|m| !m.is_empty()));
+        for (name, members) in foreign {
+            if !members.is_empty() {
+                self.push_net(members, (!name.is_empty()).then(|| name.to_owned()));
+            }
+        }
         Ok(())
     }
     fn from_proto_circuit(pm: &p::Circuit) -> Result<Self> {
@@ -256,7 +471,7 @@ impl CircuitDocument {
         for p in &pm.parameters {
             if let Some(v) = p.properties.get("__json_value__") {
                 settings.insert(p.name.clone(), serde_json::from_str(v).map_err(error)?);
-            } else if let Some(v) = p.default_value.as_ref().and_then(number) {
+            } else if let Some(v) = setting(p).filter(|_| !p.name.is_empty()) {
                 settings.insert(p.name.clone(), v);
             }
         }
@@ -318,24 +533,96 @@ impl CircuitDocument {
             };
             module.nets.push(members);
         }
+        module.directives = pm.directives.iter().map(directive_from_proto).collect();
+        let mut nets = BTreeMap::new();
+        for c in &pm.connections {
+            let properties = public(&c.properties);
+            if !c.name.is_empty() && (c.domain != 0 || c.weight != 0 || !properties.is_empty()) {
+                nets.entry(c.name.clone()).or_insert_with(|| p::Connection {
+                    name: c.name.clone(),
+                    domain: c.domain,
+                    weight: c.weight,
+                    properties,
+                    ..Default::default()
+                });
+            }
+        }
+        let parameters = if pm.parameters == module.proto_parameters()? {
+            Vec::new()
+        } else {
+            pm.parameters.clone()
+        };
+        let mut order = BTreeMap::new();
+        for (i, members) in module.nets.iter().enumerate() {
+            if let Some(name) = module.net_name(i) {
+                if module.netlist_order(members).as_ref() != Some(members) {
+                    order.insert(name.to_owned(), members.clone());
+                }
+            }
+        }
+        let plain = merge_terminals(&[], &module.ports);
+        Stash {
+            properties: public(&pm.properties),
+            class_name: pm.class_name.clone(),
+            parameters,
+            terminals: if pm.terminals == plain {
+                Vec::new()
+            } else {
+                pm.terminals.clone()
+            },
+            model_interfaces: pm.model_interfaces.clone(),
+            nets,
+            order,
+            netlist: None,
+        }
+        .store(&mut module.info)?;
         Ok(module)
     }
 }
 impl NetlistDocument {
+    /// The module carrying document-level data: the toplevel, else the one holding a
+    /// document stash, else the last (morphnet's toplevel convention).
+    fn lead(&self) -> Option<&CircuitDocument> {
+        let has_stash = |m: &&CircuitDocument| {
+            m.info
+                .get(STASH)
+                .is_some_and(|s| s.get("netlist").is_some())
+        };
+        self.toplevel
+            .as_ref()
+            .and_then(|t| self.modules.get(t))
+            .or_else(|| self.modules.values().rev().find(has_stash))
+            .or_else(|| self.modules.values().last())
+    }
     pub fn to_proto_netlist(&self) -> Result<p::Netlist> {
-        Ok(p::Netlist {
-            name: self.toplevel.clone().unwrap_or_default(),
-            top_circuit: self.toplevel.clone().unwrap_or_default(),
-            circuits: self
-                .modules
-                .iter()
-                .map(|(name, m)| m.to_proto_circuit(name))
-                .collect::<Result<_>>()?,
+        let lead = self.lead();
+        let stash = match lead {
+            Some(m) => Stash::take(&m.info)?.1.netlist,
+            None => None,
+        };
+        let toplevel = self.toplevel.clone().unwrap_or_default();
+        let mut netlist = stash.unwrap_or_else(|| p::Netlist {
+            name: toplevel.clone(),
             ..Default::default()
-        })
+        });
+        if self.toplevel.is_some() {
+            netlist.top_circuit = toplevel;
+        }
+        netlist.circuits = self
+            .modules
+            .iter()
+            .map(|(name, m)| m.to_proto_circuit(name))
+            .collect::<Result<_>>()?;
+        // morphnet writers print only document directives: lift every module's, lead first.
+        let mut directives = Vec::new();
+        for m in lead.into_iter().chain(self.modules.values()) {
+            merge_directives(&mut directives, &m.directives);
+        }
+        netlist.directives = directives.iter().map(directive_to_proto).collect();
+        Ok(netlist)
     }
     pub fn from_proto_netlist(c: &p::Netlist) -> Result<Self> {
-        Ok(Self {
+        let mut doc = Self {
             modules: c
                 .circuits
                 .iter()
@@ -346,7 +633,33 @@ impl NetlistDocument {
             } else {
                 Some(c.top_circuit.clone())
             },
-        })
+        };
+        let lead = doc
+            .toplevel
+            .clone()
+            .filter(|t| doc.modules.contains_key(t))
+            .or_else(|| doc.modules.keys().last().cloned());
+        if let Some(lead) = lead.and_then(|k| doc.modules.get_mut(&k)) {
+            let own = std::mem::take(&mut lead.directives);
+            lead.directives = c.directives.iter().map(directive_from_proto).collect();
+            merge_directives(&mut lead.directives, &own);
+            let header = p::Netlist {
+                circuits: Vec::new(),
+                directives: Vec::new(),
+                ..c.clone()
+            };
+            let plain = p::Netlist {
+                name: c.top_circuit.clone(),
+                top_circuit: c.top_circuit.clone(),
+                ..Default::default()
+            };
+            if header != plain {
+                let (_, mut stash) = Stash::take(&lead.info)?;
+                stash.netlist = Some(header);
+                stash.store(&mut lead.info)?;
+            }
+        }
+        Ok(doc)
     }
     #[deprecated(note = "renamed to to_proto_netlist")]
     pub fn to_proto_circuit(&self) -> Result<p::Netlist> {

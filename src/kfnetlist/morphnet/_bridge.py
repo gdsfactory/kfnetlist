@@ -31,13 +31,20 @@ def from_netlists(
 ) -> Netlist:
     """Build a morphnet ``Netlist`` from ``{cell name: kfnetlist.Netlist}``.
 
-    Instances of built-in devices (``resistor``, ``capacitor``, ``mosfet``, ...) get the
-    same external-circuit declarations the SPICE parser creates, so positional writers
-    (SPICE, Spectre) emit pins in device order.
+    Instances of built-in devices (``resistor``, ``capacitor``, ``mosfet``, ...) that the
+    document does not declare get the same external-circuit declarations the SPICE parser
+    creates, so positional writers (SPICE, Spectre) emit pins in device order. A document
+    restored from morphnet (see below) keeps exactly its own declarations.
+
+    Morphnet data with no kfnetlist counterpart travels in ``Netlist.info["__morphnet__"]``
+    (and the instances' ``info["__morphnet__"]``), so ``from_netlists(to_netlists(nl))``
+    writes the same text as ``nl``.
     """
     doc = NetlistDocument.from_netlists(dict(netlists), toplevel)
     netlist = Netlist.from_proto_bytes(doc.to_proto())
-    defined = {c.name for c in netlist.circuits}
+    if any("netlist" in nl.info.get("__morphnet__", {}) for nl in netlists.values()):
+        return netlist  # restored document: its ext circuits are authoritative
+    defined = {c.name for c in [*netlist.circuits, *netlist.ext_circuits]}
     used = {
         sub.circuit_name for c in netlist.circuits for sub in c.subcircuits
     } - defined

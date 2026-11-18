@@ -158,3 +158,283 @@ ext_modules:
     assert netlist.top_circuit == "rc"
     assert netlist.circuits[0].subcircuits[0].circuit_name == "resistor"
     assert netlist.ext_circuits[0].name == "resistor"
+
+
+# ---- lossless bridge: from_netlists(to_netlists(nl)) writes the same text ----
+
+_FIXTURES = Path(__file__).parent / "morphnet" / "netlists"
+_SPICE = """\
+* lossless
+.include "models.lib"
+.lib "corners.lib" tt
+.global VDD VSS
+.option scale=1u
+.param vdd=1.8
+.model nch nmos level=49 vth0=0.4
+.subckt inv in_ out vdd vss
+M1 out in_ vdd vdd pch W=1u L=0.18u
+M2 out in_ vss vss nch W=0.5u L=0.18u
+.ends inv
+.subckt buf a b vdd vss
+.param ratio=2
+X1 a mid vdd vss inv
+X2 mid b vdd vss inv
+R1 b n1 1k
+C1 n1 0 100p
+.ends buf
+.end
+"""
+_XYCE = """\
+.subckt divider vin vout gnd
+R1 vin vout 10k
+R2 vout gnd 10k
+.ends divider
+.end
+"""
+_SPECTRE_SPICE = """\
+simulator lang=spice
+.subckt rc in_ out gnd
+R1 in_ out 1k
+C1 out gnd 100p
+.ends rc
+"""
+
+
+def _parse(path: Path) -> morphnet.Netlist:
+    from kfnetlist.morphnet.netlist import parse_hspice
+
+    text = path.read_text()
+    if path.suffix == ".sv":
+        domains = {
+            "connection": morphnet.SignalDomain.WAVEGUIDE,
+            "mzmselect": morphnet.SignalDomain.ELECTRICAL,
+        }
+        return parse_systemverilog(text, disciplines=domains)
+    if path.suffix == ".yaml":
+        return morphnet.Netlist.from_yaml(text)
+    parse = {".sp": parse_hspice, ".scs": parse_spectre, ".vams": parse_vams}
+    return parse[path.suffix](text)
+
+
+def _lossless_cases():
+    from kfnetlist.morphnet.netlist import parse_spectre_spice, parse_xyce
+
+    files = sorted(
+        f
+        for f in _FIXTURES.rglob("*")
+        if f.suffix in {".sp", ".scs", ".vams", ".sv", ".yaml"}
+    )
+    cases = [
+        pytest.param(lambda f=f: _parse(f), id=str(f.relative_to(_FIXTURES)))
+        for f in files
+    ]
+    cases += [
+        pytest.param(lambda: parse_spice(_SPICE), id="spice"),
+        pytest.param(lambda: parse_xyce(_XYCE), id="xyce"),
+        pytest.param(lambda: parse_spectre_spice(_SPECTRE_SPICE), id="spectre_spice"),
+        pytest.param(lambda: morphnet.from_netlists({"rc": rc()}, "rc"), id="built"),
+    ]
+    return cases
+
+
+_WRITERS = [
+    "write_spice",
+    "write_spectre",
+    "write_hspice",
+    "write_xyce",
+    "write_spectre_spice",
+    "write_vams",
+    "write_systemverilog",
+]
+
+
+@pytest.mark.parametrize("make", _lossless_cases())
+def test_bridge_lossless(make):
+    from kfnetlist.morphnet import netlist as writers
+
+    netlist = make()
+    back = morphnet.from_netlists(morphnet.to_netlists(netlist))
+    compared = 0
+    for name in _WRITERS:
+        write = getattr(writers, name)
+        try:
+            expected = write(netlist)
+        except Exception:  # noqa: BLE001 - a writer that cannot write the source is not compared
+            continue
+        assert write(back) == expected, name
+        compared += 1
+    assert compared
+
+
+# ---- focused: each morphnet-only field survives the bridge ----
+
+
+def _ir() -> morphnet.Netlist:
+    from kfnetlist.morphnet.morphnet_schema import (
+        Analysis,
+        AnalysisKind,
+        Circuit,
+        Connection,
+        Directive,
+        DirectiveKind,
+        ExternalCircuit,
+        ExternalLibrary,
+        Parameter,
+        ParameterValue,
+        Port,
+        PortDirection,
+        PortReference,
+        PrefixedValue,
+        SignalDomain,
+        SIPrefix,
+        Simulation,
+        SubCircuit,
+    )
+
+    def conn(net, inst, pin):
+        return Connection(
+            name=net,
+            source=PortReference(instance_name="", port_name=net),
+            target=PortReference(instance_name=inst, port_name=pin),
+            properties={"discipline": "electrical"},
+        )
+
+    kilo = ParameterValue(
+        prefixed_value=PrefixedValue(double_value=1, prefix=SIPrefix.KILO)
+    )
+    sub = SubCircuit(
+        name="R1",
+        circuit_name="rmodel",
+        parameters=[
+            Parameter(name="r", default_value=kilo),
+            Parameter(name="w", properties={"expr": "2*l"}),
+        ],
+        properties={"model_name": "rpoly", "__info__": '{"gsch": {"x": 1}}'},
+    )
+    top = Circuit(
+        name="top",
+        ports=[
+            Port(
+                name="a", direction=PortDirection.INPUT, domain=SignalDomain.ELECTRICAL
+            ),
+            Port(name="b", direction=PortDirection.OUTPUT, discipline="electrical"),
+        ],
+        parameters=[Parameter(name="l", default_value=kilo)],
+        subcircuits=[sub],
+        connections=[conn("a", "R1", "p"), conn("mid", "R1", "n")],
+        properties={
+            "analog_block": "analog begin end",
+            "__info__": '{"gsch_schema": "s"}',
+        },
+        directives=[Directive(kind=DirectiveKind.INCLUDE, value="top.inc")],
+    )
+    return morphnet.Netlist(
+        name="doc",
+        top_circuit="top",
+        circuits=[top],
+        ext_circuits=[
+            ExternalCircuit(
+                name="rmodel",
+                ports=[Port(name="p"), Port(name="n")],
+                properties={"spice_prefix": "R"},
+            )
+        ],
+        directives=[Directive(kind=DirectiveKind.LIB, name="tt", value="corners.lib")],
+        properties={"ground_net": "0", "dialect": "spectre"},
+        libraries={"pdk": ExternalLibrary(path="pdk.lib", model_type="spice")},
+        simulation=Simulation(analyses=[Analysis(kind=AnalysisKind.OP, name="op")]),
+    )
+
+
+def _bridged() -> tuple[dict[str, Netlist], morphnet.Netlist]:
+    netlists = morphnet.to_netlists(_ir())
+    return netlists, morphnet.from_netlists(netlists)
+
+
+def test_bridge_keeps_string_and_bool_settings_as_expr_parameters():
+    nl = Netlist()
+    nl.create_inst(
+        "X1", kcl="", component="cell", settings={"w": "2*l", "on": True, "n": 2}
+    )
+    sub = morphnet.from_netlists({"top": nl}).circuits[0].subcircuits[0]
+    params = {p.name: p for p in sub.parameters}
+    assert params["w"].properties["expr"] == "2*l"
+    assert params["on"].properties["expr"] == "true"
+    assert params["w"].default_value is None
+    back = morphnet.to_netlists(morphnet.from_netlists({"top": nl}))["top"]
+    assert back.instances["X1"].settings == {"w": "2*l", "on": True, "n": 2}
+
+    netlists, back_ir = _bridged()
+    assert netlists["top"].instances["R1"].settings == {"r": 1000.0, "w": "2*l"}
+    assert (
+        back_ir.circuits[0].subcircuits[0].parameters
+        == _ir().circuits[0].subcircuits[0].parameters
+    )
+
+
+def test_bridge_keeps_properties_and_info_at_both_levels():
+    netlists, back = _bridged()
+    nl = netlists["top"]
+    inst_info = nl.instances["R1"].info
+    assert inst_info["gsch"] == {"x": 1}
+    assert inst_info["__morphnet__"]["properties"] == {"model_name": "rpoly"}
+    assert nl.info["gsch_schema"] == "s"
+    assert nl.info["__morphnet__"]["properties"] == {"analog_block": "analog begin end"}
+
+    circuit = back.circuits[0]
+    sub = circuit.subcircuits[0]
+    assert sub.properties["model_name"] == "rpoly"
+    assert json.loads(sub.properties["__info__"]) == {"gsch": {"x": 1}}
+    assert circuit.properties["analog_block"] == "analog begin end"
+    assert json.loads(circuit.properties["__info__"]) == {"gsch_schema": "s"}
+    assert circuit.parameters == _ir().circuits[0].parameters
+
+
+def test_bridge_keeps_terminal_domain_and_direction():
+    _, back = _bridged()
+    assert back.circuits[0].ports == _ir().circuits[0].ports
+
+
+def test_bridge_lifts_circuit_and_document_directives():
+    netlists, back = _bridged()
+    assert netlists["top"].directives == [
+        {"kind": "lib", "name": "tt", "value": "corners.lib"},
+        {"kind": "include", "name": "", "value": "top.inc"},
+    ]
+    assert [(d.kind, d.name, d.value) for d in back.directives] == [
+        (pb.DIRECTIVE_KIND_LIB, "tt", "corners.lib"),
+        (pb.DIRECTIVE_KIND_INCLUDE, "", "top.inc"),
+    ]
+    assert back.circuits[0].directives == []
+
+
+def test_bridge_keeps_document_fields():
+    _, back = _bridged()
+    ir = _ir()
+    assert back.name == "doc"
+    assert back.top_circuit == "top"
+    assert back.ext_circuits == ir.ext_circuits
+    assert back.properties == ir.properties
+    assert back.libraries == ir.libraries
+    assert back.simulation == ir.simulation
+
+
+def test_bridge_keeps_net_names():
+    netlists, back = _bridged()
+    assert [n.name for n in netlists["top"].nets] == ["a", "mid"]
+    assert [c.name for c in back.circuits[0].connections] == ["a", "mid"]
+    assert all(
+        c.properties["discipline"] == "electrical" for c in back.circuits[0].connections
+    )
+
+    nl = Netlist()
+    nl.create_inst("R1", kcl="", component="resistor")
+    nl.create_inst("R2", kcl="", component="resistor")
+    nl.create_net(PortRef("R1", "n"), PortRef("R2", "p"), name="mid")
+    nl.create_net(PortRef("R2", "n"))
+    names = {
+        c.name for c in morphnet.from_netlists({"top": nl}).circuits[0].connections
+    }
+    assert names == {"mid", "net_1"}
+    back_nl = morphnet.to_netlists(morphnet.from_netlists({"top": nl}))["top"]
+    assert [n.name for n in back_nl.nets] == ["mid", None]

@@ -5,6 +5,42 @@ use crate::{normalize_value, Error, Result};
 use serde::{Deserialize, Serialize};
 use std::collections::{HashMap, HashSet};
 
+/// Directive kinds a [`Directive`] may carry (morphnet's `DirectiveKind`, lowercase).
+pub const DIRECTIVE_KINDS: [&str; 7] = [
+    "include",
+    "lib",
+    "global",
+    "option",
+    "param",
+    "define",
+    "timescale",
+];
+
+/// A netlist-file directive (`.include`, `.lib`, ...): header data with no
+/// connectivity, so it never takes part in netlist equality.
+#[derive(Clone, Debug, Default, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[serde(deny_unknown_fields)]
+pub struct Directive {
+    /// One of [`DIRECTIVE_KINDS`].
+    pub kind: String,
+    #[serde(default)]
+    pub name: String,
+    #[serde(default)]
+    pub value: String,
+}
+
+/// Append `extra` to `directives`, skipping ones already present.
+pub fn merge_directives<'a>(
+    directives: &mut Vec<Directive>,
+    extra: impl IntoIterator<Item = &'a Directive>,
+) {
+    for d in extra {
+        if !directives.contains(d) {
+            directives.push(d.clone());
+        }
+    }
+}
+
 /// Wire format used by serde for `Netlist`. Mirrors the JSON shape but
 /// stores instances by name without redundant `name` fields.
 #[derive(Clone, Debug, Default, Serialize, Deserialize)]
@@ -16,6 +52,10 @@ pub struct NetlistWire {
     pub nets: Vec<Net>,
     #[serde(default)]
     pub ports: Vec<NetlistPort>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub directives: Vec<Directive>,
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub info: serde_json::Map<String, serde_json::Value>,
 }
 
 /// A netlist: instances, nets, and top-level ports.
@@ -28,6 +68,10 @@ pub struct Netlist {
     pub instances: indexmap::IndexMap<String, NetlistInstance>,
     pub nets: Vec<Net>,
     pub ports: Vec<NetlistPort>,
+    /// File directives (`.include`, `.lib`, ...). Not part of equality.
+    pub directives: Vec<Directive>,
+    /// Free-form JSON metadata. Not part of equality.
+    pub info: serde_json::Map<String, serde_json::Value>,
 }
 
 impl Netlist {
@@ -40,6 +84,8 @@ impl Netlist {
                 .collect(),
             nets: self.nets.clone(),
             ports: self.ports.clone(),
+            directives: self.directives.clone(),
+            info: self.info.clone(),
         }
     }
 
@@ -55,6 +101,8 @@ impl Netlist {
                 .collect(),
             nets: wire.nets,
             ports: wire.ports,
+            directives: wire.directives,
+            info: wire.info,
         }
     }
 
@@ -64,6 +112,7 @@ impl Netlist {
         }
     }
 
+    // Directives and info are header metadata: LVS stays agnostic of them, like placement.
     fn equals(&self, other: &Netlist) -> bool {
         if self.ports != other.ports || self.nets != other.nets {
             return false;

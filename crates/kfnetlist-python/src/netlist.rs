@@ -70,6 +70,43 @@ impl Netlist {
         Ok(list)
     }
 
+    /// Fresh list of ``{"kind", "name", "value"}`` file directives; assign a
+    /// whole list to replace them. Not part of equality.
+    #[getter]
+    fn directives<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        to_py_dict(py, &self.directives)
+    }
+
+    #[setter]
+    fn set_directives(&mut self, value: &Bound<'_, PyAny>) -> PyResult<()> {
+        let directives: Vec<kfnetlist_core::Directive> = from_py_any(value)?;
+        if let Some(d) = directives
+            .iter()
+            .find(|d| !kfnetlist_core::DIRECTIVE_KINDS.contains(&d.kind.as_str()))
+        {
+            return Err(PyValueError::new_err(format!(
+                "invalid directive kind {:?}; expected one of {:?}",
+                d.kind,
+                kfnetlist_core::DIRECTIVE_KINDS
+            )));
+        }
+        self.directives = directives;
+        Ok(())
+    }
+
+    /// Fresh metadata snapshot; assign a whole dictionary to replace it.
+    /// Not part of equality.
+    #[getter]
+    fn info<'py>(&self, py: Python<'py>) -> PyResult<Bound<'py, PyAny>> {
+        to_py_dict(py, &self.info)
+    }
+
+    #[setter]
+    fn set_info(&mut self, value: &Bound<'_, PyAny>) -> PyResult<()> {
+        self.info = info_from_py(Some(value))?;
+        Ok(())
+    }
+
     fn instance_names(&self) -> Vec<String> {
         self.instances.keys().cloned().collect()
     }
@@ -234,6 +271,8 @@ impl Netlist {
             instances: output.data.instances,
             nets: output.data.nets,
             ports: output.data.ports,
+            directives: output.data.directives,
+            info: self.info.clone(),
         }))
     }
 

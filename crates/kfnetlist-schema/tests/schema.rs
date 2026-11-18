@@ -308,3 +308,167 @@ fn bus_terminals_and_bracketed_instance_names_decode() {
     assert_eq!(ports, ["in[1]", "in[0]"]);
     assert_eq!(nl.nets.len(), 2);
 }
+
+/// proto -> document -> kfnetlist Netlists -> document -> proto, as morphnet's bridge does.
+fn through_netlists(netlist: &proto::Netlist) -> proto::Netlist {
+    let netlists = NetlistDocument::from_proto_netlist(netlist)
+        .unwrap()
+        .to_netlists()
+        .unwrap();
+    NetlistDocument::from_netlists(&netlists, None)
+        .to_proto_netlist()
+        .unwrap()
+}
+
+#[test]
+fn morphnet_only_fields_survive_kfnetlist() {
+    let kilo = serde_json::from_value::<Option<proto::ParameterValue>>(
+        json!({"prefixed_value": {"double_value": 1.0, "prefix": 15}}),
+    )
+    .unwrap();
+    let directive = |kind: proto::DirectiveKind, value: &str| proto::Directive {
+        kind: kind as i32,
+        name: String::new(),
+        value: value.into(),
+    };
+    let sub = proto::SubCircuit {
+        name: "R1".into(),
+        circuit_name: "rmodel".into(),
+        parameters: vec![
+            proto::Parameter {
+                name: "r".into(),
+                default_value: kilo.clone(),
+                ..Default::default()
+            },
+            proto::Parameter {
+                name: "w".into(),
+                properties: [("expr".into(), "2*l".into())].into(),
+                ..Default::default()
+            },
+        ],
+        properties: [
+            ("model_name".into(), "rpoly".into()),
+            ("__info__".into(), r#"{"gsch":1}"#.into()),
+        ]
+        .into(),
+        ..Default::default()
+    };
+    let star = |net: &str, inst: &str, port: &str| proto::Connection {
+        name: net.into(),
+        source: pin("", net),
+        target: pin(inst, port),
+        domain: proto::SignalDomain::Electrical as i32,
+        ..Default::default()
+    };
+    let circuit = proto::Circuit {
+        name: "top".into(),
+        terminals: vec![proto::Terminal {
+            name: "a".into(),
+            direction: proto::TerminalDirection::Input as i32,
+            domain: proto::SignalDomain::Electrical as i32,
+            discipline: "electrical".into(),
+            ..Default::default()
+        }],
+        parameters: vec![proto::Parameter {
+            name: "l".into(),
+            default_value: kilo,
+            ..Default::default()
+        }],
+        subcircuits: vec![sub.clone()],
+        connections: vec![star("a", "R1", "p"), star("mid", "R1", "n")],
+        properties: [("analog_block".into(), "analog begin end".into())].into(),
+        directives: vec![directive(proto::DirectiveKind::Include, "top.inc")],
+        ..Default::default()
+    };
+    let netlist = proto::Netlist {
+        name: "doc".into(),
+        top_circuit: "top".into(),
+        circuits: vec![circuit.clone()],
+        ext_circuits: vec![proto::ExternalCircuit {
+            name: "rmodel".into(),
+            properties: [("spice_prefix".into(), "R".into())].into(),
+            ..Default::default()
+        }],
+        properties: [("dialect".into(), "spectre".into())].into(),
+        directives: vec![directive(proto::DirectiveKind::Lib, "corners.lib")],
+        ..Default::default()
+    };
+
+    let doc = NetlistDocument::from_proto_netlist(&netlist).unwrap();
+    let top = &doc.modules["top"];
+    assert_eq!(top.instances["R1"].settings["w"], json!("2*l"));
+    assert_eq!(top.instances["R1"].info["gsch"], json!(1));
+    assert_eq!(
+        top.instances["R1"].info["__morphnet__"]["properties"],
+        json!({"model_name": "rpoly"})
+    );
+    assert_eq!(top.net_names, ["a", "mid"]);
+    let nl = top.to_netlist().unwrap();
+    assert_eq!(
+        nl.directives
+            .iter()
+            .map(|d| d.kind.as_str())
+            .collect::<Vec<_>>(),
+        ["lib", "include"]
+    );
+    let names: Vec<_> = nl.nets.iter().map(|n| n.name.as_deref()).collect();
+    assert_eq!(names, [Some("a"), Some("mid")]);
+
+    let back = through_netlists(&netlist);
+    assert_eq!(back.name, "doc");
+    assert_eq!(back.top_circuit, "top");
+    assert_eq!(back.ext_circuits, netlist.ext_circuits);
+    assert_eq!(back.properties, netlist.properties);
+    assert_eq!(
+        back.directives,
+        [netlist.directives.clone(), circuit.directives.clone()].concat()
+    );
+    let c = &back.circuits[0];
+    assert!(c.directives.is_empty());
+    assert_eq!(c.terminals, circuit.terminals);
+    assert_eq!(c.parameters, circuit.parameters);
+    assert_eq!(c.properties["analog_block"], "analog begin end");
+    assert_eq!(c.subcircuits[0].parameters, sub.parameters);
+    assert_eq!(c.subcircuits[0].properties["model_name"], "rpoly");
+    assert_eq!(c.subcircuits[0].properties["__info__"], r#"{"gsch":1}"#);
+    let nets: Vec<_> = c
+        .connections
+        .iter()
+        .map(|c| (c.name.as_str(), c.domain))
+        .collect();
+    assert_eq!(nets, [("a", 1), ("mid", 1)]);
+    // A second trip is stable.
+    assert_eq!(through_netlists(&back), back);
+}
+
+#[test]
+fn kfnetlist_round_trip_adds_no_morphnet_metadata() {
+    let mut nl = Netlist::default();
+    nl.create_inst(
+        "X1".into(),
+        String::new(),
+        "cell".into(),
+        json!({"w": "2*l", "on": true, "n": 2}),
+        0,
+        0,
+    )
+    .unwrap();
+    nl.create_named_net(
+        [NetMember::Ref(kfnetlist_core::PortRef {
+            instance: "X1".into(),
+            port: "p".into(),
+        })],
+        "mid",
+    )
+    .unwrap();
+    let doc = NetlistDocument::from_netlists(&[("top".to_string(), nl.clone())].into(), None);
+    let back = NetlistDocument::from_proto(&doc.to_proto().unwrap())
+        .unwrap()
+        .to_netlists()
+        .unwrap();
+    let back = &back["top"];
+    assert!(back.info.is_empty());
+    assert!(back.instances["X1"].info.is_empty());
+    assert_eq!(back.instances["X1"].settings, nl.instances["X1"].settings);
+    assert_eq!(back.nets[0].name.as_deref(), Some("mid"));
+}

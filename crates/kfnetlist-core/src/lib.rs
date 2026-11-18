@@ -14,7 +14,10 @@ pub use error::{ArrayDirection, Error, Result};
 pub use flatten::{compose_placement, flatten_netlist, FlattenOptions, FlattenOutput, NetlistData};
 pub use instance::{LeafNetlistInstance, NetlistArray, NetlistInstance, RefNetlistInstance};
 pub use net::{Net, NetMember};
-pub use netlist::{EquivalentPorts, NetDifference, Netlist, Opens, PortMapping};
+pub use netlist::{
+    merge_directives, Directive, EquivalentPorts, NetDifference, Netlist, Opens, PortMapping,
+    DIRECTIVE_KINDS,
+};
 pub use placement::{BBox, PlacedExtra, PlacedInstance, PlacedNetlist, Placement};
 pub use port::{NetlistPort, PortArrayRef, PortRef};
 use serde::{Deserialize, Serialize};

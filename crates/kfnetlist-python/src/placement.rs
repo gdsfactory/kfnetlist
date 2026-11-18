@@ -489,6 +489,7 @@ impl PlacedNetlist {
             nets: base_ref.nets.clone(),
             ports: base_ref.ports.clone(),
             extras: slf.extras.clone(),
+            directives: base_ref.directives.clone(),
         };
         let output = kfnetlist_core::flatten_netlist(
             base,
@@ -503,6 +504,8 @@ impl PlacedNetlist {
             instances: output.data.instances,
             nets: output.data.nets,
             ports: output.data.ports,
+            directives: output.data.directives,
+            info: base_ref.info.clone(),
         });
         Py::new(py, Self::init_from(flat, output.data.extras))
     }
