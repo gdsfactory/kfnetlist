@@ -192,7 +192,43 @@ def test_all_polyline_terminal_forms_and_net_entries():
     assert got == {
         "net_1": {("A", "o2"), ("B", "o1")},
         "bc": {("B", "o2"), ("C", "o1")},
-        "net_2": {("C", "o2"), ("D", "o1")},
+        "n1": {("C", "o2"), ("D", "o1")},  # a net entry's key is the net name
+    }
+
+
+def test_net_entry_name_is_id_then_key_and_ranks_like_a_mosaic_name():
+    def named(entry: dict, **pin_nets) -> dict[str, set[tuple[str, str]]]:
+        a = {"type": "ckt", "name": "A", "model": "m", "nets": pin_nets}
+        ports = [
+            {"component_id": "a", "port_name": "o1"},
+            {"component_id": "b", "port_name": "o1"},
+        ]
+        doc = {"a": a, "b": {"type": "ckt", "name": "B", "model": "m"},
+               "k": {"type": "net", "ports": ports, **entry}}  # fmt: skip
+        return nets(parse_gsch(json.dumps(doc)))
+
+    members = {("A", "o1"), ("B", "o1")}
+    assert named({}) == {"k": members}
+    assert named({"id": "sig"}) == {"sig": members}
+    assert named({"id": "sig", "_id": "other"}) == {"sig": members}
+    assert named({"_id": "other"}) == {"other": members}
+    # a Mosaic `nets` name on one of the pins wins, as it does over any other name
+    assert named({"id": "sig"}, o1="vdd") == {"vdd": members}
+
+
+def test_duplicate_names_are_made_unique_without_losing_an_instance():
+    # the second entry's key `b` equals the first entry's name `b`
+    doc = {
+        "x": {"type": "ckt", "name": "b", "model": "m", "nets": {"o1": "n"}},
+        "b": {"type": "ckt", "name": "b", "model": "m", "nets": {"o1": "n"}},
+        "c": {"type": "ckt", "name": "b_1", "model": "m"},
+    }
+    nl = parse_gsch(json.dumps(doc))
+    names = [s.name for s in nl.circuits[0].subcircuits]
+    assert len(names) == len(set(names)) == 3
+    assert names[0] == "b"
+    assert {frozenset(m) for m in nets(nl).values()} == {
+        frozenset({("b", "o1"), (names[1], "o1")})
     }
 
 

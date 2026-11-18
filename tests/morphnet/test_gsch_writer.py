@@ -5,6 +5,11 @@ import pytest
 
 from kfnetlist import morphnet
 from kfnetlist.morphnet.morphnet_schema import Netlist, SignalDomain
+from kfnetlist.morphnet.netlist.net_utils import (
+    NetMap,
+    add_port_to_net,
+    net_map_to_connections,
+)
 from kfnetlist.morphnet.netlist import (
     parse_gsch,
     parse_spice,
@@ -227,6 +232,99 @@ def test_colliding_names_do_not_overwrite_each_other():
     out = json.loads(write_gsch(nl))
     assert len(out) == 3
     assert {e["name"] for e in out.values()} == {"a", "R2"}
+    # the port keeps its name; its key is suffixed and recorded as `id`
+    assert out["a"]["type"] == "resistor"
+    assert (out["a_"]["name"], out["a_"]["id"]) == ("a", "a_")
+    assert "id" not in out["a"] and "id" not in out["R2"]
+
+
+def test_duplicate_names_survive_parse_write_parse():
+    doc = {
+        "x": {"type": "ckt", "name": "b", "model": "m", "nets": {"o1": "n"}},
+        "b": {"type": "ckt", "name": "b", "model": "m", "nets": {"o1": "n"}},
+    }
+    nl = parse_gsch(json.dumps(doc))
+    out = json.loads(write_gsch(nl))
+    assert set(out) == {"x", "b"}  # nothing overwritten
+    assert len({e["name"] for e in out.values()}) == 2
+    assert structure(parse_gsch(json.dumps(out))) == structure(nl)
+    assert len(structure(nl)[2]) == 2
+
+
+# ── connectivity edited on an IR that came from a .gsch ──────────────────────────
+
+
+def move_pin(nl: Netlist, inst: str, pin: str, to: str) -> None:
+    """Rewire ``inst.pin`` to the pin ``to`` of the same instance."""
+    for c in nl.circuits[0].connections:
+        for ref in (c.source, c.target):
+            if ref and (ref.instance_name, ref.port_name) == (inst, pin):
+                ref.port_name = to
+
+
+def rebind(nl: Netlist, inst: str, pin: str, net: str) -> None:
+    """Move ``inst.pin`` onto the net called ``net``."""
+    circuit = nl.circuits[0]
+    net_map: NetMap = {}
+    for c in circuit.connections:
+        for ref in (c.source, c.target):
+            if ref and (ref.instance_name, ref.port_name) != (inst, pin):
+                members = net_map.setdefault(c.name, [])
+                if ref not in members:
+                    members.append(ref)
+    add_port_to_net(net_map, net, inst, pin)
+    circuit.connections = net_map_to_connections(net_map)
+
+
+def parsed_nets(nl: Netlist) -> set[frozenset[tuple[str, str]]]:
+    return structure(parse_gsch(write_gsch(nl)))[0]
+
+
+def test_moving_a_pin_to_another_net_is_written_for_mosaic_nets():
+    nl = parse_gsch((FIXTURES / "ihp_rc_filter.gsch").read_text())
+    rebind(nl, "C1", "P", "W3")  # C1.P leaves net P1 for W3
+    assert json.loads(write_gsch(nl))["demo:C1"]["nets"] == {"N": "GND", "P": "W3"}
+    assert parsed_nets(nl) == {
+        frozenset({("V1", "P"), ("R1", "N"), ("C1", "P")}),
+        frozenset({("V1", "N"), ("C1", "N")}),
+        frozenset({("R1", "P"), ("", "P1")}),
+    }
+
+
+def test_port_marker_is_rebound_when_its_pin_moves():
+    nl = parse_gsch((FIXTURES / "ihp_subckt_child.gsch").read_text())
+    move_pin(nl, "M1", "D", "G")  # port D now sits on M1.G
+    out = json.loads(write_gsch(nl))
+    assert out["port_D"]["attached_port"] == {
+        "component_id": "nmos_1",
+        "port_name": "G",
+    }
+    assert out["port_S"]["attached_port"]["port_name"] == "S"  # untouched
+    assert frozenset({("", "D"), ("M1", "G")}) in parsed_nets(nl)
+
+
+def test_marker_loses_its_binding_when_no_instance_is_left_on_its_net():
+    nl = parse_gsch((FIXTURES / "ihp_subckt_child.gsch").read_text())
+    nl.circuits[0].subcircuits.pop()  # M1 is gone
+    nl.circuits[0].connections.clear()
+    out = json.loads(write_gsch(nl))
+    assert "attached_port" not in out["port_D"]
+    assert parsed_nets(nl) == set()
+
+
+def test_polyline_is_dropped_when_its_pins_are_no_longer_one_net():
+    nl = parse_gsch((FIXTURES / "ihp_subckt_parent_poly.gsch").read_text())
+    assert "poly_coupling" in json.loads(write_gsch(nl))  # unchanged: kept
+    move_pin(nl, "A", "D", "S")  # A.D leaves the net it shared with B.S
+    out = json.loads(write_gsch(nl))
+    assert "poly_coupling" not in out
+    assert all(("A", "D") not in net for net in parsed_nets(nl))
+
+
+def test_edited_connectivity_round_trips_for_every_fixture():
+    for name in NAMES:
+        nl = parse_gsch((FIXTURES / f"{name}.gsch").read_text())
+        assert parsed_nets(nl) == structure(nl)[0], name
 
 
 def test_a_netlist_without_circuits_is_rejected():

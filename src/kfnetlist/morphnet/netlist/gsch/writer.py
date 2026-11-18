@@ -71,6 +71,10 @@ def component_ref(terminal: Any) -> dict[str, Any]:
     return {"component_id": key, "port_name": pin}
 
 
+def attached_port(keys: dict[str, str], inst: str, pin: str) -> dict[str, str]:
+    return {"component_id": keys[inst], "port_name": pin}
+
+
 def stash_of(sub: SubCircuit) -> dict[str, Any] | None:
     return json.loads(sub.properties.get(INFO) or "{}").get(STASH)
 
@@ -103,13 +107,10 @@ def write_gsch(netlist: Netlist) -> str:
         if not stashes[sub.name] and sub.circuit_name in MOSAIC_PINS
     }
     pins: dict[str, dict[str, str]] = {}
-    members: dict[str, list[tuple[str, str]]] = {}  # net -> instance pins
     for (inst, pin), net in connections_to_instance_nets(circuit.connections).items():
         if pin.upper() in symbols.get(inst, ()):  # `p` -> `P`
             pin = pin.upper()
         pins.setdefault(inst, {})[pin] = net
-        if inst:
-            members.setdefault(net, []).append((inst, pin))
 
     taken = {s["key"] for s in stashes.values() if s}
     taken |= {
@@ -134,14 +135,24 @@ def write_gsch(netlist: Netlist) -> str:
         placed += 1
         return {"x": x, "y": y, "transform": IDENTITY}
 
+    def synthesized(entry: dict[str, Any], name: str) -> str:
+        """Key for a new entry: its name, else a free variant plus an ``id``."""
+        key = fresh(name)
+        if key != name:
+            entry["id"] = key  # gfp matches `id` before `name`
+        return key
+
     out: dict[str, Any] = {}
     keys: dict[str, str] = {}  # instance name -> entry key
+    members: dict[str, list[tuple[str, str]]] = {}  # net -> (instance name, pin)
+    net_of: dict[tuple[str, str], str] = {}  # (instance name, pin.lower()) -> net
     for sub in circuit.subcircuits:
         stash = stashes[sub.name]
         entry: dict[str, Any] = dict(stash["entry"]) if stash else {}
-        keys[sub.name] = key = stash["key"] if stash else fresh(sub.name)
         if not stash:
             entry = {"type": "", **place()}
+        key = stash["key"] if stash else synthesized(entry, sub.name)
+        keys[sub.name] = key
         if not stash or sub.circuit_name != (entry.get("model") or entry.get("type")):
             builtin = sub.circuit_name in DEVICE_TYPES
             entry["type"] = sub.circuit_name if builtin else "ckt"
@@ -161,6 +172,9 @@ def write_gsch(netlist: Netlist) -> str:
             spelling.get(pin.lower(), pin): net
             for pin, net in pins.get(sub.name, {}).items()
         }
+        for pin, net in entry["nets"].items():
+            members.setdefault(net, []).append((sub.name, pin))
+            net_of[sub.name, pin.lower()] = net
         stashed_props = entry.get("props") or {}
         entry["props"] = {p.name: prop_value(p, stashed_props) for p in sub.parameters}
         out[key] = entry
@@ -178,6 +192,12 @@ def write_gsch(netlist: Netlist) -> str:
             entry = dict(item["entry"])
             if "nets" in entry:
                 entry["nets"] = {"P": net}
+            attached = terminal_ref(entry.get("attached_port"))
+            on_net = {(keys[i], p.lower()) for i, p in members.get(net, [])}
+            if attached and (attached[0], attached[1].lower()) not in on_net:
+                entry.pop("attached_port")  # edited away: rebind to the net's pin
+                if members.get(net):
+                    entry["attached_port"] = attached_port(keys, *members[net][0])
             out[item["key"]] = entry
             continue
         entry = {
@@ -190,12 +210,8 @@ def write_gsch(netlist: Netlist) -> str:
             else "electric",
         }
         if members.get(net):
-            inst, pin = members[net][0]
-            entry["attached_port"] = {
-                "component_id": keys.get(inst, inst),
-                "port_name": pin,
-            }
-        out[fresh(port.name)] = entry
+            entry["attached_port"] = attached_port(keys, *members[net][0])
+        out[synthesized(entry, port.name)] = entry
 
     other = circuit_stash(circuit, "gsch_other")
     alive = set(keys.values()) | {i["key"] for i in other}
@@ -210,11 +226,21 @@ def write_gsch(netlist: Netlist) -> str:
             ]
             entry = {**entry, "ports": kept}
         out[item["key"]] = entry
+    by_key = {k: n for n, k in keys.items()}
     for item in circuit_stash(circuit, "gsch_routes"):
         entry = item["entry"]
         ends = terminal_refs(entry)
-        terminals = entry.get("terminals")
-        if ends and all(e and e[0] in alive for e in ends):
+        refs = [e for e in ends if e]
+        pin_nets = [net_of.get((by_key[k], p.lower())) for k, p in refs if k in by_key]
+        # a polyline joins its pins: drop it once they are on different nets
+        joined = None not in pin_nets and len(set(pin_nets)) <= 1
+        if (
+            ends
+            and len(refs) == len(ends)
+            and joined
+            and all(k in alive for k, _ in refs)
+        ):
+            terminals = entry.get("terminals")
             if isinstance(terminals, dict):  # Livewire drops {device, port} polylines
                 entry = {
                     **entry,

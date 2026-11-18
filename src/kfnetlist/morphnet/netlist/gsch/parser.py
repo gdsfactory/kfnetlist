@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 from collections.abc import Mapping
+from itertools import chain, count
 from typing import Any
 
 from kfnetlist.morphnet.morphnet_schema import (
@@ -161,8 +162,10 @@ def parse_gsch(
     # instance name = `name` else key; the key stays the reference id
     names: dict[str, str] = {}
     for key, entry in comps.items():
-        n = entry.get("name") or key
-        names[key] = key if n in names.values() else n
+        candidates = chain(
+            [entry.get("name") or key, key], (f"{key}_{i}" for i in count(1))
+        )
+        names[key] = next(c for c in candidates if c not in names.values())
 
     # ── connectivity: union-find over (key, pin) nodes and named-net nodes
     parent: dict[Node, Node] = {}
@@ -171,13 +174,18 @@ def parse_gsch(
     def union(a: Node, b: Node) -> None:
         parent[_find(parent, a)] = _find(parent, b)
 
-    def join(refs: list[tuple[str, str] | None], net: str | None = None) -> None:
+    def join(
+        refs: list[tuple[str, str] | None], net: str | None = None, strong: bool = False
+    ) -> None:
+        """Merge ``refs``; ``net`` names them (``strong``: like a Mosaic net name)."""
         nodes: list[Node] = [r for r in refs if r is not None]
         for a, b in zip(nodes, nodes[1:]):
             union(a, b)
         if nodes:
             _find(parent, nodes[0])
-            if net:
+            if net and strong:
+                union(nodes[0], (None, net))
+            elif net:
                 hints.append((nodes[0], net))
 
     for key, entry in comps.items():
@@ -205,8 +213,10 @@ def parse_gsch(
     for item in stash["gsch_routes"]:
         join(terminal_refs(item["entry"]), item["entry"].get("net"))
     for item in stash["gsch_other"]:
-        if entry_type(item["entry"]) == "net":
-            join(terminal_refs(item["entry"]))
+        entry = item["entry"]
+        if entry_type(entry) == "net":  # the entry's key (or id) is the net name
+            name = entry.get("id") or entry.get("_id") or item["key"]
+            join(terminal_refs(entry), name, strong=True)
     junctions = {
         i["key"]
         for i in stash["gsch_other"]
