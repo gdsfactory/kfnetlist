@@ -1,6 +1,7 @@
 """kfnetlist Netlists <-> morphnet Netlists <-> SPICE / Spectre / Verilog-AMS text."""
 
 import json
+from functools import partial
 from pathlib import Path
 
 import pytest
@@ -9,10 +10,12 @@ from kfnetlist import Netlist, NetlistPort, PortRef, morphnet
 from kfnetlist.kfnetlist_schema import ProtoNetlist
 from kfnetlist.morphnet.morphnet_schema import circuit_pb2 as pb
 from kfnetlist.morphnet.netlist import (
+    parse_gsch,
     parse_spectre,
     parse_spice,
     parse_systemverilog,
     parse_vams,
+    write_gsch,
     write_spectre,
     write_spice,
     write_systemverilog,
@@ -53,6 +56,7 @@ def test_direct_round_trip_is_exact():
         (write_spectre, parse_spectre),
         (write_vams, parse_vams),
         (write_systemverilog, parse_systemverilog),
+        (write_gsch, partial(parse_gsch, name="rc")),  # a .gsch has no circuit name
     ],
 )
 def test_every_format_round_trips_connectivity(write, parse):
