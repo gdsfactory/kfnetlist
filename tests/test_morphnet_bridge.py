@@ -191,6 +191,28 @@ R2 vout gnd 10k
 .ends divider
 .end
 """
+# Insertion-ordered maps: nature properties (not sorted) and behavioral blocks.
+_VAMS_NATURE = """\
+nature Voltage;
+  units = "V";
+  access = V;
+  abstol = 1u;
+endnature
+module test (a);
+  inout a;
+endmodule
+"""
+_SV_BLOCKS = """\
+module top (input clk, output reg q);
+  always_ff @(posedge clk) begin
+    if (q) q <= 1'b0; else q <= 1'b1;
+  end
+  always @(*) case (q) 1'b0: q = 1; default: q = 0; endcase
+  initial q = 0;
+  assign q = clk & q;
+  r X1 (.p(clk), .n(q));
+endmodule
+"""
 _SPECTRE_SPICE = """\
 simulator lang=spice
 .subckt rc in_ out gnd
@@ -233,6 +255,8 @@ def _lossless_cases():
         pytest.param(lambda: parse_xyce(_XYCE), id="xyce"),
         pytest.param(lambda: parse_spectre_spice(_SPECTRE_SPICE), id="spectre_spice"),
         pytest.param(lambda: morphnet.from_netlists({"rc": rc()}, "rc"), id="built"),
+        pytest.param(lambda: parse_vams(_VAMS_NATURE), id="vams_nature"),
+        pytest.param(lambda: parse_systemverilog(_SV_BLOCKS), id="sv_blocks"),
     ]
     return cases
 
@@ -254,16 +278,13 @@ def test_bridge_lossless(make):
 
     netlist = make()
     back = morphnet.from_netlists(morphnet.to_netlists(netlist))
-    compared = 0
+    again = morphnet.from_netlists(morphnet.to_netlists(back))
+    # Every writer handles every case: no writer is skipped.
     for name in _WRITERS:
         write = getattr(writers, name)
-        try:
-            expected = write(netlist)
-        except Exception:  # noqa: BLE001 - a writer that cannot write the source is not compared
-            continue
+        expected = write(netlist)
         assert write(back) == expected, name
-        compared += 1
-    assert compared
+        assert write(again) == expected, name
 
 
 # ---- focused: each morphnet-only field survives the bridge ----
@@ -438,3 +459,41 @@ def test_bridge_keeps_net_names():
     assert names == {"mid", "net_1"}
     back_nl = morphnet.to_netlists(morphnet.from_netlists({"top": nl}))["top"]
     assert [n.name for n in back_nl.nets] == ["mid", None]
+
+
+# ---- reserved info keys and restored declarations ----
+
+
+def test_reserved_instance_info_is_not_part_of_equality():
+    one_k = morphnet.to_netlists(parse_spice(".subckt t a b\nR1 a b 1k\n.ends t\n"))[
+        "t"
+    ]
+    plain = morphnet.to_netlists(parse_spice(".subckt t a b\nR1 a b 1000\n.ends t\n"))[
+        "t"
+    ]
+    assert "__morphnet__" in one_k.instances["R1"].info  # 1k is stashed, 1000 is not
+    assert one_k == plain
+
+    built = Netlist()
+    built.create_inst(
+        "R1", kcl="", component="resistor", settings={"value": 1000.0}, na=0, nb=0
+    )
+    for port in ("a", "b"):
+        built.create_port(port)
+    built.create_net(NetlistPort("a"), PortRef("R1", "p"))
+    built.create_net(NetlistPort("b"), PortRef("R1", "n"))
+    for nl in (one_k, built):
+        nl.sort()
+    assert one_k == built
+
+
+def test_restored_document_fills_only_devices_it_did_declare_or_never_used():
+    source = (_FIXTURES / "vams" / "inverter_with_models.vams").read_text()
+    netlists = morphnet.to_netlists(parse_vams(source))
+    nl = netlists["cmos_inverter"]
+    nl.create_inst("R9", kcl="", component="resistor", settings={"value": 1.0})
+    back = morphnet.from_netlists(netlists)
+    ext = {e.name: e for e in back.ext_circuits}
+    assert "mosfet" not in ext  # the source used it undeclared
+    assert [p.name for p in ext["resistor"].ports] == ["p", "n"]
+    assert ext["resistor"].properties == {"spice_prefix": "R"}

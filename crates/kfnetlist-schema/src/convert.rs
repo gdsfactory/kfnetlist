@@ -18,11 +18,12 @@ fn get<T: DeserializeOwned + Default>(props: &Properties, key: &str) -> Result<T
         .transpose()
         .map(|v| v.unwrap_or_default())
 }
-/// Properties morphnet owns (no `__` prefix); the `__` ones are this crate's encoding.
+/// Properties morphnet owns (no `__` prefix, plus the bridge's `__order__` key-order
+/// record); the other `__` ones are this crate's encoding.
 fn public(props: &Properties) -> Properties {
     props
         .iter()
-        .filter(|(k, _)| !k.starts_with("__"))
+        .filter(|(k, _)| !k.starts_with("__") || *k == "__order__")
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect()
 }
@@ -51,6 +52,10 @@ struct Stash {
     /// Document-level fields (circuits and directives emptied), on the toplevel module only.
     #[serde(skip_serializing_if = "Option::is_none")]
     netlist: Option<p::Netlist>,
+    /// Subcircuit masters the document used without declaring (toplevel module only), so
+    /// morphnet's bridge does not add built-in declarations the source never had.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    undeclared: Vec<String>,
 }
 const STASH: &str = "__morphnet__";
 impl Stash {
@@ -335,6 +340,9 @@ impl CircuitDocument {
         put(&mut properties, "__routes__", &self.routes)?;
         put(&mut properties, "__info__", &info)?;
         put(&mut properties, "__nets__", &"named")?;
+        if !stash.undeclared.is_empty() {
+            put(&mut properties, "__undeclared__", &stash.undeclared)?;
+        }
         let parameters = merge_parameters(
             &stash.parameters,
             self.proto_parameters()?,
@@ -573,7 +581,7 @@ impl CircuitDocument {
             model_interfaces: pm.model_interfaces.clone(),
             nets,
             order,
-            netlist: None,
+            ..Default::default()
         }
         .store(&mut module.info)?;
         Ok(module)
@@ -653,11 +661,36 @@ impl NetlistDocument {
                 top_circuit: c.top_circuit.clone(),
                 ..Default::default()
             };
-            if header != plain {
-                let (_, mut stash) = Stash::take(&lead.info)?;
-                stash.netlist = Some(header);
-                stash.store(&mut lead.info)?;
+            let declared: HashSet<&str> = c
+                .circuits
+                .iter()
+                .map(|m| m.name.as_str())
+                .chain(c.ext_circuits.iter().map(|e| e.name.as_str()))
+                .collect();
+            let mut undeclared: Vec<String> = c
+                .circuits
+                .iter()
+                .flat_map(|m| &m.subcircuits)
+                .map(|r| r.circuit_name.clone())
+                .filter(|n| !declared.contains(n.as_str()))
+                .collect();
+            // Only a foreign source (this crate's encoding always has `__placements__`)
+            // decides which masters stay undeclared; documents get the bridge's fill.
+            if c.circuits
+                .iter()
+                .all(|m| m.properties.contains_key("__placements__"))
+            {
+                undeclared.clear();
             }
+            for m in &c.circuits {
+                undeclared.extend(get::<Vec<String>>(&m.properties, "__undeclared__")?);
+            }
+            undeclared.sort();
+            undeclared.dedup();
+            let (_, mut stash) = Stash::take(&lead.info)?;
+            stash.netlist = (header != plain).then_some(header);
+            stash.undeclared = undeclared;
+            stash.store(&mut lead.info)?;
         }
         Ok(doc)
     }

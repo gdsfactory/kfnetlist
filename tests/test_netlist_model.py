@@ -300,3 +300,16 @@ def test_flatten_keeps_top_info_and_unions_directives() -> None:
     flat = top.flatten({"child": child}, instance_cell_map={"x": "child"})
     assert flat.info == {"from": "top"}
     assert [d["value"] for d in flat.directives] == ["top.lib", "child.lib"]
+
+
+def test_reserved_instance_info_keys_are_ignored_by_equality() -> None:
+    def make(info: dict) -> Netlist:
+        nl = Netlist()
+        nl.create_inst("X1", kcl="", component="c", info=info)
+        return nl
+
+    assert make({"owner": "a", "__x__": 1}) == make({"owner": "a", "__x__": 2})
+    assert make({"owner": "a", "__morphnet__": {}}) == make({"owner": "a"})
+    assert make({"owner": "a"}) != make({"owner": "b"})
+    a, b = make({"__gsch__": 1}), make({})
+    assert a.instances["X1"] == b.instances["X1"]

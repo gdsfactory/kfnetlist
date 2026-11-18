@@ -12,7 +12,9 @@ pub mod placement;
 pub mod port;
 pub use error::{ArrayDirection, Error, Result};
 pub use flatten::{compose_placement, flatten_netlist, FlattenOptions, FlattenOutput, NetlistData};
-pub use instance::{LeafNetlistInstance, NetlistArray, NetlistInstance, RefNetlistInstance};
+pub use instance::{
+    public_info_eq, LeafNetlistInstance, NetlistArray, NetlistInstance, RefNetlistInstance,
+};
 pub use net::{Net, NetMember};
 pub use netlist::{
     merge_directives, Directive, EquivalentPorts, NetDifference, Netlist, Opens, PortMapping,

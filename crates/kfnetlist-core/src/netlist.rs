@@ -128,7 +128,7 @@ impl Netlist {
                 || va.kcl != vb.kcl
                 || va.component != vb.component
                 || va.settings != vb.settings
-                || va.info != vb.info
+                || !crate::public_info_eq(&va.info, &vb.info)
                 || va.array != vb.array
                 || va.name != vb.name
             {

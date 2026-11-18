@@ -1,5 +1,20 @@
 use serde::{Deserialize, Serialize};
 
+/// Compare instance metadata, ignoring reserved `__`-prefixed keys (bridge and editor
+/// stashes such as `__morphnet__`), which are not part of instance identity.
+pub fn public_info_eq(
+    a: &serde_json::Map<String, serde_json::Value>,
+    b: &serde_json::Map<String, serde_json::Value>,
+) -> bool {
+    let public = |m: &serde_json::Map<String, serde_json::Value>| {
+        m.iter()
+            .filter(|(k, _)| !k.starts_with("__"))
+            .map(|(k, v)| (k.clone(), v.clone()))
+            .collect::<Vec<_>>()
+    };
+    public(a) == public(b)
+}
+
 /// Array dimensions for an array instance (`na` × `nb`).
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]

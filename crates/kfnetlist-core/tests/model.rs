@@ -472,3 +472,27 @@ fn flattening_unions_directives_of_inlined_netlists_top_first() {
         ]
     );
 }
+
+#[test]
+fn reserved_instance_info_keys_are_not_part_of_equality() {
+    let make = |info: serde_json::Value| {
+        let mut nl = Netlist::default();
+        nl.create_inst_with_info(
+            "X1".into(),
+            String::new(),
+            "c".into(),
+            json!({}),
+            0,
+            0,
+            serde_json::from_value(info).unwrap(),
+        )
+        .unwrap();
+        nl
+    };
+    assert_eq!(
+        make(json!({"owner": "a", "__x__": 1})),
+        make(json!({"owner": "a", "__x__": 2}))
+    );
+    assert_eq!(make(json!({"__morphnet__": {"a": 1}})), make(json!({})));
+    assert_ne!(make(json!({"owner": "a"})), make(json!({"owner": "b"})));
+}

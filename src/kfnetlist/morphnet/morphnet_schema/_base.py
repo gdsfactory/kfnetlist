@@ -85,12 +85,10 @@ class ProtoModel(BaseModel):
                 value_model_cls = _resolve_dict_value_type(annotation)
                 if value_model_cls is not None:
                     kwargs[python_field_name] = {
-                        k: value_model_cls.from_proto(v)
-                        for k, v in sorted(raw_map.items())
+                        k: value_model_cls.from_proto(v) for k, v in raw_map.items()
                     }
                 else:
-                    # protobuf map order is unspecified (upb scrambles it): sort.
-                    kwargs[python_field_name] = dict(sorted(raw_map.items()))
+                    kwargs[python_field_name] = dict(raw_map)
 
             elif is_repeated and is_message:
                 raw = getattr(proto_msg, proto_field_name)

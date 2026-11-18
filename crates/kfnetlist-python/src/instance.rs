@@ -201,7 +201,7 @@ impl NetlistInstance {
             && self.kcl == other.kcl
             && self.component == other.component
             && self.settings == other.settings
-            && self.info == other.info
+            && kfnetlist_core::public_info_eq(&self.info, &other.info)
             && self.array == other.array
             && self.name == other.name;
         Ok(crate::richcmp_result(py, Some(cmp_to_py(op, false, eq))))
