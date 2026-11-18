@@ -153,6 +153,16 @@ class TestExprParameters:
         )
         assert "R1 (a b) resistor r={w*1e-6} dc=1.8" in write_spectre(nl)
 
+    def test_expr_wins_over_numeric_default(self) -> None:
+        nl = _prim_netlist(
+            params=[
+                Parameter(
+                    name="r", default_value=make_pv(5.0), properties={"expr": "{w*2}"}
+                )
+            ]
+        )
+        assert "R1 (a b) resistor r={w*2}" in write_spectre(nl)
+
     def test_expr_on_subckt_header(self) -> None:
         inner = Circuit(
             name="inner",

@@ -26,6 +26,15 @@ class XyceTransformer(SpiceTransformer):
     def params_kw(self, items: list[Any]) -> None:
         return None
 
+    def instance_stmt(self, items: list[Any]) -> Any:
+        # `X1 a b sub PARAMS: w=2`: the keyword is not a net or the subckt name
+        items = [
+            i
+            for i in items
+            if not (isinstance(i, Token) and str(i).upper() == "PARAMS:")
+        ]
+        return super().instance_stmt(items)
+
     def print_stmt(self, items: list[Any]) -> OutputRequestData:
         tokens = [
             str(t) for t in items if isinstance(t, Token) and not str(t).startswith(".")

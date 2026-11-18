@@ -36,6 +36,8 @@ class SpiceWriter:
     """
 
     ground: str = ""
+    # Keyword placed before subckt header / X-call params (Xyce: "PARAMS:")
+    params_kw: str = ""
 
     def format_param_value(self, pval: ParameterValue) -> str:
         """Format any ParameterValue variant as a SPICE-compatible string."""
@@ -122,10 +124,14 @@ class SpiceWriter:
         """Emit a .subckt / .ends block."""
         port_names = " ".join(p.name for p in circuit.ports)
         header = [f".subckt {circuit.name}", port_names]
-        for param in circuit.parameters:
-            text = self.param_text(param)
-            if text is not None:
-                header.append(f"{param.name}={text}")
+        kv = [
+            f"{p.name}={t}"
+            for p in circuit.parameters
+            if (t := self.param_text(p)) is not None
+        ]
+        if kv and self.params_kw:
+            header.append(self.params_kw)
+        header.extend(kv)
         lines.append(" ".join(h for h in header if h))
         lines.extend(self.instance_lines(circuit, ext_by_name, circuit_by_name))
         lines.append(f".ends {circuit.name}")
@@ -236,11 +242,10 @@ class SpiceWriter:
             for p in ref.parameters
             if (text := self.param_text(p)) is not None
         ]
-        parts = [
-            self.out_name(ref, ext_by_name, circuit_by_name),
-            nets_str,
-            subckt_name,
-        ]
+        out_name = self.out_name(ref, ext_by_name, circuit_by_name)
+        parts = [out_name, nets_str, subckt_name]
+        if params_parts and self.params_kw and out_name[:1].upper() == "X":
+            parts.append(self.params_kw)
         parts.extend(params_parts)
         return " ".join(parts)
 

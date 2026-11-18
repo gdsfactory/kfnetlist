@@ -239,7 +239,7 @@ class TestExprParameters:
         )
         assert "R1 a b DC 1 AC 1 w={w*1e-6}" in write_spice(nl)
 
-    def test_expr_wins_and_header_and_call_params(self) -> None:
+    def test_expr_on_header_and_call_params(self) -> None:
         inner = Circuit(
             name="inner",
             ports=[make_port("p")],
@@ -260,6 +260,25 @@ class TestExprParameters:
         out = write_spice(Netlist(name="t", circuits=[inner, outer]))
         assert ".subckt inner p k=2*x" in out
         assert "X1 a inner k={3*y}" in out
+
+    def test_expr_wins_over_numeric_default(self) -> None:
+        both = Parameter(
+            name="w", default_value=make_pv(5.0), properties={"expr": "{w*2}"}
+        )
+        nl = _prim_netlist(
+            params=[
+                both,
+                Parameter(
+                    name="value",
+                    default_value=make_pv(7.0),
+                    properties={"expr": "DC 1"},
+                ),
+            ]
+        )
+        out = write_spice(nl)
+        assert "R1 a b DC 1 w={w*2}" in out
+        assert "w=5" not in out
+        assert " 7" not in out
 
 
 class TestSpicePrefix:
