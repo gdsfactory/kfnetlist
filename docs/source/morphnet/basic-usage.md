@@ -234,16 +234,16 @@ Things to know:
   `bjt`, `mosfet`, `vsource`, `isource`) get the same pin order the SPICE parser
   uses. For other components, add an `ext_circuit(..., ports=[...])` to the netlist
   so positional formats (SPICE, Spectre) know their pin order.
-- **Net names.** A net that contains a top-level port is named after the port.
-  Other nets are named `net_<i>`, because kfnetlist's document model does not
-  carry net names yet.
-- **Values.** SI prefixes are applied (`1k` becomes `1000.0`). Non-numeric
-  parameters (model references) are not converted to `kfnetlist.Netlist` settings.
+- **Net names.** A named net (`create_net(..., name="mid")`) keeps its name.
+  An unnamed net that contains a top-level port is named after the port; other
+  unnamed nets are named `net_<i>`. Parsed nets come back named.
+- **Values.** SI prefixes are applied (`1k` becomes `1000.0`). String and bool
+  settings become expression parameters, written verbatim (`tc=2*t`, `on=true`).
   Directives, libraries and other morphnet data without a kfnetlist counterpart
   travel in `kfnetlist.Netlist.directives` and `.info`, so a round trip keeps them.
-- **Names.** Instance names are written as-is. SPICE infers the device type from
-  the first letter, so use SPICE prefixes (`R1`, `C1`, `X...` for subcircuit
-  calls) when SPICE output matters.
+- **Names.** The SPICE writers prepend the device letter when an instance name
+  lacks it (`load` becomes `Rload`, a subcircuit call gets `X`). Spectre writes
+  names as-is (lowercased for VACASK).
 - **Standalone package.** The vendored schema registers `circuit.proto` in
   protobuf's global pool, as the standalone `mphnet` package does. Don't import
   both in the same process.

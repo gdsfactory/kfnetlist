@@ -110,7 +110,9 @@ port markers are the circuit's ports, and the net `GND` is ground.
   `implementation` equals `sim`, else the first one in the simulator's native
   language (SPICE for ngspice and Xyce, Spectre for VACASK), else, under VACASK,
   a SPICE library that VACASK loads as foreign (`lang=ngspice` or `lang=xyce`).
-  Devices nyancad would not netlist get `sim_skip`.
+  Devices nyancad would not netlist (no Mosaic `nets`, or no model to netlist)
+  stay in the circuit with the instance property `sim_skip="1"`. The SPICE and
+  Spectre writers skip such instances; `write_gsch` still writes them.
 - `corners` is a section name or a sequence of them. Each library takes the first
   of `corners` it has, else its own first section.
 - `name` is the circuit name. It defaults to `__top__`, which the writers write
@@ -131,11 +133,14 @@ print(write_spice(netlist))
 
 #### `read_gsch(path, *, project_root=None, models=None, sim="ngspice", corners=()) -> Netlist`
 
-Read a `.gsch` file and the `.gsch` schematics its devices instantiate. A device
-whose `model` ends in `.gsch` (resolved against `project_root`, which defaults to
-the file's directory) becomes a subcircuit named by its nyanlib `name`, else the
-file stem. Its ports, sorted by name, are the pins and its prop defaults are the
-header parameters, as in nyancad. When `models` is `None`, the project's
+Read a `.gsch` file and the `.gsch` schematics its devices instantiate. Only
+wired devices (with Mosaic `nets`) whose `model` ends in `.gsch` and is not a
+library model (no nyanlib `models` entries) are followed, as in nyancad. Each such
+child, resolved against `project_root` (which defaults to the file's directory),
+becomes a subcircuit named by its nyanlib `name`, else the file stem. Its ports,
+sorted by name, are the pins and its prop defaults are the header parameters. A
+missing child file, or two children with the same circuit name, raise
+`ValueError` with the path. When `models` is `None`, the project's
 `build/models.nyanlib` is read, else `models.nyanlib`. The libraries of the whole
 hierarchy are gathered on the netlist, top first.
 
@@ -144,7 +149,10 @@ hierarchy are gathered on the netlist, top first.
 Write the top circuit of a `Netlist` as `.gsch` JSON text. Instances and port
 markers parsed from a `.gsch` keep their keys and layout fields; the others get
 `type`, `name`, `x` and `y` on a grid. Wires, `net`/`via`/`taper` entries and
-polylines whose endpoints survive are restored.
+polylines whose endpoints survive are restored. An unedited
+`write_gsch(parse_gsch(text, models=...))` is JSON-equal to `text`: device pins
+keep their spelling (`A`/`B`, not SPICE's `p`/`n`), and a MOS bulk the parser
+tied to ground is not written unless it was moved to another net.
 
 #### Scope of the simulation export
 
@@ -162,7 +170,12 @@ Remaining differences from nyancad's output:
 - Numbers keep the user's text (`1n`, `1meg`); InSpice writes floats with units
   (`1e-09s`). The values are the same.
 - Xyce netlists use `PARAMS:` on subcircuit headers and X calls. VACASK
-  subcircuit parameters go on the `subckt` line, not on a `parameters` line.
+  subcircuit parameters go on a `parameters` line in the body, as in nyancad.
+- Scaffolding: the VACASK output starts with `ground 0`, which nyancad also
+  writes; the other scaffolding (title, `load`/`model` cards, `control`) is not
+  written.
+- InSpice raises on parameters an element class does not know (for example
+  `width=` on a built-in `nmos`); morphnet writes them through.
 - Libraries are ordered top circuit first, then its children in device order;
   nyancad sorts by model key. The set is the same. With several matching corners
   the first one in the caller's order wins.
@@ -181,6 +194,12 @@ Remaining differences from nyancad's output:
   simulated instance are not written back by `write_gsch`.
 - A file written from a non-gsch source has no Mosaic wires. Mosaic recomputes
   `nets` on the first edit; Livewire keeps them.
+- Restored Mosaic `wire` entries are written as parsed. Mosaic recomputes `nets`
+  from the wires on its first edit, so a connectivity edit made through the IR
+  can be undone when the old wires still join the old pins.
+- Through the kfnetlist bridge, the key order inside `.gsch` entries is not
+  preserved: `write_gsch` output after `from_netlists(to_netlists(nl))` is
+  JSON-equal to the output for `nl`, not text-equal.
 - Inline nyanlib `code` blocks are skipped. Only `library` paths become directives.
 - An unnamed single-pin net (for example a lone Livewire pin) is written as `?`.
   A named Mosaic label keeps its own node.
@@ -202,6 +221,13 @@ Both return fresh snapshots, like `instances`, `nets` and `ports`. They are
 **excluded from equality**, so LVS comparisons ignore them. Instance `info` keys
 that start with `__` (such as `__morphnet__`) are likewise excluded from instance
 equality.
+
+The document header (`name`, `properties`, `ext_circuits`, `libraries`,
+`simulation`) is stored on every cell, so `from_netlists()` of any subset of the
+cells, or with another `toplevel`, keeps it. Cells from several documents take the
+toplevel's header plus the external circuits it lacks, by name.
+`CircuitDocument.net_names` and `CircuitDocument.directives` expose net names and
+directives on the document side.
 
 ---
 

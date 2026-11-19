@@ -30,6 +30,25 @@
     header line.
   - The SPICE and Spectre writers handle expression parameters, device prefixes
     and the ground net.
+  - The VACASK dialect of the Spectre writer puts subcircuit parameters on a
+    `parameters` line in the body, as nyancad does; plain Spectre keeps them on
+    the `subckt` line.
+- **Output changes for existing users**:
+  - kfnetlist string and bool settings now reach SPICE and Spectre output as
+    parameters (`mode=fast`, `on=true`); they used to be dropped.
+  - The SPICE writers prepend the element letter, or `X` for a subcircuit call,
+    to instance names that lack it (`load` is written `Rload`).
+  - JSON from the bridge carries `info` and `directives` on netlists and
+    instances. kfnetlist readers older than this release reject it (their
+    `deny_unknown_fields` schema does not know these keys).
+  - The document header (name, properties, external circuits, libraries,
+    simulation) is kept on every cell, so `from_netlists()` of a subset or with
+    another `toplevel` keeps `.model` cards and `ground_net`.
+  - A port net named after its port (a bridged netlist names every net) is written
+    in the plain `ports: {o1: mmi,o1}` form by `NetlistDocument.from_netlists()`,
+    as before net names existed.
+  - The key order inside `.gsch` entries is not preserved through the kfnetlist
+    bridge: `write_gsch` output is JSON-equal, not text-equal.
 
 ## 0.4.1
 
