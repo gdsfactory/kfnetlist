@@ -1,0 +1,18 @@
+// schematic
+
+ground 0
+
+include "ihp/models/vacask/models/cornerMOSlv.lib" section=mos_tt
+
+load "spice/resistor.osdi"
+
+model sp_resistor sp_resistor
+
+xm1 (out in 0 0) sg13_lv_nmos l=0.13 * 1e-6 m=1 ng=2 w=0.3 * 1e-6
+rr1 (vdd out) sp_resistor r=rload
+
+control
+  options temp=27 tnom=27 rawfile="binary"
+  save default
+  analysis op1 op
+endc

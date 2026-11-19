@@ -1,0 +1,396 @@
+"""``.gsch`` -> SPICE/Spectre parity with nyancad's netlister.
+
+The goldens in ``netlists/gsch/golden`` were written once by nyancad + InSpice
+(``golden/regen.py``); these tests never import either. Both sides are normalised
+to the circuit: libraries, subckt headers and, per scope, the set of elements
+(name, nodes, master/positional values, params). Simulator scaffolding (title,
+``.end``, ``control`` blocks, ``load``/``model`` cards, ``ground 0``) is ignored.
+"""
+
+import json
+import re
+import shutil
+import subprocess
+from pathlib import Path
+
+import pytest
+
+from kfnetlist import morphnet
+from kfnetlist.morphnet.morphnet_schema import DirectiveKind, Netlist
+from kfnetlist.morphnet.netlist.gsch.parser import parameter
+from kfnetlist.morphnet.netlist import (
+    parse_gsch,
+    read_gsch,
+    write_gsch,
+    write_spectre,
+    write_spice,
+    write_xyce,
+)
+
+FIXTURES = Path(__file__).parent / "netlists" / "gsch"
+GOLDEN = FIXTURES / "golden"
+MODELS = json.loads((FIXTURES / "models.nyanlib").read_text())
+CORNERS = {"ihp_hier_top": ["mos_ff"]}  # as in golden/regen.py
+WRITERS = {"ngspice": write_spice, "xyce": write_xyce, "vacask": write_spectre}
+GOLDENS = sorted(p.name for p in GOLDEN.glob("*.*.*") if p.suffix in (".cir", ".scs"))
+NODES = {"R": 2, "C": 2, "L": 2, "V": 2, "I": 2, "D": 2, "Q": 3, "M": 4}
+NUMBER = re.compile(
+    r"^([+-]?(?:\d+\.?\d*|\.\d+)(?:e[+-]?\d+)?)(meg|[tgkmunpf])?(v|a|s|hz)?$", re.I
+)
+SCALE = {"t": 1e12, "g": 1e9, "meg": 1e6, "k": 1e3, "m": 1e-3, "u": 1e-6}
+SCALE |= {"n": 1e-9, "p": 1e-12, "f": 1e-15}
+
+
+def value(text: str, fold: bool) -> object:
+    """A number (any SI suffix or unit) as a float; anything else without spaces."""
+    text = text.strip()
+    m = NUMBER.match(text)
+    if m:
+        number = float(m[1]) * SCALE.get((m[2] or "").lower(), 1)
+        return float(f"{number:.9g}")
+    text = re.sub(r"\s+", "", text)
+    return text.lower() if fold else text
+
+
+def params(tail: str, fold: bool) -> tuple:
+    pairs = re.findall(r"(\S+?)=(.*?)(?=\s+\S+=|$)", tail.strip())
+    out = {k.lower() if fold else k: value(v, fold) for k, v in pairs}
+    return tuple(sorted(out.items()))
+
+
+def split(line: str) -> tuple[str, str]:
+    """``head`` (positional tokens) and ``tail`` (``k=v`` params) of a line."""
+    line = line.replace(" PARAMS:", "")  # Xyce keyword
+    m = re.search(r"\s\S+=", line)
+    return (line[: m.start()], line[m.start() :]) if m else (line, "")
+
+
+def spice_view(text: str, golden: bool) -> dict:
+    view: dict = {"libs": set(), "headers": {}, "elements": {}}
+    scope = "__top__"
+    for line in text.splitlines():
+        line = line.strip()
+        low = line.lower()
+        if low.startswith(".lib "):
+            view["libs"].add(tuple(t.strip('"') for t in line.split()))
+        elif low.startswith(".include"):
+            view["libs"].add((".include", line.split(None, 1)[1].strip('"')))
+        elif low.startswith(".subckt"):
+            head, tail = split(line)
+            _, scope, *ports = head.split()
+            view["headers"][scope] = (tuple(ports), params(tail, False))
+        elif low.startswith(".ends"):
+            scope = "__top__"
+        elif line and not line.startswith(("*", ".")):
+            head, tail = split(line)
+            name, *rest = re.split(r"[\s()]+", head.strip(") "))
+            if golden and name[:1].lower() == name[1:2].lower():
+                name = name[1:]  # InSpice prepends the letter even when present
+            n = NODES.get(name[0].upper(), len(rest) - 1)  # X: all but the master
+            element = (
+                name,
+                tuple(rest[:n]),
+                tuple(value(t, False) for t in rest[n:]),
+                params(tail, False),
+            )
+            view["elements"].setdefault(scope, set()).add(element)
+    return view
+
+
+def spectre_view(text: str, golden: bool) -> dict:
+    view: dict = {"libs": set(), "headers": {}, "elements": {}}
+    scope, control = "__top__", False
+    for line in text.splitlines():
+        line = line.strip()
+        word = line.split(" ", 1)[0].split("(", 1)[0]
+        if word in ("control", "endc"):
+            control = word == "control"
+        elif control or not line or line.startswith("//"):
+            continue
+        elif word == "include":
+            path, options = re.match(r'include\s+"([^"]*)"(.*)', line).groups()
+            view["libs"].add((path, *sorted(options.split())))
+        elif word == "subckt":
+            scope, ports, tail = re.match(
+                r"subckt\s+(\S+?)\s*\(([^)]*)\)(.*)", line
+            ).groups()
+            view["headers"][scope] = (tuple(ports.split()), params(tail, True))
+        elif word == "parameters" and scope != "__top__":  # nyancad's header params
+            ports, given = view["headers"][scope]
+            view["headers"][scope] = (
+                ports,
+                tuple(sorted({*given, *params(line[10:], True)})),
+            )
+        elif word == "ends":
+            scope = "__top__"
+        elif word not in ("ground", "load", "model", "parameters"):
+            name, nodes, master, tail = re.match(
+                r"(\S+?)\s*\(([^)]*)\)\s*(\S+)(.*)", line
+            ).groups()
+            element = (
+                (name[1:] if golden else name).lower(),  # InSpice: letter + name
+                tuple(nodes.split()),
+                (master.lower(),),
+                params(tail, True),
+            )
+            view["elements"].setdefault(scope, set()).add(element)
+    return view
+
+
+def export(stem: str, sim: str) -> Netlist:
+    return read_gsch(FIXTURES / f"{stem}.gsch", sim=sim, corners=CORNERS.get(stem, ()))
+
+
+@pytest.mark.parametrize("golden", GOLDENS)
+def test_export_matches_nyancad(golden):
+    stem, sim, _ = golden.split(".")
+    view = spectre_view if sim == "vacask" else spice_view
+    ours = view(WRITERS[sim](export(stem, sim)), golden=False)
+    theirs = view((GOLDEN / golden).read_text(), golden=True)
+    assert ours == theirs
+
+
+def test_goldens_cover_every_fixture_nyancad_can_netlist():
+    stems = {p.stem for p in FIXTURES.glob("*.gsch")}
+    skipped = {
+        line.split(".")[0]
+        for line in (GOLDEN / "SKIPPED.txt").read_text().split("\n")
+        if line
+    }
+    assert skipped == {"ihp_subckt_parent_nets"}  # nyancad: KeyError, pin S has no net
+    assert {g.split(".")[0] for g in GOLDENS} == stems - skipped
+    assert len(GOLDENS) == 3 * len(stems - skipped)
+
+
+def lines(netlist: Netlist, sim: str = "ngspice") -> list[str]:
+    return WRITERS[sim](netlist).splitlines()
+
+
+def libs(netlist: Netlist) -> list[tuple]:
+    return [(d.kind, d.value, d.name) for d in netlist.directives]
+
+
+LIB, INCLUDE = DirectiveKind.LIB, DirectiveKind.INCLUDE
+
+
+def library_doc(*models: str) -> str:
+    doc = {
+        f"top:{m}": {"type": "ckt", "name": m, "model": m, "nets": {"a": "x", "b": "y"}}
+        for m in models
+    }
+    return json.dumps(doc)
+
+
+def library_models(**sections: list[str]) -> dict:
+    return {
+        f"models:{name}": {
+            "name": name,
+            "ports": [{"name": "a"}, {"name": "b"}],
+            "models": [
+                {
+                    "language": "spice",
+                    "name": name,
+                    "spice-type": "X",
+                    "library": f"{name}.lib",
+                    "sections": secs,
+                }  # fmt: skip
+            ],
+        }
+        for name, secs in sections.items()
+    }
+
+
+def test_corner_is_the_first_of_the_callers_list_the_library_has():
+    models = library_models(mos=["tt", "ss", "ff"])
+    nl = parse_gsch(library_doc("mos"), models=models, corners=["xx", "ff", "ss"])
+    assert libs(nl) == [(LIB, "mos.lib ff", "")]
+    nl = parse_gsch(library_doc("mos"), models=models, corners="ss")
+    assert libs(nl) == [(LIB, "mos.lib ss", "")]
+
+
+def test_corner_falls_back_to_the_first_section_then_to_an_include():
+    models = library_models(mos=["tt", "ss"], plain=[])
+    nl = parse_gsch(library_doc("mos", "plain"), models=models, corners=["ff"])
+    assert libs(nl) == [(LIB, "mos.lib tt", ""), (INCLUDE, "plain.lib", "")]
+    assert lines(nl)[1:3] == [".lib mos.lib tt", '.include "plain.lib"']
+
+
+def test_each_model_family_takes_its_own_corner():
+    models = library_models(mos=["mos_tt", "mos_ff"], res=["res_typ", "res_wcs"])
+    corners = ["mos_ff", "res_wcs"]
+    nl = parse_gsch(library_doc("mos", "res"), models=models, corners=corners)
+    assert libs(nl) == [(LIB, "mos.lib mos_ff", ""), (LIB, "res.lib res_wcs", "")]
+
+
+def test_shared_libraries_are_written_once():
+    nl = export("ihp_cmos_inverter", "ngspice")  # nmos and pmos: one library
+    assert libs(nl) == [
+        (LIB, "ihp/models/ngspice/models/cornerMOSlv.lib mos_tt", ""),
+    ]
+
+
+def test_vacask_takes_the_native_entry_then_a_foreign_library_with_its_dialect():
+    nl = export("ihp_cmos_inverter", "vacask")
+    assert libs(nl) == [
+        (LIB, "ihp/models/vacask/models/cornerMOSlv.lib mos_tt", ""),
+        (LIB, "ihp/models/ngspice/models/cornerMOSlv.lib mos_tt", "lang=ngspice"),
+    ]
+    assert nl.properties["dialect"] == "vacask"
+
+
+def test_ground_net_is_node_zero():
+    nl = export("ihp_rc_filter", "ngspice")
+    assert nl.properties["ground_net"] == "GND"
+    assert "C1 P1 0 0.1u" in lines(nl)
+    assert "V1 W3 0 DC 1 AC 1" in lines(nl)
+
+
+def test_child_schematics_become_subcircuits_and_hoist_their_libraries():
+    nl = export("ihp_hier_top", "ngspice")
+    assert [c.name for c in nl.circuits] == ["hier_cell", "__top__"]
+    cell = nl.circuits[0]
+    assert [p.name for p in cell.ports] == ["in", "out", "vdd"]  # sorted model ports
+    assert [(p.name, p.properties.get("expr")) for p in cell.parameters] == [
+        ("rload", None)
+    ]
+    # top first, then the child's; the child's nmos shares the top pmos library
+    assert libs(nl) == [
+        (LIB, "ihp/models/ngspice/models/cornerMOSlv.lib mos_ff", ""),
+        (INCLUDE, "pdk/models/mprim.lib", ""),
+    ]
+    assert "hier_cell" not in {e.name for e in nl.ext_circuits}
+    # vacask: only the child's nmos uses the native library, still at the top
+    assert (LIB, "ihp/models/vacask/models/cornerMOSlv.lib mos_ff", "") in libs(
+        export("ihp_hier_top", "vacask")
+    )
+
+
+def test_devices_nyancad_does_not_netlist_stay_in_the_ir_but_are_not_written():
+    nl = export("ihp_hier_top", "ngspice")
+    led = next(s for s in nl.circuits[-1].subcircuits if s.name == "LED1")
+    assert led.properties["sim_skip"] == "1"
+    assert not any(line.split()[0] in ("LED1", "XLED1") for line in lines(nl))
+    nl = export("livewire_two_straights", "ngspice")  # no `nets`: nothing to netlist
+    assert all(s.properties.get("sim_skip") == "1" for s in nl.circuits[0].subcircuits)
+
+
+def test_missing_mos_bulk_is_tied_to_ground():
+    nl = export("ihp_hier_top", "ngspice")
+    assert "M4 vout2 vin 0 0 nch w=1u" in lines(nl)
+
+
+def test_models_keep_their_fqn_for_write_gsch():
+    nl = export("ihp_cmos_inverter", "ngspice")
+    m1 = next(s for s in nl.circuits[0].subcircuits if s.name == "M1")
+    assert (m1.circuit_name, m1.properties.get("sim_skip")) == ("sg13_lv_nmos", None)
+    info = json.loads(m1.properties["__info__"])
+    assert info["__model__"] == "ihp.cells.fet_transistors.nmos"
+    out = json.loads(write_gsch(nl))["demo2:M1"]
+    raw = json.loads((FIXTURES / "ihp_cmos_inverter.gsch").read_text())["demo2:M1"]
+    assert (out["type"], out["model"], out["props"]) == (
+        "nmos",
+        "ihp.cells.fet_transistors.nmos",
+        raw["props"],
+    )
+
+
+def test_top_circuit_is_written_flat_and_keeps_its_schema_name():
+    nl = export("ihp_rc_filter", "ngspice")
+    assert nl.top_circuit == nl.circuits[0].name == "__top__"
+    assert json.loads(nl.circuits[0].properties["__info__"])["gsch_schema"] == "demo"
+    assert not any(line.startswith(".subckt") for line in lines(nl))
+
+
+def test_read_gsch_finds_the_models_of_a_project(tmp_path):
+    (tmp_path / "build").mkdir()
+    shutil.copy(FIXTURES / "models.nyanlib", tmp_path / "build")
+    (tmp_path / "models.nyanlib").write_text("{}")  # build/ wins
+    for name in ("ihp_hier_top.gsch", "ihp_hier_cell.gsch"):
+        shutil.copy(FIXTURES / name, tmp_path)
+    nl = read_gsch(tmp_path / "ihp_hier_top.gsch", corners="mos_ff")
+    assert [c.name for c in nl.circuits] == ["hier_cell", "__top__"]
+    assert any(d.value.endswith("mos_ff") for d in nl.directives)
+    # a child missing from models.nyanlib is named after its file
+    (tmp_path / "build" / "models.nyanlib").write_text("{}")
+    nl = read_gsch(tmp_path / "ihp_hier_top.gsch")
+    assert [c.name for c in nl.circuits] == ["ihp_hier_cell", "__top__"]
+    assert [p.name for p in nl.circuits[0].ports] == ["in", "out", "vdd"]
+
+
+def test_read_gsch_stops_at_a_cycle(tmp_path):
+    doc = {"a:X": {"type": "ckt", "name": "X", "model": "a.gsch", "nets": {"p": "n"}},
+           "a:p": {"type": "port", "name": "p", "nets": {"P": "n"}}}  # fmt: skip
+    (tmp_path / "a.gsch").write_text(json.dumps(doc))
+    nl = read_gsch(tmp_path / "a.gsch")
+    assert [c.name for c in nl.circuits] == ["__top__"]
+
+
+@pytest.mark.parametrize("sim", ["spectre", "", "hspice"])
+def test_unknown_simulator_is_rejected(sim):
+    with pytest.raises(ValueError, match="sim"):
+        parse_gsch("{}", sim=sim)
+
+
+def test_simulator_names_are_case_insensitive():
+    text = (FIXTURES / "ihp_rc_filter.gsch").read_text()
+    assert write_spectre(parse_gsch(text, sim="VACASK")) == write_spectre(
+        parse_gsch(text, sim="vacask")
+    )
+
+
+@pytest.mark.parametrize("sim", list(WRITERS))
+@pytest.mark.parametrize("stem", sorted(p.stem for p in FIXTURES.glob("*.gsch")))
+def test_export_survives_the_kfnetlist_bridge(stem, sim):
+    nl = export(stem, sim)
+    back = morphnet.from_netlists(morphnet.to_netlists(nl), nl.top_circuit)
+    for write in (write_spice, write_spectre, write_xyce):
+        assert write(back) == write(nl)
+    assert json.loads(write_gsch(back)) == json.loads(write_gsch(nl))
+
+
+@pytest.mark.skipif(not shutil.which("ngspice"), reason="ngspice not installed")
+def test_ngspice_runs_the_rc_filter(tmp_path):
+    deck = tmp_path / "rc.cir"
+    text = write_spice(export("ihp_rc_filter", "ngspice"))
+    deck.write_text(text.replace(".end", ".op\n.end"))
+    run = subprocess.run(  # noqa: S603 - fixed binary, temp deck
+        ["ngspice", "-b", str(deck)], capture_output=True, text=True, timeout=60
+    )
+    assert run.returncode == 0, run.stdout + run.stderr
+    assert "error" not in run.stdout.lower()
+
+
+def test_vacask_multiplier_is_mfactor_and_left_out_when_one():
+    nets = {"D": "d", "G": "g", "S": "s", "B": "b"}
+    doc = {
+        f"t:{name}": {
+            "type": "nmos",
+            "name": name,
+            "nets": nets,
+            "props": {"model": "nch", "m": m},
+        }  # fmt: skip
+        for name, m in (("M1", 2), ("M2", 1))
+    }
+    text = write_spectre(parse_gsch(json.dumps(doc), sim="vacask"))
+    assert "m1 (d g s b) nch $mfactor=2" in text.splitlines()
+    assert "m2 (d g s b) nch" in text.splitlines()
+    assert "m=2" in write_spice(parse_gsch(json.dumps(doc)))
+
+
+def test_an_edited_value_goes_back_to_its_mosaic_prop():
+    nl = export("ihp_rc_filter", "ngspice")
+    r1 = next(s for s in nl.circuits[0].subcircuits if s.name == "R1")
+    r1.parameters = [parameter("value", "2k")]
+    assert json.loads(write_gsch(nl))["demo:R1"]["props"] == {"resistance": "2k"}
+
+
+def test_an_unwired_device_does_not_add_pins_to_a_simulated_master():
+    doc = {
+        "t:R1": {"type": "resistor", "name": "R1", "nets": {"P": "a", "N": "b"},
+                 "props": {"resistance": "1k"}},
+        "t:R2": {"type": "resistor", "name": "R2", "nets": {"P": "a", "N": "b"}},
+        "t:R3": {"type": "resistor", "name": "R3", "ports": [{"name": "X"}]},
+    }  # fmt: skip
+    nl = parse_gsch(json.dumps(doc))
+    assert [p.name for p in nl.ext_circuits[0].ports] == ["p", "n"]
+    assert "R1 a b 1k" in lines(nl)

@@ -1,0 +1,3 @@
+ihp_subckt_parent_nets.ngspice: KeyError: 's'
+ihp_subckt_parent_nets.xyce: KeyError: 's'
+ihp_subckt_parent_nets.vacask: KeyError: 's'

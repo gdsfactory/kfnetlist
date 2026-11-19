@@ -31,13 +31,15 @@ def ext_ports(netlist: Netlist, name: str) -> dict[str, SignalDomain]:
 
 def test_mosaic_rc_filter():
     nl = load("ihp_rc_filter")
+    # built-in symbols take the device templates' pins (P N -> p n)
     assert nets(nl) == {
-        "W3": {("V1", "P"), ("R1", "N")},
-        "GND": {("V1", "N"), ("C1", "N")},
-        "P1": {("R1", "P"), ("C1", "P"), ("", "P1")},
+        "W3": {("V1", "p"), ("R1", "n")},
+        "GND": {("V1", "n"), ("C1", "n")},
+        "P1": {("R1", "p"), ("C1", "p"), ("", "P1")},
     }
     circuit = nl.circuits[0]
-    assert (circuit.name, nl.top_circuit) == ("demo", "demo")
+    assert (circuit.name, nl.top_circuit) == ("__top__", "__top__")
+    assert json.loads(circuit.properties["__info__"])["gsch_schema"] == "demo"
     # the ground marker is not a pin, but its net keeps the name GND
     assert [(p.name, p.domain) for p in circuit.ports] == [("P1", ELECTRICAL)]
     assert {c.domain for c in circuit.connections} == {ELECTRICAL}
@@ -47,45 +49,40 @@ def test_mosaic_rc_filter():
         "resistor",
         "capacitor",
     ]
-    assert ext_ports(nl, "resistor") == {"N": ELECTRICAL, "P": ELECTRICAL}
+    assert ext_ports(nl, "resistor") == {"p": ELECTRICAL, "n": ELECTRICAL}
 
 
 def test_mosaic_props_become_si_values_or_expr_text():
     nl = load("ihp_rc_filter")
     r1 = nl.circuits[0].subcircuits[1]
-    (resistance,) = r1.parameters
-    assert resistance.name == "resistance"
+    (resistance,) = r1.parameters  # nyancad: `resistance` is R's value
+    assert resistance.name == "value"
     assert resistance.default_value.prefixed_value.double_value == 1
     assert resistance.default_value.prefixed_value.prefix == SIPrefix.KILO
 
     nl = load("ihp_cmos_inverter")
     v2 = next(s for s in nl.circuits[0].subcircuits if s.name == "V2")
-    tran = next(p for p in v2.parameters if p.name == "tran")
-    assert tran.default_value is None
-    assert tran.properties == {"expr": "sin(0.9 1 1k)"}
+    (value,) = v2.parameters  # a `tran` string is no waveform: nyancad drops it
+    assert value.default_value is None
+    assert value.properties == {"expr": "DC 0.9 AC 1"}
     m1 = next(s for s in nl.circuits[0].subcircuits if s.name == "M1")
     by_name = {p.name: p for p in m1.parameters}
     assert by_name["width"].default_value.prefixed_value.double_value == 0.15
-    assert by_name["model"].properties == {"expr": "sg13_lv_nmos"}
+    assert m1.properties["model_name"] == "sg13_lv_nmos"  # the `model` prop
 
 
 def test_mosaic_inverter_with_models_and_polylines():
     nl = load("ihp_cmos_inverter")
     assert nets(nl) == {
-        "GND": {("M1", "B"), ("M1", "S"), ("V1", "N"), ("V2", "N")},
-        "P1": {("M1", "D"), ("M2", "S"), ("R1", "N"), ("", "P1")},
-        "P2": {("M1", "G"), ("M2", "G"), ("V2", "P"), ("", "P2")},
-        "W5": {("M2", "D"), ("M2", "B"), ("R1", "P"), ("V1", "P")},
+        "GND": {("M1", "b"), ("M1", "s"), ("V1", "n"), ("V2", "n")},
+        "P1": {("M1", "d"), ("M2", "s"), ("R1", "n"), ("", "P1")},
+        "P2": {("M1", "g"), ("M2", "g"), ("V2", "p"), ("", "P2")},
+        "W5": {("M2", "d"), ("M2", "b"), ("R1", "p"), ("V1", "p")},
     }
     assert [p.name for p in nl.circuits[0].ports] == ["P1", "P2"]
     masters = {s.name: s.circuit_name for s in nl.circuits[0].subcircuits}
-    assert masters["M1"] == "ihp.cells.fet_transistors.nmos"
-    assert ext_ports(nl, "ihp.cells.fet_transistors.nmos") == {
-        "S": ELECTRICAL,
-        "B": ELECTRICAL,
-        "G": ELECTRICAL,
-        "D": ELECTRICAL,
-    }
+    assert masters["M1"] == "mosfet"  # its model is not in `models`: built-in
+    assert list(ext_ports(nl, "mosfet")) == ["d", "g", "s", "b"]
 
 
 def test_livewire_polyline_joins_the_pins_it_ends_on():
@@ -94,7 +91,9 @@ def test_livewire_polyline_joins_the_pins_it_ends_on():
         "net_1": {("uuid-A:M1", "o2"), ("uuid-B:M2", "o1")},
     }
     circuit = nl.circuits[0]
-    assert circuit.name == "top"  # the two keys have different prefixes
+    assert circuit.name == "__top__"
+    info = json.loads(circuit.properties["__info__"])
+    assert info["gsch_schema"] is None  # the two keys have different prefixes
     assert [s.circuit_name for s in circuit.subcircuits] == [
         "gf.components.straight"
     ] * 2
@@ -124,7 +123,7 @@ def test_mixed_file_uses_device_port_types_over_pin_names():
         "P1": {("X1", "o2"), ("", "P1")},
         "P2": {("X2", "o2"), ("", "P2")},
     }
-    assert nl.circuits[0].name == "gc2"
+    assert nl.circuits[0].name == "__top__"
     # `o2` is named like a waveguide pin but the device says electrical
     assert ext_ports(nl, "myspclo.gc.gc") == {"o1": WAVEGUIDE, "o2": ELECTRICAL}
     domains = {c.name: c.domain for c in nl.circuits[0].connections}
@@ -243,19 +242,20 @@ def test_models_argument_gives_port_order_and_domains():
                 {"name": "z", "type": "photonic"},
                 {"name": "a", "type": "electric"},
             ],
-            "models": [{"language": "spice", "port-order": ["b", "a", "z"]}],
+            "models": [
+                {"language": "spice", "spice-type": "X", "port-order": ["b", "a", "z"]}
+            ],
         }
     }
     nl = parse_gsch(json.dumps(doc), models=models)
     assert list(ext_ports(nl, "pdk.cell")) == ["b", "a", "z"]
     assert ext_ports(nl, "pdk.cell")["z"] == WAVEGUIDE
     assert ext_ports(nl, "pdk.cell")["a"] == ELECTRICAL
-    # without port-order: the nyanlib `ports` order
+    # without a model entry: an X call with the nyanlib ports sorted by name
     del models["models:pdk.cell"]["models"]
     assert list(ext_ports(parse_gsch(json.dumps(doc), models=models), "pdk.cell")) == [
-        "z",
         "a",
-        "b",
+        "z",
     ]
 
 
@@ -273,7 +273,7 @@ def test_inline_models_are_merged_under_the_argument_and_are_not_entries():
 def test_circuit_name_argument_wins_over_key_prefix():
     text = (FIXTURES / "ihp_rc_filter.gsch").read_text()
     assert parse_gsch(text, name="rc").top_circuit == "rc"
-    assert parse_gsch(json.dumps({"r": {"type": "resistor"}})).top_circuit == "top"
+    assert parse_gsch(json.dumps({"r": {"type": "resistor"}})).top_circuit == "__top__"
 
 
 def test_raw_entries_are_stashed_for_the_writer():
@@ -287,7 +287,10 @@ def test_raw_entries_are_stashed_for_the_writer():
     assert [i["key"] for i in info["gsch_routes"]] == ["poly_1"]
     assert info["gsch_routes"][0]["entry"] == raw["poly_1"]
     x1 = json.loads(circuit.subcircuits[0].properties["__info__"])
-    assert x1 == {"__gsch__": {"key": "gc2:X1", "entry": raw["gc2:X1"]}}
+    assert x1 == {
+        "__gsch__": {"key": "gc2:X1", "entry": raw["gc2:X1"]},
+        "__model__": "myspclo.gc.gc",
+    }
 
 
 @pytest.mark.parametrize("bad", ["[]", "3"])

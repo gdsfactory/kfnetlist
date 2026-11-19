@@ -1,0 +1,42 @@
+// schematic
+
+ground 0
+
+include "pdk/models/mprim.lib" lang=ngspice
+include "ihp/models/ngspice/models/cornerMOSlv.lib" lang=ngspice section=mos_ff
+include "ihp/models/vacask/models/cornerMOSlv.lib" section=mos_ff
+
+load "spice/capacitor.osdi"
+load "spice/inductor.osdi"
+load "spice/resistor.osdi"
+
+model sp_capacitor sp_capacitor
+model sp_inductor sp_inductor
+model sp_resistor sp_resistor
+model isource isource
+model vsource vsource
+
+subckt hier_cell(in out vdd)
+  parameters rload=1k
+  xm1 (out in 0 0) sg13_lv_nmos l=0.13 * 1e-6 m=1 ng=2 w=0.3 * 1e-6
+  rr1 (vdd out) sp_resistor r=rload
+ends
+
+vv1 (vin 0) vsource dc=0.9 type="pulse" val0=0 val1=1.8 delay=1e-09 rise=1e-11 fall=1e-11 width=1e-09 period=2e-09
+vv2 (vdd 0) vsource dc=1.8
+ii1 (vdd bias) isource dc=0.001 mag=1 type="sine" sinedc=0.001 ampl=0.0005 freq=1e+06
+xx1 (vin vout vdd) hier_cell rload=2k
+xx2 (vout vout2 vdd) hier_cell rload=1k
+xm2 (vout2 vout vdd vdd) sg13_lv_pmos l=0.13 * 1e-6 m=2 ng=1 w=0.5 * 1e-6
+mm3 (bias bias 0 0) m_mprim l=0.5 * 1e-6 w=2 * 1e-6
+ll1 (vout2 0) sp_inductor l=1n
+cc1 (vout 0) sp_capacitor c=10f
+mm4 (vout2 vin 0 0) nch w=1u
+qq1 (vdd vout 0) qnpn
+dd1 (0 vout2) dmod
+
+control
+  options temp=27 tnom=27 rawfile="binary"
+  save default
+  analysis op1 op
+endc

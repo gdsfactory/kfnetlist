@@ -262,6 +262,7 @@ def _lossless_cases():
         f
         for f in _FIXTURES.rglob("*")
         if f.suffix in {".sp", ".scs", ".vams", ".sv", ".yaml"}
+        and "golden" not in f.parts  # nyancad's simulator decks, not parser input
     )
     cases = [
         pytest.param(lambda f=f: _parse(f), id=str(f.relative_to(_FIXTURES)))

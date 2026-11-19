@@ -1,0 +1,19 @@
+.title schematic
+.include pdk/models/mprim.lib
+.lib ihp/models/ngspice/models/cornerMOSlv.lib mos_ff
+.subckt hier_cell in out vdd rload=1k
+XM1 out in 0 0 sg13_lv_nmos l={0.13 * 1e-6} m=1 ng=2 w={0.3 * 1e-6}
+RR1 vdd out rload
+.ends hier_cell
+VV1 vin 0 DC 0.9V PULSE(0.0V 1.8V 1e-09s 1e-11s 1e-11s 1e-09s 2e-09s)
+VV2 vdd 0 DC 1.8
+II1 vdd bias DC 0.001A AC 1.0A SIN(0.001A 0.0005A 1000000.0Hz 0s 0Hz)
+XX1 vin vout vdd hier_cell rload=2k
+XX2 vout vout2 vdd hier_cell rload=1k
+XM2 vout2 vout vdd vdd sg13_lv_pmos l={0.13 * 1e-6} m=2 ng=1 w={0.5 * 1e-6}
+MM3 bias bias 0 0 Mprim l={0.5 * 1e-6} m=1 w={2 * 1e-6}
+LL1 vout2 0 1n
+CC1 vout 0 10f
+MM4 vout2 vin 0 0 nch w=1u
+QQ1 vdd vout 0 qnpn
+DD1 0 vout2 dmod

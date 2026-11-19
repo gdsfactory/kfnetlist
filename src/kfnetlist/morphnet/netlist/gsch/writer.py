@@ -46,6 +46,12 @@ MOSAIC_PINS = {
     **dict.fromkeys(("nmos", "pmos"), ("D", "G", "S", "B")),
     **dict.fromkeys(("npn", "pnp"), ("C", "B", "E")),
 }
+# Mosaic prop holding the positional `value` of a built-in
+VALUE_PROP = {
+    "resistor": "resistance",
+    "capacitor": "capacitance",
+    "inductor": "inductance",
+}
 IDENTITY = [1, 0, 0, 1, 0, 0]
 PITCH = 4  # Mosaic grid units between synthesized symbols
 
@@ -101,6 +107,11 @@ def live_net_entry(
     return {**entry, "ports": kept} if kept else None
 
 
+def symbol_of(sub: SubCircuit, stash: dict[str, Any] | None) -> str:
+    """The Mosaic symbol ``sub`` is written as (before any master change)."""
+    return stash["entry"].get("type", "") if stash else sub.circuit_name
+
+
 def stash_of(sub: SubCircuit) -> dict[str, Any] | None:
     return json.loads(sub.properties.get(INFO) or "{}").get(STASH)
 
@@ -127,10 +138,9 @@ def write_gsch(netlist: Netlist) -> str:
     # ponytail: files written from non-gsch sources have no Mosaic wires, so Mosaic
     # recomputes `nets` on its first edit; Livewire keeps them.
     stashes = {sub.name: stash_of(sub) for sub in circuit.subcircuits}
-    symbols = {  # synthesized built-in symbols: instance -> Mosaic pins
-        sub.name: MOSAIC_PINS[sub.circuit_name]
+    symbols = {  # built-in symbols: instance -> Mosaic pins
+        sub.name: MOSAIC_PINS.get(symbol_of(sub, stashes[sub.name]), ())
         for sub in circuit.subcircuits
-        if not stashes[sub.name] and sub.circuit_name in MOSAIC_PINS
     }
     pins: dict[str, dict[str, str]] = {}
     for (inst, pin), net in connections_to_instance_nets(circuit.connections).items():
@@ -179,7 +189,9 @@ def write_gsch(netlist: Netlist) -> str:
             entry = {"type": "", **place()}
         key = stash["key"] if stash else synthesized(entry, sub.name)
         keys[sub.name] = key
-        if not stash or sub.circuit_name != (entry.get("model") or entry.get("type")):
+        parsed = stash and stash.get("circuit", entry.get("model") or entry.get("type"))
+        new_master = sub.circuit_name != parsed  # synthesized, or master changed
+        if new_master:
             builtin = sub.circuit_name in DEVICE_TYPES
             entry["type"] = sub.circuit_name if builtin else "ckt"
             if builtin:
@@ -202,7 +214,16 @@ def write_gsch(netlist: Netlist) -> str:
             members.setdefault(net, []).append((sub.name, pin))
             net_of[sub.name, pin.lower()] = net
         stashed_props = entry.get("props") or {}
-        entry["props"] = {p.name: prop_value(p, stashed_props) for p in sub.parameters}
+        entry["props"] = {} if new_master else dict(stashed_props)
+        for p in sub.parameters:
+            prop = (
+                VALUE_PROP.get(entry["type"], p.name) if p.name == "value" else p.name
+            )
+            # a parsed instance's params are its simulation view: only edits of its
+            # props go back (ponytail: model-derived `w={...}` edits are not inverted)
+            if new_master or prop in stashed_props:
+                p = p.model_copy(update={"name": prop})
+                entry["props"][prop] = prop_value(p, stashed_props)
         out[key] = entry
 
     markers: dict[str, dict[str, Any]] = {}

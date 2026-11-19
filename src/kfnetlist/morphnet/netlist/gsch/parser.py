@@ -8,12 +8,14 @@ is stashed as raw JSON so ``write_gsch`` can restore it.
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Mapping, Sequence
 from itertools import chain, count
+from pathlib import Path
 from typing import Any
 
 from kfnetlist.morphnet.morphnet_schema import (
     Circuit,
+    Directive,
     ExternalCircuit,
     Netlist,
     Parameter,
@@ -28,12 +30,21 @@ from kfnetlist.morphnet.netlist.net_utils import (
     net_map_to_connections,
     propagate_domains,
 )
+from kfnetlist.morphnet.netlist.gsch.sim import (
+    GROUND,
+    check_sim,
+    element,
+    library,
+    select_entry,
+)
 from kfnetlist.morphnet.netlist.value_utils import is_si_number, parse_parameter_number
 
 # Instance stash: ``SubCircuit.properties["__info__"]`` = ``{"__gsch__": {"key", "entry"}}``.
 # The ``__`` prefix keeps it out of kfnetlist instance equality.
 INFO = "__info__"
-STASH = "__gsch__"
+STASH = "__gsch__"  # {"key", "entry"[, "circuit": parsed circuit_name if not `model`]}
+MODEL = "__model__"  # the device's nyanlib model (FQN)
+TOP = "__top__"  # writers write a circuit with this name flat
 
 # entry ``type`` -> circuit-level stash list (any other type is a component)
 BUCKETS = {
@@ -123,51 +134,17 @@ def _model_domains(models: Mapping[str, Any], model: str) -> dict[str, SignalDom
     }
 
 
-def parse_gsch(
-    text: str,
-    *,
-    models: Mapping[str, Any] | None = None,
-    name: str | None = None,
-) -> Netlist:
-    """Parse ``.gsch`` JSON text into a Netlist with one circuit (the schematic).
+def _nets(
+    comps: Mapping[str, Mapping[str, Any]],
+    stash: Mapping[str, list[dict[str, Any]]],
+    names: Mapping[str, str],
+) -> tuple[dict[str, list[Node]], dict[str, dict[str, Any]]]:
+    """Nets (name -> ``(key, pin)`` members, 2 or more) and exposed top pins.
 
     Nets come from Mosaic ``nets`` maps, Livewire polylines, ``net`` entries and port
     markers; ``via``/``taper`` entries join everything that ends on them. A net is
-    named by its Mosaic net name, else a polyline ``net``, else ``net_<n>``. Exposed
-    port markers (no ``variant``, ``emitter``, ``detector``) are the circuit's ports.
-
-    Args:
-        text: ``.gsch`` file contents.
-        models: nyanlib ``{"models:<fqn>": {...}}`` for device port order and domains;
-            an inline top-level ``"models"`` key is merged under it.
-        name: circuit name; defaults to the key prefix (``demo`` for ``demo:R1``).
+    named by its Mosaic net name, else a polyline ``net``, else ``net_<n>``.
     """
-    doc = json.loads(text)
-    if not isinstance(doc, dict):
-        raise ValueError(".gsch must be a JSON object")
-    inline = doc.pop("models", None)
-    models = {**(inline if isinstance(inline, dict) else {}), **(models or {})}
-
-    stash: dict[str, list[dict[str, Any]]] = {b: [] for b in set(BUCKETS.values())}
-    comps: dict[str, dict[str, Any]] = {}
-    for key, entry in doc.items():
-        kind = entry_type(entry)
-        if kind in BUCKETS:
-            stash[BUCKETS[kind]].append({"key": key, "entry": entry})
-        elif isinstance(entry, dict):
-            comps[key] = entry
-        else:
-            stash["gsch_other"].append({"key": key, "entry": entry})
-
-    # instance name = `name` else key; the key stays the reference id
-    names: dict[str, str] = {}
-    for key, entry in comps.items():
-        candidates = chain(
-            [entry.get("name") or key, key], (f"{key}_{i}" for i in count(1))
-        )
-        names[key] = next(c for c in candidates if c not in names.values())
-
-    # ── connectivity: union-find over (key, pin) nodes and named-net nodes
     parent: dict[Node, Node] = {}
     hints: list[tuple[Node, str]] = []  # net names weaker than a Mosaic name
 
@@ -242,7 +219,7 @@ def parse_gsch(
             named[root] = net
             taken.add(net)
 
-    net_map: NetMap = {}
+    nets: dict[str, list[Node]] = {}
     counter = 0
     for root, nodes in members.items():
         if len(nodes) < 2:
@@ -253,58 +230,154 @@ def parse_gsch(
             counter += 1
             named[root] = f"net_{counter}"
             taken.add(named[root])
-        for key, pin_name in nodes:
-            add_port_to_net(net_map, named[root], names.get(key or "", ""), pin_name)
+        nets[named[root]] = nodes
+    return nets, top_pins
 
-    # ── instances and the external circuits they use
+
+def parse_gsch(
+    text: str,
+    *,
+    models: Mapping[str, Any] | None = None,
+    sim: str = "ngspice",
+    corners: str | Sequence[str] = (),
+    name: str | None = None,
+) -> Netlist:
+    """Parse ``.gsch`` JSON text into a Netlist with one circuit (the schematic).
+
+    Exposed port markers (no ``variant``, ``emitter``, ``detector``) are the
+    circuit's ports. Devices are resolved for ``sim`` the way nyancad's netlister
+    does: model entry, pins, params, and the model libraries as LIB/INCLUDE
+    directives; devices nyancad would not netlist get ``sim_skip``. The net ``GND``
+    is ground.
+
+    Args:
+        text: ``.gsch`` file contents.
+        models: nyanlib ``{"models:<fqn>": {...}}`` (``models.nyanlib``); an inline
+            top-level ``"models"`` key is merged under it.
+        sim: ``ngspice``, ``xyce`` or ``vacask`` (case-insensitive).
+        corners: preferred library sections; each library takes the first of these
+            it has, else its first section.
+        name: circuit name; defaults to ``__top__``, which writers write flat. The
+            key prefix (``demo`` for ``demo:R1``) is kept as ``gsch_schema`` info.
+    """
+    sim = check_sim(sim)
+    corners = [corners] if isinstance(corners, str) else list(corners)
+    doc = json.loads(text)
+    if not isinstance(doc, dict):
+        raise ValueError(".gsch must be a JSON object")
+    inline = doc.pop("models", None)
+    models = {**(inline if isinstance(inline, dict) else {}), **(models or {})}
+
+    stash: dict[str, list[dict[str, Any]]] = {b: [] for b in set(BUCKETS.values())}
+    comps: dict[str, dict[str, Any]] = {}
+    for key, entry in doc.items():
+        kind = entry_type(entry)
+        if kind in BUCKETS:
+            stash[BUCKETS[kind]].append({"key": key, "entry": entry})
+        elif isinstance(entry, dict):
+            comps[key] = entry
+        else:
+            stash["gsch_other"].append({"key": key, "entry": entry})
+
+    # instance name = `name` else key; the key stays the reference id
+    names: dict[str, str] = {}
+    for key, entry in comps.items():
+        candidates = chain(
+            [entry.get("name") or key, key], (f"{key}_{i}" for i in count(1))
+        )
+        names[key] = next(c for c in candidates if c not in names.values())
+
+    devices = {key: element(entry, models, sim) for key, entry in comps.items()}
+
+    def master(key: str) -> str:
+        device = devices[key]
+        return device.circuit if device else master_of(comps[key])
+
+    def ir_pin(key: str, pin: str) -> str:
+        device = devices.get(key)
+        return device.pin(pin) if device else pin
+
+    nets, top_pins = _nets(comps, stash, names)
+    net_map: NetMap = {}
+    for net, nodes in nets.items():
+        for key, pin_name in nodes:
+            key = key or ""
+            add_port_to_net(net_map, net, names.get(key, ""), ir_pin(key, pin_name))
+    for key, device in devices.items():  # open MOS bulk: nyancad ties it to ground
+        connected = {ir_pin(key, p) for n in nets.values() for k, p in n if k == key}
+        for pin_name in device.ground if device else ():
+            if pin_name not in connected:
+                add_port_to_net(net_map, GROUND, names[key], pin_name)
+
+    # ── the external circuits instances use; pin domains for propagate_domains
     pins_seen: dict[str, dict[str, None]] = {}  # master -> pins, in order of first use
     device_domains: dict[str, dict[str, SignalDomain]] = {}
+    fqn: dict[str, str] = {}  # master -> nyanlib model of its pins
+    prefix: dict[str, str] = {}  # master -> SPICE letter
+    for device in filter(None, devices.values()):  # simulated: the device's pins
+        pins_seen.setdefault(device.circuit, dict.fromkeys(device.ports))
+        prefix.setdefault(device.circuit, device.prefix)
+    fixed = set(pins_seen)
     for key, entry in comps.items():
-        master = master_of(entry)
-        pins_seen.setdefault(master, {})
+        seen = pins_seen.setdefault(master(key), {})
+        fqn.setdefault(master(key), entry.get("model") or master(key))
+        open_pins = [] if master(key) in fixed else _model_pins(models, master(key))
         for p in entry.get("ports") or []:
             if p.get("port_type") in PORT_TYPE_DOMAIN:
-                device_domains.setdefault(master, {}).setdefault(
-                    p["name"], PORT_TYPE_DOMAIN[p["port_type"]]
+                device_domains.setdefault(master(key), {}).setdefault(
+                    ir_pin(key, p["name"]), PORT_TYPE_DOMAIN[p["port_type"]]
                 )
-            pins_seen[master].setdefault(p["name"])
-    for node in parent:
-        if node[0] in comps:
-            entry = comps[node[0]]
-            pins_seen[master_of(entry)].setdefault(node[1])
+            open_pins.append(p["name"])
+        open_pins += [p for k, p in chain(*nets.values()) if k == key]
+        if master(key) not in fixed:
+            seen.update(dict.fromkeys(open_pins))
 
     pin_domains: dict[str, dict[str, SignalDomain]] = {}
     ext_circuits = []
-    for master, seen in pins_seen.items():
-        order = list(dict.fromkeys([*_model_pins(models, master), *seen]))
-        nyanlib = _model_domains(models, master)
-        pin_domains[master] = {
-            pin_name: device_domains.get(master, {}).get(pin_name)
+    for cell, seen in pins_seen.items():
+        nyanlib = _model_domains(models, fqn[cell])
+        pin_domains[cell] = {
+            pin_name: device_domains.get(cell, {}).get(pin_name)
             or nyanlib.get(pin_name)
             or domain_of(pin_name)
-            for pin_name in order
+            for pin_name in seen
         }
+        letter = prefix.get(cell)
         ext_circuits.append(
             ExternalCircuit(
-                name=master,
-                ports=[Port(name=p, domain=pin_domains[master][p]) for p in order],
+                name=cell,
+                ports=[Port(name=p, domain=pin_domains[cell][p]) for p in seen],
+                properties={"spice_prefix": letter} if letter else {},
             )
         )
 
-    subcircuits = [
-        SubCircuit(
-            name=names[key],
-            circuit_name=master_of(entry),
-            parameters=[parameter(k, v) for k, v in (entry.get("props") or {}).items()],
-            properties={INFO: json.dumps({STASH: {"key": key, "entry": entry}})},
+    subcircuits = []
+    for key, entry in comps.items():
+        device = devices[key]
+        info: dict[str, Any] = {STASH: {"key": key, "entry": entry}}
+        if entry.get("model"):
+            info[MODEL] = entry["model"]
+        props: dict[str, str] = {}
+        if device is None:
+            props["sim_skip"] = "1"
+        elif device.model_name:
+            props["model_name"] = device.model_name
+        if master(key) != master_of(entry):
+            info[STASH]["circuit"] = master(key)
+        raw = device.params if device else entry.get("props") or {}
+        subcircuits.append(
+            SubCircuit(
+                name=names[key],
+                circuit_name=master(key),
+                parameters=[parameter(k, v) for k, v in raw.items()],
+                properties={INFO: json.dumps(info), **props},
+            )
         )
-        for key, entry in comps.items()
-    ]
 
-    # ── top circuit: exposed port markers are its terminals
+    # ── the circuit: exposed port markers are its terminals
     prefixes = {k.split(":", 1)[0] for k in doc if ":" in k}
     schema = next(iter(prefixes)) if len(prefixes) == 1 else None
-    circuit_name = name or schema or "top"
+    circuit_name = name or TOP
     ports = []
     for port_name, entry in top_pins.items():
         attached = terminal_ref(entry.get("attached_port"))
@@ -313,23 +386,140 @@ def parse_gsch(
             "electric": SignalDomain.ELECTRICAL,
         }.get(entry.get("nature"))
         if domain is None and attached and attached[0] in comps:
-            master = master_of(comps[attached[0]])
-            domain = pin_domains[master].get(attached[1])
+            domain = pin_domains[master(attached[0])].get(ir_pin(*attached))
         ports.append(Port(name=port_name, domain=domain or domain_of(port_name)))
     pin_domains[circuit_name] = {p.name: p.domain for p in ports}
 
-    info = {"gsch_schema": schema, **stash}
+    circuit_info = {"gsch_schema": schema, **stash}
     if isinstance(inline, dict):
-        info["gsch_models"] = inline
+        circuit_info["gsch_models"] = inline
     circuit = Circuit(
         name=circuit_name,
         ports=ports,
         subcircuits=subcircuits,
         connections=net_map_to_connections(net_map),
-        properties={INFO: json.dumps(info)},
+        properties={INFO: json.dumps(circuit_info)},
     )
+    properties = {"ground_net": GROUND}
+    if sim == "vacask":
+        properties["dialect"] = "vacask"
     netlist = Netlist(
-        top_circuit=circuit_name, circuits=[circuit], ext_circuits=ext_circuits
+        top_circuit=circuit_name,
+        circuits=[circuit],
+        ext_circuits=ext_circuits,
+        directives=libraries(comps, models, sim, corners),
+        properties=properties,
     )
     propagate_domains(netlist, pin_domains=pin_domains)
     return netlist
+
+
+def libraries(
+    comps: Mapping[str, Mapping[str, Any]],
+    models: Mapping[str, Any],
+    sim: str,
+    corners: Sequence[str],
+) -> list[Directive]:
+    """Library directives of the models nyancad counts as used (devices with nets)."""
+    out: list[Directive] = []
+    for entry in comps.values():
+        model_def = models.get(f"models:{entry.get('model')}")
+        if not entry.get("nets") or not isinstance(model_def, dict):
+            continue
+        chosen = select_entry(model_def, sim)
+        directive = library(chosen, sim, corners) if chosen else None
+        if directive is not None and directive not in out:
+            out.append(directive)
+    return out
+
+
+def read_gsch(
+    path: str | Path,
+    *,
+    project_root: str | Path | None = None,
+    models: Mapping[str, Any] | None = None,
+    sim: str = "ngspice",
+    corners: str | Sequence[str] = (),
+) -> Netlist:
+    """Read a ``.gsch`` file and the ``.gsch`` schematics its devices instantiate.
+
+    Each child (a device ``model`` ending in ``.gsch``, resolved against
+    ``project_root``) becomes a circuit named by its nyanlib ``name`` (else the file
+    stem), with the model's ports sorted by name as pins and its prop defaults as
+    header parameters, like nyancad's subcircuits. Libraries of the whole hierarchy
+    are gathered on the netlist, top first.
+
+    Args:
+        path: the top ``.gsch`` file.
+        project_root: defaults to the file's directory.
+        models: defaults to ``build/models.nyanlib``, else ``models.nyanlib``, of
+            the project root.
+        sim, corners: as for :func:`parse_gsch`.
+    """
+    path = Path(path)
+    root = Path(project_root) if project_root is not None else path.parent
+    if models is None:
+        found = [p for p in (root / "build", root) if (p / "models.nyanlib").is_file()]
+        models = json.loads((found[0] / "models.nyanlib").read_text()) if found else {}
+    models = dict(models)
+    children: dict[str, Circuit] = {}  # fqn -> circuit, children before parents
+    netlists: list[Netlist] = []
+
+    def load(file: Path, fqn: str | None, stack: tuple[str, ...]) -> Netlist:
+        text = file.read_text()
+        doc = json.loads(text)
+        for entry in doc.values() if isinstance(doc, dict) else ():
+            model = entry.get("model") if isinstance(entry, dict) else None
+            key = f"models:{model}"
+            if (
+                isinstance(model, str)
+                and model.endswith(".gsch")
+                and entry.get("nets")  # nyancad netlists only wired devices
+                and not (models.get(key) or {}).get("models")  # else a library model
+                and model not in children
+                and model not in stack
+                and (root / model).is_file()
+            ):
+                circuit = load(root / model, model, (*stack, model)).circuits[0]
+                model_def = models.get(key) or {}
+                ports = model_def.get("ports") or [
+                    {"name": p.name} for p in circuit.ports
+                ]
+                name = model_def.get("name") or Path(model).stem
+                models[key] = {**model_def, "name": name, "ports": ports}
+                by_name = {p.name: p for p in circuit.ports}
+                circuit.name = name
+                circuit.ports = [
+                    by_name.get(n) or Port(name=n, domain=domain_of(n))
+                    for n in sorted(p["name"] for p in ports)
+                ]
+                circuit.parameters = [
+                    parameter(
+                        p["name"], "0" if p.get("default") is None else p["default"]
+                    )
+                    for p in model_def.get("props") or []
+                    if p.get("name")
+                ]
+                children[model] = circuit
+        netlist = parse_gsch(text, models=models, sim=sim, corners=corners, name=fqn)
+        netlists.append(netlist)
+        return netlist
+
+    top = load(
+        path,
+        None,
+        (path.relative_to(root).as_posix(),) if path.is_relative_to(root) else (),
+    )
+    circuits = [*children.values(), top.circuits[0]]
+    defined = {c.name for c in circuits}
+    ext_circuits = {}
+    directives: list[Directive] = []
+    for netlist in [top, *netlists[:-1]]:  # top first
+        for ext in netlist.ext_circuits:
+            if ext.name not in defined:
+                ext_circuits.setdefault(ext.name, ext)
+        directives += [d for d in netlist.directives if d not in directives]
+    top.circuits = circuits
+    top.ext_circuits = list(ext_circuits.values())
+    top.directives = directives
+    return top

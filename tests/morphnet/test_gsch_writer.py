@@ -52,6 +52,10 @@ def structure(netlist: Netlist, fold_pin_case: bool = False):
 @pytest.mark.parametrize("name", NAMES)
 def test_parse_write_parse_keeps_structure(name):
     nl = parse_gsch((FIXTURES / f"{name}.gsch").read_text())
+    if name == "ihp_subckt_child":
+        # its Livewire nmos gains Mosaic `nets` on write; from then on nyancad, and
+        # so the simulation view, netlists it (`mosfet`, pins d g s b)
+        nl = parse_gsch(write_gsch(nl))
     again = parse_gsch(write_gsch(nl), name=nl.top_circuit)
     assert structure(again) == structure(nl)
     assert write_gsch(again) == write_gsch(nl)  # and the output is stable
@@ -88,6 +92,7 @@ def test_renamed_instance_and_changed_master_are_written():
     r1.circuit_name = "capacitor"
     out = json.loads(write_gsch(nl))["demo:R1"]
     assert out["type"] == "capacitor"
+    assert out["props"] == {"capacitance": "1k"}  # the value, under the new symbol
     assert out["x"] == 4  # layout kept
 
 
@@ -196,7 +201,7 @@ def test_rc_is_written_as_mosaic_symbols_with_values():
     out = json.loads(write_gsch(parse_spice(RC)))
     assert out["R1"]["type"] == "resistor"
     assert "model" not in out["R1"]
-    assert out["R1"]["props"] == {"value": "1k"}
+    assert out["R1"]["props"] == {"resistance": "1k"}  # Mosaic's name for the value
     # Mosaic's resistor pins are `P` and `N`: SPICE's `p`/`n` would not connect
     assert out["R1"]["nets"] == {"P": "in", "N": "out"}
     assert out["in"]["nets"] == {"P": "in"}
@@ -292,12 +297,12 @@ def parsed_nets(nl: Netlist) -> set[frozenset[tuple[str, str]]]:
 
 def test_moving_a_pin_to_another_net_is_written_for_mosaic_nets():
     nl = parse_gsch((FIXTURES / "ihp_rc_filter.gsch").read_text())
-    rebind(nl, "W3", ("C1", "P"))  # C1.P leaves net P1 for W3
+    rebind(nl, "W3", ("C1", "p"))  # C1.P leaves net P1 for W3
     assert json.loads(write_gsch(nl))["demo:C1"]["nets"] == {"N": "GND", "P": "W3"}
     assert parsed_nets(nl) == {
-        frozenset({("V1", "P"), ("R1", "N"), ("C1", "P")}),
-        frozenset({("V1", "N"), ("C1", "N")}),
-        frozenset({("R1", "P"), ("", "P1")}),
+        frozenset({("V1", "p"), ("R1", "n"), ("C1", "p")}),
+        frozenset({("V1", "n"), ("C1", "n")}),
+        frozenset({("R1", "p"), ("", "P1")}),
     }
 
 
@@ -310,7 +315,8 @@ def test_port_marker_is_rebound_when_its_pin_moves():
         "port_name": "G",
     }
     assert out["port_S"]["attached_port"]["port_name"] == "S"  # untouched
-    assert frozenset({("", "D"), ("M1", "G")}) in parsed_nets(nl)
+    # the written nmos has Mosaic `nets` now, so it parses as a mosfet (pin g)
+    assert frozenset({("", "D"), ("M1", "g")}) in parsed_nets(nl)
 
 
 def test_marker_loses_its_binding_when_no_instance_is_left_on_its_net():
@@ -380,7 +386,8 @@ def test_net_entry_follows_a_renamed_net_of_its_surviving_pins():
 def test_edited_connectivity_round_trips_for_every_fixture():
     for name in NAMES:
         nl = parse_gsch((FIXTURES / f"{name}.gsch").read_text())
-        assert parsed_nets(nl) == structure(nl)[0], name
+        written = structure(parse_gsch(write_gsch(nl)), fold_pin_case=True)[0]
+        assert written == structure(nl, fold_pin_case=True)[0], name
 
 
 def test_a_netlist_without_circuits_is_rejected():

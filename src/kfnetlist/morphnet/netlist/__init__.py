@@ -1,4 +1,4 @@
-from kfnetlist.morphnet.netlist.gsch.parser import parse_gsch
+from kfnetlist.morphnet.netlist.gsch.parser import parse_gsch, read_gsch
 from kfnetlist.morphnet.netlist.gsch.writer import write_gsch
 from kfnetlist.morphnet.netlist.hspice.parser import parse_hspice
 from kfnetlist.morphnet.netlist.hspice.writer import write_hspice
@@ -24,6 +24,7 @@ __all__ = [
     "parse_systemverilog",
     "parse_vams",
     "parse_xyce",
+    "read_gsch",
     "write_gsch",
     "write_hspice",
     "write_spectre",
