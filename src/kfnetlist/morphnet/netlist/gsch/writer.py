@@ -19,9 +19,11 @@ from kfnetlist.morphnet.morphnet_schema import (
     SubCircuit,
 )
 from kfnetlist.morphnet.netlist.gsch.parser import (
+    BUCKETS,
     EXPOSED_VARIANTS,
     INFO,
     STASH,
+    _nets,
     entry_type,
     parameter,
     terminal_ref,
@@ -107,6 +109,64 @@ def live_net_entry(
     return {**entry, "ports": kept} if kept else None
 
 
+def edited_pins(
+    out: dict[str, Any],
+    keys: dict[str, str],
+    pins: dict[str, dict[str, str]],
+    pending: dict[str, dict[str, str]],
+) -> dict[str, dict[str, str]]:
+    """The pins of ``pending`` (entries that had no Mosaic ``nets``) whose net the
+    written polylines, net entries and markers no longer join: an edit in the IR.
+
+    Adding ``nets`` to every Livewire entry would make nyancad (and the simulation
+    view) netlist devices it skipped. A pin joins its net by name: when part of
+    the net already carries that name (Mosaic ``nets``, a marker, a net entry),
+    only the pins outside it get ``nets``; otherwise all its pending pins do.
+    """
+    if not pending:
+        return {}
+    by_key = {k: n for n, k in keys.items()}
+    comps: dict[str, dict[str, Any]] = {}
+    buckets: dict[str, list[dict[str, Any]]] = {b: [] for b in set(BUCKETS.values())}
+    for key, entry in out.items():
+        kind = entry_type(entry)
+        if key in by_key:
+            comps[key] = entry
+        else:
+            buckets[BUCKETS.get(kind or "", "gsch_other")].append(
+                {"key": key, "entry": entry}
+            )
+    found, _ = _nets(comps, buckets, by_key)
+    group = {
+        (by_key.get(key or "", ""), pin.lower()): name
+        for name, nodes in found.items()
+        for key, pin in nodes
+    }
+    named: set[str] = set()  # names that bind on their own (weak hints do not)
+    for key, entry in out.items():
+        kind = entry_type(entry)
+        if key in by_key or (kind == "port" and not entry.get("attached_port")):
+            named |= set((entry.get("nets") or {}).values())
+        elif kind == "net":
+            named.add(entry.get("id") or entry.get("_id") or key)
+    members: dict[str, set[tuple[str, str]]] = {}
+    for inst, inst_pins in pins.items():
+        for pin, net in inst_pins.items():
+            members.setdefault(net, set()).add((inst, pin.lower()))
+    add: dict[str, dict[str, str]] = {}
+    for inst, nets in pending.items():
+        for pin, net in nets.items():
+            on_net = {m for m, g in group.items() if g == net}
+            if on_net == members[net]:
+                continue  # the file still says exactly this, name included
+            if net in named and group.get((inst, pin.lower())) == net:
+                continue  # already on the part that carries the name
+            add.setdefault(inst, {})[pin] = net
+    # ponytail: an exposed marker without `nets` on an edited, otherwise unnamed
+    # net is not named; name the marker too if that edit shows up
+    return add
+
+
 def symbol_of(sub: SubCircuit, stash: dict[str, Any] | None) -> str:
     """The Mosaic symbol ``sub`` is written as (before any master change)."""
     return stash["entry"].get("type", "") if stash else sub.circuit_name
@@ -179,6 +239,7 @@ def write_gsch(netlist: Netlist) -> str:
         return key
 
     out: dict[str, Any] = {}
+    pending: dict[str, dict[str, str]] = {}  # instances written without `nets`
     keys: dict[str, str] = {}  # instance name -> entry key
     members: dict[str, list[tuple[str, str]]] = {}  # net -> (instance name, pin)
     net_of: dict[tuple[str, str], str] = {}  # (instance name, pin.lower()) -> net
@@ -206,11 +267,15 @@ def write_gsch(netlist: Netlist) -> str:
                 *(p["name"] for p in entry.get("ports") or []),
             ]
         }
-        entry["nets"] = {
+        nets = {
             spelling.get(pin.lower(), pin): net
             for pin, net in pins.get(sub.name, {}).items()
         }
-        for pin, net in entry["nets"].items():
+        if stash and "nets" not in stash["entry"]:  # Livewire: wired by polylines
+            pending[sub.name] = nets
+        else:
+            entry["nets"] = nets
+        for pin, net in nets.items():
             members.setdefault(net, []).append((sub.name, pin))
             net_of[sub.name, pin.lower()] = net
         stashed_props = entry.get("props") or {}
@@ -220,7 +285,9 @@ def write_gsch(netlist: Netlist) -> str:
                 VALUE_PROP.get(entry["type"], p.name) if p.name == "value" else p.name
             )
             # a parsed instance's params are its simulation view: only edits of its
-            # props go back (ponytail: model-derived `w={...}` edits are not inverted)
+            # props go back.
+            # ponytail: params derived from a model `params` expression (`w={...}`,
+            # a source's `value`) cannot be inverted to props; their edits are lost.
             if new_master or prop in stashed_props:
                 p = p.model_copy(update={"name": prop})
                 entry["props"][prop] = prop_value(p, stashed_props)
@@ -296,6 +363,8 @@ def write_gsch(netlist: Netlist) -> str:
                     "terminals": {r: component_ref(t) for r, t in terminals.items()},
                 }
             out[item["key"]] = entry
+    for inst, nets in edited_pins(out, keys, pins, pending).items():
+        out[keys[inst]]["nets"] = nets
     if "gsch_models" in info:
         out["models"] = info["gsch_models"]
     return json.dumps(out, indent=2)

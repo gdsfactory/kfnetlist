@@ -15,6 +15,7 @@ from kfnetlist.morphnet.netlist import (
     parse_spice,
     parse_systemverilog,
     write_gsch,
+    write_spice,
 )
 
 FIXTURES = Path(__file__).parent / "netlists" / "gsch"
@@ -52,10 +53,6 @@ def structure(netlist: Netlist, fold_pin_case: bool = False):
 @pytest.mark.parametrize("name", NAMES)
 def test_parse_write_parse_keeps_structure(name):
     nl = parse_gsch((FIXTURES / f"{name}.gsch").read_text())
-    if name == "ihp_subckt_child":
-        # its Livewire nmos gains Mosaic `nets` on write; from then on nyancad, and
-        # so the simulation view, netlists it (`mosfet`, pins d g s b)
-        nl = parse_gsch(write_gsch(nl))
     again = parse_gsch(write_gsch(nl), name=nl.top_circuit)
     assert structure(again) == structure(nl)
     assert write_gsch(again) == write_gsch(nl)  # and the output is stable
@@ -315,8 +312,7 @@ def test_port_marker_is_rebound_when_its_pin_moves():
         "port_name": "G",
     }
     assert out["port_S"]["attached_port"]["port_name"] == "S"  # untouched
-    # the written nmos has Mosaic `nets` now, so it parses as a mosfet (pin g)
-    assert frozenset({("", "D"), ("M1", "g")}) in parsed_nets(nl)
+    assert frozenset({("", "D"), ("M1", "G")}) in parsed_nets(nl)
 
 
 def test_marker_loses_its_binding_when_no_instance_is_left_on_its_net():
@@ -386,10 +382,64 @@ def test_net_entry_follows_a_renamed_net_of_its_surviving_pins():
 def test_edited_connectivity_round_trips_for_every_fixture():
     for name in NAMES:
         nl = parse_gsch((FIXTURES / f"{name}.gsch").read_text())
-        written = structure(parse_gsch(write_gsch(nl)), fold_pin_case=True)[0]
-        assert written == structure(nl, fold_pin_case=True)[0], name
+        assert parsed_nets(nl) == structure(nl)[0], name
 
 
 def test_a_netlist_without_circuits_is_rejected():
     with pytest.raises(ValueError, match="no circuit"):
         write_gsch(Netlist())
+
+
+# ── Livewire-only entries: `nets` only where an edit needs it ───────────────────
+
+
+@pytest.mark.parametrize("name", ["livewire_two_straights", "ihp_subckt_child"])
+def test_livewire_only_entries_get_no_nets_and_simulate_the_same(name):
+    raw = json.loads((FIXTURES / f"{name}.gsch").read_text())
+    nl = parse_gsch(json.dumps(raw))
+    out = json.loads(write_gsch(nl))
+    assert all("nets" not in out[k] for k, e in raw.items() if "nets" not in e)
+    again = parse_gsch(json.dumps(out))
+    skipped = [
+        (s.name, s.properties.get("sim_skip")) for s in nl.circuits[0].subcircuits
+    ]
+    assert [
+        (s.name, s.properties.get("sim_skip")) for s in again.circuits[0].subcircuits
+    ] == skipped
+    assert write_spice(again) == write_spice(nl)
+
+
+def test_editing_a_livewire_pin_adds_nets_for_that_pin_only():
+    doc = {
+        "a": {"type": "ckt", "name": "A", "model": "m", "nets": {"o1": "sig"}},
+        "b": {"type": "ckt", "name": "B", "model": "m"},  # Livewire: no `nets`
+        "c": {"type": "ckt", "name": "C", "model": "m"},
+        "p1": {"type": "polyline", "terminals": {
+            "start": {"component_id": "a", "port_name": "o1"},
+            "finish": {"component_id": "b", "port_name": "o1"}}},
+        "p2": {"type": "polyline", "terminals": {
+            "start": {"component_id": "b", "port_name": "o2"},
+            "finish": {"component_id": "c", "port_name": "o1"}}},
+    }  # fmt: skip
+    nl = parse_gsch(json.dumps(doc))
+    assert "nets" not in json.loads(write_gsch(nl))["b"]
+    rebind(nl, "sig", ("C", "o1"))  # C.o1 leaves B.o2 for `sig`
+    out = json.loads(write_gsch(nl))
+    assert "nets" not in out["b"]  # B.o1 is on `sig` through the kept polyline
+    assert out["c"]["nets"] == {"o1": "sig"}
+    assert nets_by_name(parse_gsch(json.dumps(out))) == {
+        "sig": {("A", "o1"), ("B", "o1"), ("C", "o1")}
+    }
+
+
+def test_an_edit_without_a_named_part_names_all_its_livewire_pins():
+    nl = parse_gsch((FIXTURES / "livewire_port_markers.gsch").read_text())
+    rebind(nl, "net_in", ("straight_1", "o2"))
+    out = json.loads(write_gsch(nl))
+    # the marker names `net_in` only weakly (it has an attached_port)
+    assert out["straight_1"]["nets"] == {"o1": "net_in", "o2": "net_in"}
+    assert nets_by_name(parse_gsch(json.dumps(out)))["net_in"] == {
+        ("", "in"),
+        ("straight_1", "o1"),
+        ("straight_1", "o2"),
+    }
