@@ -84,7 +84,8 @@ def from_netlists(
     undeclared = {
         name
         for nl in netlists.values()
-        for name in nl.info.get("__morphnet__", {}).get("undeclared", [])
+        if isinstance(stash := nl.info.get("__morphnet__"), dict)
+        for name in stash.get("undeclared", [])
     }
     defined = {c.name for c in [*netlist.circuits, *netlist.ext_circuits]}
     used = (

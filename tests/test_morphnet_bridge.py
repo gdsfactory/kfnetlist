@@ -515,3 +515,43 @@ def test_restored_document_fills_only_devices_it_did_declare_or_never_used():
     assert "mosfet" not in ext  # the source used it undeclared
     assert [p.name for p in ext["resistor"].ports] == ["p", "n"]
     assert ext["resistor"].properties == {"spice_prefix": "R"}
+
+
+# ---- the document header on every cell (final fix wave) ----
+
+_HEADER_SPICE = """\
+* t
+.model nch nmos level=1 vto=0.5
+.subckt inv a y
+M1 y a 0 0 nch w=1u
+.ends inv
+.subckt buf a y
+X1 a m inv
+X2 m y inv
+.ends buf
+"""
+
+
+def test_a_non_lead_toplevel_and_a_single_cell_keep_the_document_header():
+    netlists = morphnet.to_netlists(parse_spice(_HEADER_SPICE))
+    card = ".model nch nmos level=1 vto=0.5"
+    assert card in write_spice(morphnet.from_netlists(netlists, toplevel="inv"))
+    assert card in write_spice(morphnet.from_netlists({"inv": netlists["inv"]}))
+
+
+def test_a_read_gsch_child_exported_alone_keeps_its_ground():
+    from kfnetlist.morphnet.netlist import read_gsch
+
+    nl = read_gsch(_FIXTURES / "gsch" / "ihp_hier_top.gsch", corners="mos_ff")
+    netlists = morphnet.to_netlists(nl)
+    child = morphnet.from_netlists({"hier_cell": netlists["hier_cell"]})
+    assert child.properties["ground_net"] == "GND"
+    assert "M1 out in 0 0 sg13_lv_nmos" in write_spice(child)
+
+
+@pytest.mark.parametrize("value", ["x", [1], None])
+def test_a_foreign_morphnet_info_value_is_not_a_stash(value):
+    nl = rc()
+    plain = morphnet.from_netlists({"rc": nl})
+    nl.info = {"__morphnet__": value}
+    assert morphnet.from_netlists({"rc": nl}) == plain

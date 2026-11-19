@@ -472,3 +472,98 @@ fn kfnetlist_round_trip_adds_no_morphnet_metadata() {
     assert_eq!(back.instances["X1"].settings, nl.instances["X1"].settings);
     assert_eq!(back.nets[0].name.as_deref(), Some("mid"));
 }
+
+#[test]
+fn every_module_carries_the_document_header() {
+    let ext = |name: &str, model: &str| proto::ExternalCircuit {
+        name: name.into(),
+        properties: [("model_type".into(), model.into())].into(),
+        ..Default::default()
+    };
+    let doc = |circuit: &str, exts: Vec<proto::ExternalCircuit>| {
+        let netlist = proto::Netlist {
+            name: "doc".into(),
+            top_circuit: circuit.into(),
+            circuits: vec![
+                proto::Circuit {
+                    name: format!("{circuit}_child"),
+                    ..Default::default()
+                },
+                proto::Circuit {
+                    name: circuit.into(),
+                    ..Default::default()
+                },
+            ],
+            ext_circuits: exts,
+            properties: [("ground_net".into(), "GND".into())].into(),
+            ..Default::default()
+        };
+        let netlists = NetlistDocument::from_proto_netlist(&netlist)
+            .unwrap()
+            .to_netlists()
+            .unwrap();
+        (netlist, netlists)
+    };
+    let (source, netlists) = doc("top", vec![ext("nch", "nmos"), ext("pch", "pmos")]);
+    let header =
+        |p: &proto::Netlist| (p.name.clone(), p.ext_circuits.clone(), p.properties.clone());
+
+    // a non-lead toplevel
+    let back = NetlistDocument::from_netlists(&netlists, Some("top_child".into()))
+        .to_proto_netlist()
+        .unwrap();
+    assert_eq!(header(&back), header(&source));
+    assert_eq!(back.top_circuit, "top_child");
+
+    // a single cell without the toplevel: the stale top reference is dropped
+    let child = [("top_child".to_string(), netlists["top_child"].clone())].into();
+    let back = NetlistDocument::from_netlists(&child, None)
+        .to_proto_netlist()
+        .unwrap();
+    assert_eq!(header(&back), header(&source));
+    assert_eq!(back.top_circuit, "");
+
+    // cells of two documents: the lead's header, then the others' ext circuits by name
+    let (_, other) = doc("other", vec![ext("nch", "other"), ext("res", "r")]);
+    let mut both = netlists.clone();
+    both.extend(other);
+    let back = NetlistDocument::from_netlists(&both, Some("other".into()))
+        .to_proto_netlist()
+        .unwrap();
+    let names: Vec<_> = back
+        .ext_circuits
+        .iter()
+        .map(|e| (e.name.as_str(), e.properties["model_type"].as_str()))
+        .collect();
+    assert_eq!(names, [("nch", "other"), ("res", "r"), ("pch", "pmos")]);
+}
+
+#[test]
+fn a_port_net_named_after_its_port_keeps_the_port_form() {
+    let mut nl = Netlist::default();
+    nl.create_port("o1".into());
+    nl.create_inst(
+        "mmi".into(),
+        String::new(),
+        "mmi1x2".into(),
+        json!({}),
+        0,
+        0,
+    )
+    .unwrap();
+    let members = || {
+        [
+            NetMember::Port(kfnetlist_core::NetlistPort { name: "o1".into() }),
+            NetMember::Ref(kfnetlist_core::PortRef {
+                instance: "mmi".into(),
+                port: "o1".into(),
+            }),
+        ]
+    };
+    let mut named = nl.clone();
+    named.create_named_net(members(), "o1").unwrap();
+    nl.create_net(members()).unwrap();
+    let plain = CircuitDocument::from_netlist("top".into(), &nl);
+    assert_eq!(plain.ports["o1"], "mmi,o1");
+    assert_eq!(CircuitDocument::from_netlist("top".into(), &named), plain);
+}

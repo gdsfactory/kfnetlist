@@ -276,7 +276,12 @@ impl CircuitDocument {
                 .members
                 .iter()
                 .partition(|m| matches!(m, NetMember::Port(_)));
-            if pins.len() == 1 && others.len() == 1 && net.name.is_none() {
+            // A port's own net, unnamed or named after the port: the plain `ports` form.
+            let port = pins.first().map(|p| unparse(p));
+            if pins.len() == 1
+                && others.len() == 1
+                && net.name.as_ref().is_none_or(|n| Some(n) == port.as_ref())
+            {
                 module.ports.insert(unparse(pins[0]), unparse(others[0]));
             } else {
                 module.push_net(net.members.iter().map(unparse).collect(), net.name.clone());

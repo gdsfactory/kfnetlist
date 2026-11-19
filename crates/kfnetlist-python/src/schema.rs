@@ -175,6 +175,7 @@ scalar_field!(
     Value,
     serde_json::Map<String, Value>,
     proto::Directive,
+    kfnetlist_core::Directive,
     proto::Simulation,
     proto::ExternalLibrary
 );
@@ -515,7 +516,9 @@ schema_class!(
         ports,
         connections,
         nets,
-        routes
+        net_names,
+        routes,
+        directives
     ],
     {
         fn to_netlist(&self) -> PyResult<crate::netlist::Netlist> {

@@ -496,3 +496,25 @@ fn reserved_instance_info_keys_are_not_part_of_equality() {
     assert_eq!(make(json!({"__morphnet__": {"a": 1}})), make(json!({})));
     assert_ne!(make(json!({"owner": "a"})), make(json!({"owner": "b"})));
 }
+
+#[test]
+fn instance_equality_ignores_reserved_info_keys() {
+    let make = |info: serde_json::Value| {
+        let mut nl = Netlist::default();
+        nl.create_inst_with_info(
+            "a".into(),
+            String::new(),
+            "cell".into(),
+            json!({}),
+            0,
+            0,
+            info.as_object().unwrap().clone(),
+        )
+        .unwrap();
+        nl.instances["a"].clone()
+    };
+    let plain = make(json!({"layer": 1}));
+    assert_eq!(make(json!({"layer": 1, "__morphnet__": {"x": 1}})), plain);
+    assert_ne!(make(json!({"layer": 2})), plain);
+    assert_ne!(make(json!({"layer": 1, "extra": 0})), plain);
+}

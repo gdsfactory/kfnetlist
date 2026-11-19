@@ -742,7 +742,13 @@ class CircuitDocument(_SchemaModel):
     @property
     def nets(self) -> list[list[str]]: ...
     @property
+    def net_names(self) -> list[str]:
+        """Name of ``nets[i]``; empty (or past the end) means unnamed."""
+    @property
     def routes(self) -> dict[str, Any]: ...
+    @property
+    def directives(self) -> list[dict[str, str]]:
+        """File directives ``{"kind", "name", "value"}`` of the cell."""
     def __init__(
         self,
         *,
@@ -754,7 +760,9 @@ class CircuitDocument(_SchemaModel):
         ports: dict[str, str] = ...,
         connections: dict[str, str] = ...,
         nets: list[list[str]] = ...,
+        net_names: list[str] = ...,
         routes: dict[str, Any] = ...,
+        directives: list[dict[str, str]] = ...,
     ) -> None: ...
     def to_netlist(self) -> Netlist: ...
     @classmethod

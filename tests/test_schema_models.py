@@ -618,3 +618,33 @@ def test_optional_pydantic_adapter_delegates_to_native_model():
     doc = _simple_doc()
     assert adapter.validate_python(doc.to_dict()) == doc
     assert adapter.validate_json(adapter.dump_json(doc)) == doc
+
+
+def _port_net_doc(name: str | None) -> NetlistDocument:
+    nl = kfnetlist.Netlist()
+    nl.create_port("o1")
+    nl.create_inst("mmi", "", "mmi1x2", {"length": 10})
+    nl.create_net(NetlistPort("o1"), PortRef("mmi", "o1"), name=name)
+    return NetlistDocument.from_netlists({"top": nl}, "top")
+
+
+def test_a_port_net_named_after_its_port_keeps_the_port_form():
+    for name in (None, "o1"):  # unnamed, or named exactly like its port
+        top = _port_net_doc(name).modules["top"]
+        assert top.ports == {"o1": "mmi,o1"}
+        assert top.nets == [] and top.net_names == []
+        assert "net_names" not in _port_net_doc(name).to_yaml()
+    top = _port_net_doc("sig").modules["top"]  # any other name is a named net
+    assert top.ports == {"o1": "o1"}
+    assert (top.nets, top.net_names) == ([["o1", "mmi,o1"]], ["sig"])
+
+
+def test_circuit_document_exposes_net_names_and_directives():
+    nl = kfnetlist.Netlist()
+    nl.create_inst("a", "", "cell")
+    nl.create_inst("b", "", "cell")
+    nl.create_net(PortRef("a", "o1"), PortRef("b", "o1"), name="sig")
+    nl.directives = [{"kind": "include", "name": "", "value": "x.inc"}]
+    module = CircuitDocument.from_netlist("top", nl)
+    assert module.net_names == ["sig"]
+    assert module.directives == [{"kind": "include", "name": "", "value": "x.inc"}]

@@ -49,10 +49,15 @@ struct Stash {
     /// Net name -> pin order, where a `Netlist` (which sorts net members) loses it.
     #[serde(skip_serializing_if = "BTreeMap::is_empty")]
     order: BTreeMap<String, Vec<String>>,
-    /// Document-level fields (circuits and directives emptied), on the toplevel module only.
+    /// Net names in connection order, where a `Netlist` round trip reorders them (it
+    /// writes a port's own net in the `ports` form, ahead of the other nets).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    sequence: Vec<String>,
+    /// Document-level fields (circuits and directives emptied), on every module so any
+    /// subset of the cells keeps them.
     #[serde(skip_serializing_if = "Option::is_none")]
     netlist: Option<p::Netlist>,
-    /// Subcircuit masters the document used without declaring (toplevel module only), so
+    /// Subcircuit masters the document used without declaring (every module), so
     /// morphnet's bridge does not add built-in declarations the source never had.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     undeclared: Vec<String>,
@@ -62,12 +67,10 @@ impl Stash {
     /// Split `info` into the `__info__` payload and the stash.
     fn take(info: &Map<String, Value>) -> Result<(Map<String, Value>, Self)> {
         let mut info = info.clone();
-        let stash = info
-            .remove(STASH)
-            .map(serde_json::from_value)
-            .transpose()
-            .map_err(error)?
-            .unwrap_or_default();
+        let stash = match info.remove(STASH) {
+            Some(value @ Value::Object(_)) => serde_json::from_value(value).map_err(error)?,
+            _ => Self::default(), // not a stash: nothing of the bridge's to restore
+        };
         Ok((info, stash))
     }
     fn store(&self, info: &mut Map<String, Value>) -> Result<()> {
@@ -208,6 +211,16 @@ fn expr(value: &Value) -> Option<String> {
         Value::Bool(b) => Some(b.to_string()),
         _ => None,
     }
+}
+/// Net names of `connections` in order of first use.
+fn net_sequence(connections: &[p::Connection]) -> Vec<String> {
+    let mut names: Vec<String> = Vec::new();
+    for c in connections {
+        if !c.name.is_empty() && !names.contains(&c.name) {
+            names.push(c.name.clone());
+        }
+    }
+    names
 }
 fn connection(name: String, source: &str, target: &str) -> p::Connection {
     p::Connection {
@@ -375,7 +388,7 @@ impl CircuitDocument {
                     .enumerate()
                     .map(|(i, members)| ("net", members.clone(), self.net_name(i))),
             );
-        let mut connections = Vec::new();
+        let mut stars = Vec::new();
         for (i, (from, mut members, named)) in groups.enumerate() {
             if let Some(order) = named.and_then(|n| stash.order.get(n)) {
                 if self.netlist_order(order) == Some(members.clone()) {
@@ -416,8 +429,13 @@ impl CircuitDocument {
             if named.is_some() {
                 put(&mut star[0].properties, "__named__", &true)?;
             }
-            connections.extend(star);
+            stars.push((net, star));
         }
+        if !stash.sequence.is_empty() {
+            let rank = |net: &String| stash.sequence.iter().position(|n| n == net);
+            stars.sort_by_key(|(net, _)| rank(net).unwrap_or(usize::MAX));
+        }
+        let connections = stars.into_iter().flat_map(|(_, star)| star).collect();
         Ok(p::Circuit {
             name: name.into(),
             class_name: stash.class_name,
@@ -569,6 +587,19 @@ impl CircuitDocument {
             }
         }
         let plain = merge_terminals(&[], &module.ports);
+        // The nets a kfnetlist round trip writes, if it keeps their names but not order.
+        let sequence = net_sequence(&pm.connections);
+        let reordered = module
+            .to_netlist()
+            .ok()
+            .map(|nl| CircuitDocument::from_netlist(pm.name.clone(), &nl))
+            .and_then(|m| m.to_proto_circuit(&pm.name).ok())
+            .is_some_and(|c| {
+                let regenerated = net_sequence(&c.connections);
+                regenerated != sequence
+                    && regenerated.iter().collect::<HashSet<_>>()
+                        == sequence.iter().collect::<HashSet<_>>()
+            });
         Stash {
             properties: public(&pm.properties),
             class_name: pm.class_name.clone(),
@@ -581,6 +612,7 @@ impl CircuitDocument {
             model_interfaces: pm.model_interfaces.clone(),
             nets,
             order,
+            sequence: if reordered { sequence } else { Vec::new() },
             ..Default::default()
         }
         .store(&mut module.info)?;
@@ -604,17 +636,31 @@ impl NetlistDocument {
     }
     pub fn to_proto_netlist(&self) -> Result<p::Netlist> {
         let lead = self.lead();
-        let stash = match lead {
-            Some(m) => Stash::take(&m.info)?.1.netlist,
-            None => None,
-        };
+        // Every module carries the document header: the lead's wins, the others add
+        // the external circuits it lacks (by name).
+        let mut header: Option<p::Netlist> = None;
+        for m in lead.into_iter().chain(self.modules.values()) {
+            let Some(stashed) = Stash::take(&m.info)?.1.netlist else {
+                continue;
+            };
+            match &mut header {
+                None => header = Some(stashed),
+                Some(h) => {
+                    for ext in stashed.ext_circuits {
+                        if h.ext_circuits.iter().all(|e| e.name != ext.name) {
+                            h.ext_circuits.push(ext);
+                        }
+                    }
+                }
+            }
+        }
         let toplevel = self.toplevel.clone().unwrap_or_default();
-        let mut netlist = stash.unwrap_or_else(|| p::Netlist {
+        let mut netlist = header.unwrap_or_else(|| p::Netlist {
             name: toplevel.clone(),
             ..Default::default()
         });
-        if self.toplevel.is_some() {
-            netlist.top_circuit = toplevel;
+        if self.toplevel.is_some() || !self.modules.contains_key(&netlist.top_circuit) {
+            netlist.top_circuit = toplevel; // a subset may not hold the stashed toplevel
         }
         netlist.circuits = self
             .modules
@@ -651,6 +697,8 @@ impl NetlistDocument {
             let own = std::mem::take(&mut lead.directives);
             lead.directives = c.directives.iter().map(directive_from_proto).collect();
             merge_directives(&mut lead.directives, &own);
+        }
+        if !doc.modules.is_empty() {
             let header = p::Netlist {
                 circuits: Vec::new(),
                 directives: Vec::new(),
@@ -687,10 +735,13 @@ impl NetlistDocument {
             }
             undeclared.sort();
             undeclared.dedup();
-            let (_, mut stash) = Stash::take(&lead.info)?;
-            stash.netlist = (header != plain).then_some(header);
-            stash.undeclared = undeclared;
-            stash.store(&mut lead.info)?;
+            let header = (header != plain).then_some(header);
+            for module in doc.modules.values_mut() {
+                let (_, mut stash) = Stash::take(&module.info)?;
+                stash.netlist = header.clone();
+                stash.undeclared = undeclared.clone();
+                stash.store(&mut module.info)?;
+            }
         }
         Ok(doc)
     }
