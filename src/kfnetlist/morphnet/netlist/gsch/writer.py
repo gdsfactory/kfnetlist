@@ -23,6 +23,7 @@ from kfnetlist.morphnet.netlist.gsch.parser import (
     EXPOSED_VARIANTS,
     INFO,
     STASH,
+    VALUE_PROPS,
     _nets,
     entry_type,
     parameter,
@@ -47,12 +48,6 @@ MOSAIC_PINS = {
     ),
     **dict.fromkeys(("nmos", "pmos"), ("D", "G", "S", "B")),
     **dict.fromkeys(("npn", "pnp"), ("C", "B", "E")),
-}
-# Mosaic prop holding the positional `value` of a built-in
-VALUE_PROP = {
-    "resistor": "resistance",
-    "capacitor": "capacitance",
-    "inductor": "inductance",
 }
 IDENTITY = [1, 0, 0, 1, 0, 0]
 PITCH = 4  # Mosaic grid units between synthesized symbols
@@ -279,18 +274,23 @@ def write_gsch(netlist: Netlist) -> str:
             members.setdefault(net, []).append((sub.name, pin))
             net_of[sub.name, pin.lower()] = net
         stashed_props = entry.get("props") or {}
-        entry["props"] = {} if new_master else dict(stashed_props)
+        simulated = stash and not new_master and sub.properties.get("sim_skip") != "1"
+        derived = set(stash.get("derived", [])) if simulated else set()
+        # a simulated instance keeps the props its params do not show (`model`,
+        # `tran` strings, ...); otherwise the params are the props
+        entry["props"] = dict(stashed_props) if simulated else {}
         for p in sub.parameters:
+            if p.name in derived:
+                continue
             prop = (
-                VALUE_PROP.get(entry["type"], p.name) if p.name == "value" else p.name
+                VALUE_PROPS.get(entry["type"], p.name) if p.name == "value" else p.name
             )
-            # a parsed instance's params are its simulation view: only edits of its
-            # props go back.
-            # ponytail: params derived from a model `params` expression (`w={...}`,
-            # a source's `value`) cannot be inverted to props; their edits are lost.
-            if new_master or prop in stashed_props:
-                p = p.model_copy(update={"name": prop})
-                entry["props"][prop] = prop_value(p, stashed_props)
+            p = p.model_copy(update={"name": prop})
+            entry["props"][prop] = prop_value(p, stashed_props)
+        # ponytail: params the simulation view derived (model `params` expressions
+        # such as `w={...}`, model prop defaults, source `value`/waveform params)
+        # have no prop to go back to, so their edits are lost; so are props removed
+        # from a simulated instance.
         out[key] = entry
 
     markers: dict[str, dict[str, Any]] = {}

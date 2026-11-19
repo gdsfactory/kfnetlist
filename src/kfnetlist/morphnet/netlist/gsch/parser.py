@@ -15,6 +15,7 @@ from typing import Any
 
 from kfnetlist.morphnet.morphnet_schema import (
     Circuit,
+    Connection,
     Directive,
     ExternalCircuit,
     Netlist,
@@ -42,9 +43,17 @@ from kfnetlist.morphnet.netlist.value_utils import is_si_number, parse_parameter
 # Instance stash: ``SubCircuit.properties["__info__"]`` = ``{"__gsch__": {"key", "entry"}}``.
 # The ``__`` prefix keeps it out of kfnetlist instance equality.
 INFO = "__info__"
-STASH = "__gsch__"  # {"key", "entry"[, "circuit": parsed circuit_name if not `model`]}
+# {"key", "entry"[, "circuit": parsed circuit_name if not `model`][, "derived":
+# params the simulation view made, not the entry's props]}
+STASH = "__gsch__"
 MODEL = "__model__"  # the device's nyanlib model (FQN)
 TOP = "__top__"  # writers write a circuit with this name flat
+# Mosaic prop holding the positional `value` of a built-in
+VALUE_PROPS = {
+    "resistor": "resistance",
+    "capacitor": "capacitance",
+    "inductor": "inductance",
+}
 
 # entry ``type`` -> circuit-level stash list (any other type is a component)
 BUCKETS = {
@@ -139,11 +148,12 @@ def _nets(
     stash: Mapping[str, list[dict[str, Any]]],
     names: Mapping[str, str],
 ) -> tuple[dict[str, list[Node]], dict[str, dict[str, Any]]]:
-    """Nets (name -> ``(key, pin)`` members, 2 or more) and exposed top pins.
+    """Nets (name -> ``(key, pin)`` members) and exposed top pins.
 
     Nets come from Mosaic ``nets`` maps, Livewire polylines, ``net`` entries and port
     markers; ``via``/``taper`` entries join everything that ends on them. A net is
-    named by its Mosaic net name, else a polyline ``net``, else ``net_<n>``.
+    named by its Mosaic net name, else a polyline ``net``, else ``net_<n>``. A
+    single pin is a net only under a Mosaic or net-entry name (nyancad writes it).
     """
     parent: dict[Node, Node] = {}
     hints: list[tuple[Node, str]] = []  # net names weaker than a Mosaic name
@@ -213,6 +223,7 @@ def _nets(
         elif node[0] in names or node[0] == "":
             members.setdefault(root, []).append(node)
     taken = set(named.values())
+    strong = set(named)  # roots named by a Mosaic `nets` name or a net entry
     for node, net in hints:
         root = _find(parent, node)
         if root not in named and net not in taken:
@@ -222,7 +233,7 @@ def _nets(
     nets: dict[str, list[Node]] = {}
     counter = 0
     for root, nodes in members.items():
-        if len(nodes) < 2:
+        if len(nodes) < 2 and root not in strong:  # a lone pin keeps its label only
             continue
         if root not in named:
             while f"net_{counter + 1}" in taken:
@@ -287,7 +298,7 @@ def parse_gsch(
         )
         names[key] = next(c for c in candidates if c not in names.values())
 
-    devices = {key: element(entry, models, sim) for key, entry in comps.items()}
+    devices = {key: element(entry, models, sim, key) for key, entry in comps.items()}
 
     def master(key: str) -> str:
         device = devices[key]
@@ -365,6 +376,12 @@ def parse_gsch(
         if master(key) != master_of(entry):
             info[STASH]["circuit"] = master(key)
         raw = device.params if device else entry.get("props") or {}
+        given = entry.get("props") or {}
+        derived = {k for k, v in raw.items() if k not in given or given[k] != v}
+        if entry.get("type") in VALUE_PROPS:  # `value` is the resistance/... prop
+            derived.discard("value")
+        if derived:  # model `params`, model defaults, source waveforms: not props
+            info[STASH]["derived"] = sorted(derived)
         subcircuits.append(
             SubCircuit(
                 name=names[key],
@@ -397,7 +414,16 @@ def parse_gsch(
         name=circuit_name,
         ports=ports,
         subcircuits=subcircuits,
-        connections=net_map_to_connections(net_map),
+        connections=[
+            *net_map_to_connections(net_map),
+            *(  # a named single pin: an open node, not `?` shared with others
+                Connection(
+                    name=net, source=refs[0], domain=domain_of(refs[0].port_name)
+                )
+                for net, refs in net_map.items()
+                if len(refs) == 1
+            ),
+        ],
         properties={INFO: json.dumps(circuit_info)},
     )
     properties = {"ground_net": GROUND}

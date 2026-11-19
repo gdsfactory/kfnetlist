@@ -4,7 +4,7 @@ from pathlib import Path
 import pytest
 
 from kfnetlist.morphnet.morphnet_schema import Netlist, SIPrefix, SignalDomain
-from kfnetlist.morphnet.netlist import parse_gsch
+from kfnetlist.morphnet.netlist import parse_gsch, write_gsch
 
 FIXTURES = Path(__file__).parent / "netlists" / "gsch"
 WAVEGUIDE, ELECTRICAL = SignalDomain.WAVEGUIDE, SignalDomain.ELECTRICAL
@@ -297,3 +297,15 @@ def test_raw_entries_are_stashed_for_the_writer():
 def test_non_object_documents_are_rejected(bad):
     with pytest.raises(ValueError, match="JSON object"):
         parse_gsch(bad)
+
+
+def test_a_dangling_mosaic_label_is_a_net_and_round_trips():
+    doc = {
+        "a": {"type": "ckt", "name": "A", "model": "m", "nets": {"o1": "x", "o2": "lone"}},
+        "b": {"type": "ckt", "name": "B", "model": "m", "nets": {"o1": "x"}},
+    }  # fmt: skip
+    nl = parse_gsch(json.dumps(doc))
+    assert nets(nl) == {"x": {("A", "o1"), ("B", "o1")}, "lone": {("A", "o2")}}
+    out = json.loads(write_gsch(nl))
+    assert out["a"]["nets"] == {"o1": "x", "o2": "lone"}
+    assert nets(parse_gsch(json.dumps(out))) == nets(nl)

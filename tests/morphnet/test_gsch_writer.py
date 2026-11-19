@@ -5,6 +5,7 @@ import pytest
 
 from kfnetlist import morphnet
 from kfnetlist.morphnet.morphnet_schema import Netlist, SignalDomain
+from kfnetlist.morphnet.netlist.gsch.parser import parameter
 from kfnetlist.morphnet.netlist.net_utils import (
     NetMap,
     add_port_to_net,
@@ -443,3 +444,33 @@ def test_an_edit_without_a_named_part_names_all_its_livewire_pins():
         ("straight_1", "o1"),
         ("straight_1", "o2"),
     }
+
+
+# ── params written back to props (fix round 1) ─────────────────────────────────
+
+
+def test_a_value_set_on_a_parsed_resistor_without_one_is_written():
+    doc = {"r": {"type": "resistor", "name": "R1", "nets": {"P": "a", "N": "b"}},
+           "c": {"type": "capacitor", "name": "C1", "nets": {"P": "a", "N": "b"},
+                 "props": {"capacitance": "1p"}}}  # fmt: skip
+    nl = parse_gsch(json.dumps(doc))
+    nl.circuits[0].subcircuits[0].parameters = [parameter("value", "2k")]
+    assert json.loads(write_gsch(nl))["r"]["props"] == {"resistance": "2k"}
+
+
+def test_a_param_added_to_a_skipped_instance_is_written():
+    nl = parse_gsch((FIXTURES / "livewire_port_markers.gsch").read_text())
+    straight = nl.circuits[0].subcircuits[0]
+    assert straight.properties["sim_skip"] == "1"
+    straight.parameters.append(parameter("width", 0.5))
+    out = json.loads(write_gsch(nl))["straight_1"]
+    assert out["props"] == {"length": 20, "width": 0.5}
+
+
+def test_model_derived_params_and_defaults_stay_out_of_props():
+    models = json.loads((FIXTURES / "models.nyanlib").read_text())
+    text = (FIXTURES / "ihp_hier_top.gsch").read_text()
+    raw = json.loads(text)
+    out = json.loads(write_gsch(parse_gsch(text, models=models)))
+    for key in ("top:X2", "top:M2", "top:V1", "top:I1"):  # defaults, l={..}, PULSE
+        assert out[key]["props"] == raw[key]["props"], key

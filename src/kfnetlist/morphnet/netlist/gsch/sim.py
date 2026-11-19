@@ -45,7 +45,9 @@ VALUE_PROP = {"R": "resistance", "C": "capacitance", "L": "inductance"}
 VACASK_MASTER = {"R": "sp_resistor", "C": "sp_capacitor", "L": "sp_inductor"}
 
 # tran variant -> (SPICE function, VACASK type, [(prop, VACASK name, InSpice default)])
-# in SPICE positional order; nyancad's _TRAN_PARAM_MAP names the props.
+# in SPICE positional order; nyancad's _TRAN_PARAM_MAP names the props. Default
+# None: required (InSpice fails without it); OMIT: may be left off at the end.
+OMIT = ""
 TRAN = {
     "sin": ("SIN", "sine", [
         ("offset", "sinedc", "0"), ("amplitude", "ampl", "1"),
@@ -57,8 +59,8 @@ TRAN = {
         ("width", "width", None), ("period", "period", None)]),
     "exp": ("EXP", "exp", [
         ("initial", "val0", None), ("pulsed", "val1", None),
-        ("rise-delay", "delay", "0"), ("rise-tau", "tau1", None),
-        ("fall-delay", "td2", None), ("fall-tau", "tau2", None)]),
+        ("rise-delay", "delay", "0"), ("rise-tau", "tau1", OMIT),
+        ("fall-delay", "td2", OMIT), ("fall-tau", "tau2", OMIT)]),
     "sffm": ("SFFM", "fm", [
         ("offset", "sinedc", None), ("amplitude", "ampl", None),
         ("carrier-freq", "freq", None), ("mod-index", "modindex", None),
@@ -154,25 +156,48 @@ def text(raw: Any) -> str:
     return raw.strip() if isinstance(raw, str) else str(raw)
 
 
-def source(props: Mapping[str, Any], sim: str) -> dict[str, Any]:
+def given(raw: Any) -> str | None:
+    """A prop as written (numbers and expressions alike), None when unset."""
+    return None if raw is None or raw == "" else text(raw)
+
+
+def waveform(
+    device: str, variant: str, tran: Mapping[str, Any]
+) -> list[tuple[str, str]]:
+    """``(VACASK name, value)`` of a ``tran`` waveform in SPICE positional order.
+
+    Each value keeps its own slot: a missing required field is an error, as it is
+    for nyancad/InSpice, and an optional one may only be left off at the end.
+    """
+    out: list[tuple[str, str]] = []
+    gap = None
+    for prop, spectre, default in TRAN[variant][2]:
+        value = given(tran.get(prop))
+        if value is None and default is None:
+            raise ValueError(f"{device}: tran {variant} needs {prop!r}")
+        if value is not None and gap:
+            raise ValueError(f"{device}: tran {variant} has {prop!r} without {gap!r}")
+        if value is None and default == OMIT:
+            gap = gap or prop
+            continue
+        out.append((spectre, value if value is not None else str(default)))
+    return out
+
+
+def source(device: str, props: Mapping[str, Any], sim: str) -> dict[str, Any]:
     """Params of a V/I source: ``value`` text for SPICE, named params for VACASK."""
     dc, ac, tran = props.get("dc"), props.get("ac"), props.get("tran")
     variant = tran.get("type") if isinstance(tran, dict) else None
-    if variant not in TRAN:
+    if not isinstance(tran, dict) or variant not in TRAN:
         if sim == "vacask":
             return {k: v for k, v in (("dc", dc), ("mag", ac)) if v is not None}
         parts = [f"{k} {text(v)}" for k, v in (("DC", dc), ("AC", ac)) if v is not None]
         return {"value": " ".join(parts)} if parts else {}
-    assert isinstance(tran, dict)  # noqa: S101 - narrowed by `variant`
-    func, kind, fields = TRAN[variant]
-    values = [
-        (spectre, text(tran[k]) if number(tran.get(k)) is not None else default)
-        for k, spectre, default in fields
-    ]
-    dc_text = text(dc) if number(dc) is not None else "0"
-    ac_text = text(ac) if number(ac) is not None else None
+    func, kind, _ = TRAN[variant]
+    values = waveform(device, variant, tran)
+    dc_text, ac_text = given(dc) or "0", given(ac)
     if sim != "vacask":
-        args = " ".join(v for _, v in values if v is not None)
+        args = " ".join(v for _, v in values)
         head = {"sin": f"DC {dc_text} AC {ac_text or '1'} ", "pulse": f"DC {dc_text} "}
         if variant == "pulse" and ac_text:
             head["pulse"] += f"AC {ac_text} "
@@ -184,14 +209,18 @@ def source(props: Mapping[str, Any], sim: str) -> dict[str, Any]:
         out["mag"] = ac_text or "1"
     out["type"] = f'"{kind}"'
     for name, raw in values:
-        value = number(raw)
-        if raw is None or (name in VACASK_DROP_ZERO and value == 0):
+        value = number(raw)  # None for an expression: always written
+        if name in VACASK_DROP_ZERO and value == 0:
             continue
-        if name == "rise" and not (value or 0) > 0:  # VACASK rejects rise <= 0
+        if name == "rise" and value is not None and value <= 0:  # VACASK: rise > 0
             continue
         out[name] = raw
     if variant == "exp" and "td2" in out:  # VACASK: td2 counts from the delay
-        out["td2"] = f"{(number(out['td2']) or 0) - (number(out.get('delay')) or 0):g}"
+        td2, delay = number(out["td2"]), number(out.get("delay", "0"))
+        if td2 is not None and delay is not None:
+            out["td2"] = f"{td2 - delay:g}"
+        elif "delay" in out:  # ponytail: an expression stays symbolic
+            out["td2"] = f"({out['td2']})-({out['delay']})"
     return out
 
 
@@ -228,15 +257,15 @@ def primitive(
 
 
 def element(
-    entry: Mapping[str, Any], models: Mapping[str, Any], sim: str
+    entry: Mapping[str, Any], models: Mapping[str, Any], sim: str, key: str = ""
 ) -> Element | None:
     """The device nyancad netlists for ``entry``, or None when it netlists none."""
-    device = _element(entry, models, sim)
+    device = _element(entry, models, sim, entry.get("name") or key)  # nyancad's name
     return device and vacask(device, sim)
 
 
 def _element(
-    entry: Mapping[str, Any], models: Mapping[str, Any], sim: str
+    entry: Mapping[str, Any], models: Mapping[str, Any], sim: str, label: str
 ) -> Element | None:
     if not entry.get("nets"):  # nyancad reads Mosaic `nets` only
         return None
@@ -283,7 +312,7 @@ def _element(
         params = {} if value is None else {"value": value}
         return primitive(letter, ["P", "N"], params)
     if letter in ("V", "I"):
-        return primitive(letter, ["P", "N"], source(props, sim))
+        return primitive(letter, ["P", "N"], source(label, props, sim))
     if letter:
         model = str(props.pop("model", ""))
         pins = {"D": ["P", "N"], "M": ["D", "G", "S", "B"], "Q": ["C", "B", "E"]}

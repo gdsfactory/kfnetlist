@@ -394,3 +394,54 @@ def test_an_unwired_device_does_not_add_pins_to_a_simulated_master():
     nl = parse_gsch(json.dumps(doc))
     assert [p.name for p in nl.ext_circuits[0].ports] == ["p", "n"]
     assert "R1 a b 1k" in lines(nl)
+
+
+# ── open pins, source fields (fix round 1) ─────────────────────────────────────
+
+
+def test_open_pins_keep_their_own_named_nodes():
+    doc = {
+        "t:R1": {"type": "resistor", "name": "R1", "nets": {"P": "a", "N": "net7"},
+                 "props": {"resistance": "1k"}},
+        "t:R2": {"type": "resistor", "name": "R2", "nets": {"P": "a", "N": "net8"},
+                 "props": {"resistance": "1k"}},
+    }  # fmt: skip
+    nl = parse_gsch(json.dumps(doc))
+    assert "R1 a net7 1k" in lines(nl)
+    assert "R2 a net8 1k" in lines(nl)
+    assert not any("?" in line for line in lines(nl))
+
+
+def test_a_lone_tied_bulk_is_node_zero():
+    doc = {
+        "t:M1": {"type": "nmos", "name": "M1",
+                 "nets": {"D": "d", "G": "g", "S": "s"}, "props": {"model": "nch"}},
+        "t:R1": {"type": "resistor", "name": "R1", "nets": {"P": "d", "N": "g"}},
+    }  # fmt: skip
+    assert "M1 d g s 0 nch" in lines(parse_gsch(json.dumps(doc)))
+
+
+def pulse(**tran) -> dict:
+    return {
+        "t:V1": {"type": "vsource", "name": "V1", "nets": {"P": "a", "N": "GND"},
+                 "props": {"tran": {"type": "pulse", **tran}}},
+        "t:R1": {"type": "resistor", "name": "R1", "nets": {"P": "a", "N": "GND"}},
+    }  # fmt: skip
+
+
+def test_an_expression_keeps_its_slot_in_a_waveform():
+    doc = pulse(initial=0, pulsed="{vdd}", width="5n", period="10n")
+    assert "V1 a 0 DC 0 PULSE(0 {vdd} 0 0 0 5n 10n)" in lines(
+        parse_gsch(json.dumps(doc))
+    )
+    text = write_spectre(parse_gsch(json.dumps(doc), sim="vacask"))
+    assert (
+        'v1 (a 0) vsource dc=0 type="pulse" val0=0 val1={vdd} fall=0 width=5n period=10n'
+        in text
+    )
+
+
+def test_a_missing_required_waveform_field_is_an_error():
+    doc = pulse(initial=0, width="5n", period="10n")
+    with pytest.raises(ValueError, match=r"V1.*pulsed"):
+        parse_gsch(json.dumps(doc))
