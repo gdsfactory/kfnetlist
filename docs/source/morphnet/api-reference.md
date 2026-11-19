@@ -90,6 +90,119 @@ as text in `behavioral_block_N` circuit properties.
 Write a `Netlist` as structural SystemVerilog with ANSI headers and named
 connections. Values are written as plain numbers (SystemVerilog has no SI suffixes).
 
+### GSCH
+
+gdsfactory+ schematics (`.gsch`) are the JSON files written by Mosaic (electrical)
+and Livewire (photonic). They are a flat `{key: entry}` map, so there is no Lark
+grammar. Everything the `Netlist` has no field for (positions, wires, polylines,
+port markers) is stashed as raw JSON, so `write_gsch` restores it.
+
+#### `parse_gsch(text, *, models=None, sim="ngspice", corners=(), name=None) -> Netlist`
+
+Parse `.gsch` JSON text into a `Netlist` with one circuit, the schematic. Exposed
+port markers are the circuit's ports, and the net `GND` is ground.
+
+- `models` is the nyanlib mapping `{"models:<fqn>": {...}}` (the content of
+  `models.nyanlib`). An inline top-level `"models"` key in the file is merged
+  under it.
+- `sim` is `"ngspice"`, `"xyce"` or `"vacask"` (case-insensitive; anything else
+  raises `ValueError`). It picks the model entry of each device: the entry whose
+  `implementation` equals `sim`, else the first one in the simulator's native
+  language (SPICE for ngspice and Xyce, Spectre for VACASK), else, under VACASK,
+  a SPICE library that VACASK loads as foreign (`lang=ngspice` or `lang=xyce`).
+  Devices nyancad would not netlist get `sim_skip`.
+- `corners` is a section name or a sequence of them. Each library takes the first
+  of `corners` it has, else its own first section.
+- `name` is the circuit name. It defaults to `__top__`, which the writers write
+  flat, without a `.subckt` wrapper.
+
+Model libraries become directives on the netlist: a library with sections is a
+`LIB` (`.lib path section`), one without is an `INCLUDE` (`.include path`).
+The SPICE writers put them at the top of the exported netlist, and the Spectre
+writer writes `include "path" section=<section>` (plus `lang=<dialect>` for a SPICE
+library loaded by VACASK).
+
+```python
+from kfnetlist.morphnet.netlist import parse_gsch, write_spice
+
+netlist = parse_gsch(text, models=models, sim="ngspice", corners=["tt"])
+print(write_spice(netlist))
+```
+
+#### `read_gsch(path, *, project_root=None, models=None, sim="ngspice", corners=()) -> Netlist`
+
+Read a `.gsch` file and the `.gsch` schematics its devices instantiate. A device
+whose `model` ends in `.gsch` (resolved against `project_root`, which defaults to
+the file's directory) becomes a subcircuit named by its nyanlib `name`, else the
+file stem. Its ports, sorted by name, are the pins and its prop defaults are the
+header parameters, as in nyancad. When `models` is `None`, the project's
+`build/models.nyanlib` is read, else `models.nyanlib`. The libraries of the whole
+hierarchy are gathered on the netlist, top first.
+
+#### `write_gsch(netlist: Netlist) -> str`
+
+Write the top circuit of a `Netlist` as `.gsch` JSON text. Instances and port
+markers parsed from a `.gsch` keep their keys and layout fields; the others get
+`type`, `name`, `x` and `y` on a grid. Wires, `net`/`via`/`taper` entries and
+polylines whose endpoints survive are restored.
+
+#### Scope of the simulation export
+
+The export follows nyancad's netlister (`nyancad/netlist.py` in gdsfactoryplus):
+model selection, pin order, parameter expressions, sources and waveforms, and the
+library includes. It writes the **circuit netlist**, not the simulator scaffolding
+(title, `.end`, analysis and `control` cards, VACASK `load *.osdi` and model
+cards). Pass the result to your own simulator deck.
+
+Remaining differences from nyancad's output:
+
+- Element names: the SPICE writer adds the device letter only when it is missing
+  (`R1`, where InSpice writes `RR1`); the VACASK writer adds none (`m1`, where
+  InSpice writes `xm1`).
+- Numbers keep the user's text (`1n`, `1meg`); InSpice writes floats with units
+  (`1e-09s`). The values are the same.
+- Xyce netlists use `PARAMS:` on subcircuit headers and X calls. VACASK
+  subcircuit parameters go on the `subckt` line, not on a `parameters` line.
+- Libraries are ordered top circuit first, then its children in device order;
+  nyancad sorts by model key. The set is the same. With several matching corners
+  the first one in the caller's order wins.
+- Instances without a `name` keep their key, with its `:`.
+- InSpice's element-class filtering is not mirrored: all parameters pass through,
+  including ones VACASK has no name for.
+- Source edge cases: values use the morphnet SI syntax, and a missing required
+  pulse or exponential field raises `ValueError`.
+- Unknown `spice-type` letters are called like subcircuits (`X`).
+- Fixtures where nyancad crashes still netlist, with `?` for open pins.
+
+#### Known limits
+
+- Edits to parameters derived by the simulation view (model `params` expressions,
+  model prop defaults, a source's value or waveform) and props removed from a
+  simulated instance are not written back by `write_gsch`.
+- A file written from a non-gsch source has no Mosaic wires. Mosaic recomputes
+  `nets` on the first edit; Livewire keeps them.
+- Inline nyanlib `code` blocks are skipped. Only `library` paths become directives.
+- An unnamed single-pin net (for example a lone Livewire pin) is written as `?`.
+  A named Mosaic label keeps its own node.
+
+---
+
+## Bridge to `kfnetlist.Netlist`
+
+`morphnet.to_netlists()` and `morphnet.from_netlists()` are lossless: what
+`kfnetlist.Netlist` has no field for travels in two properties, so
+`from_netlists(to_netlists(nl))` writes the same text as `nl`.
+
+| Property | Type | Description |
+|---|---|---|
+| `Netlist.directives` | `list[dict[str, str]]` | File directives `{"kind", "name", "value"}`; `kind` is one of `include`, `lib`, `global`, `option`, `param`, `define`, `timescale` |
+| `Netlist.info` | `dict[str, Any]` | Free-form metadata; morphnet data with no kfnetlist counterpart is under `info["__morphnet__"]` |
+
+Both return fresh snapshots, like `instances`, `nets` and `ports`. They are
+**excluded from equality**, so LVS comparisons ignore them. Instance `info` keys
+that start with `__` (such as `__morphnet__`) are likewise excluded from instance
+equality.
+
 ---
 
 ## kfnetlist.morphnet.morphnet_schema — Data Models

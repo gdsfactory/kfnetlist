@@ -480,7 +480,8 @@ def read_gsch(
         project_root: defaults to the file's directory.
         models: defaults to ``build/models.nyanlib``, else ``models.nyanlib``, of
             the project root.
-        sim, corners: as for :func:`parse_gsch`.
+        sim: as for :func:`parse_gsch`.
+        corners: as for :func:`parse_gsch`.
     """
     path = Path(path)
     root = Path(project_root) if project_root is not None else path.parent

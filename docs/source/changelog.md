@@ -1,5 +1,36 @@
 # Changelog
 
+## Unreleased
+
+- **gsch** — `parse_gsch()`, `read_gsch()` and `write_gsch()` in
+  `kfnetlist.morphnet.netlist` read and write gdsfactory+ `.gsch` schematics
+  (Mosaic and Livewire JSON).
+  - `models.nyanlib` libraries become `LIB`/`INCLUDE` directives, written as
+    `.lib`/`.include` at the top of SPICE netlists and as `include "p" section=s`
+    in Spectre. `sim` (`ngspice`, `xyce`, `vacask`) and `corners` choose the
+    model entry and library section.
+  - The simulation view follows nyancad's netlister: model entries, pins,
+    parameter expressions, sources and waveforms. It exports the circuit, not the
+    simulator scaffolding (`.end`, analyses, `load *.osdi`).
+  - Positions, wires, polylines and port markers survive `write_gsch`.
+  - Limits: edits to derived parameters are not written back; a file written from
+    a non-gsch source has no Mosaic wires; inline nyanlib `code` blocks are
+    skipped; unnamed single-pin nets are written as `?`. See the
+    [API reference](morphnet/api-reference.md#gsch).
+- **Lossless bridge** — `morphnet.to_netlists()` / `from_netlists()` keep what
+  `kfnetlist.Netlist` has no field for. New `Netlist.directives` (file
+  directives) and `Netlist.info` (metadata) hold it. Both are excluded from
+  equality, and so are instance `info` keys that start with `__`: an instance
+  with only such keys now equals one without. This is a behavior change for
+  instance equality.
+- **Writers**:
+  - Spectre `include "path" section=name [lang=x]` is supported.
+  - The Xyce writer emits `PARAMS:` on subcircuit headers and X calls.
+  - SPICE subcircuit parameters moved from body `.param` lines to the `.subckt`
+    header line.
+  - The SPICE and Spectre writers handle expression parameters, device prefixes
+    and the ground net.
+
 ## 0.4.1
 
 - **SystemVerilog** — `parse_systemverilog()` / `write_systemverilog()` in

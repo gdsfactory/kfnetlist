@@ -238,8 +238,9 @@ Things to know:
   Other nets are named `net_<i>`, because kfnetlist's document model does not
   carry net names yet.
 - **Values.** SI prefixes are applied (`1k` becomes `1000.0`). Non-numeric
-  parameters (model references) are not converted to `kfnetlist.Netlist` settings, and
-  directives, libraries and simulation data stay on the morphnet `Netlist`.
+  parameters (model references) are not converted to `kfnetlist.Netlist` settings.
+  Directives, libraries and other morphnet data without a kfnetlist counterpart
+  travel in `kfnetlist.Netlist.directives` and `.info`, so a round trip keeps them.
 - **Names.** Instance names are written as-is. SPICE infers the device type from
   the first letter, so use SPICE prefixes (`R1`, `C1`, `X...` for subcircuit
   calls) when SPICE output matters.
@@ -302,6 +303,8 @@ assert restored == netlist
 | Spectre | `parse_spectre` | `write_spectre` | `.scs` |
 | Spectre-SPICE | `parse_spectre_spice` | `write_spectre_spice` | `.scs` |
 | Verilog-AMS | `parse_vams` | `write_vams` | `.vams`, `.va` |
+| SystemVerilog | `parse_systemverilog` | `write_systemverilog` | `.sv` |
+| gsch (gdsfactory+ schematic) | `parse_gsch`, `read_gsch` | `write_gsch` | `.gsch` |
 
 All parsers and writers are importable from `kfnetlist.morphnet.netlist`:
 
@@ -315,6 +318,11 @@ from kfnetlist.morphnet.netlist import (
     write_spectre_spice,
     parse_spice,
     write_spice,
+    parse_gsch,
+    read_gsch,
+    write_gsch,
+    parse_systemverilog,
+    write_systemverilog,
     parse_vams,
     write_vams,
     parse_xyce,
