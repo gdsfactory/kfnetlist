@@ -98,7 +98,7 @@ def spice_view(text: str, golden: bool) -> dict:
 
 
 def spectre_view(text: str, golden: bool) -> dict:
-    view: dict = {"libs": set(), "headers": {}, "elements": {}}
+    view: dict = {"libs": set(), "headers": {}, "parameters": {}, "elements": {}}
     scope, control = "__top__", False
     for line in text.splitlines():
         line = line.strip()
@@ -115,12 +115,8 @@ def spectre_view(text: str, golden: bool) -> dict:
                 r"subckt\s+(\S+?)\s*\(([^)]*)\)(.*)", line
             ).groups()
             view["headers"][scope] = (tuple(ports.split()), params(tail, True))
-        elif word == "parameters" and scope != "__top__":  # nyancad's header params
-            ports, given = view["headers"][scope]
-            view["headers"][scope] = (
-                ports,
-                tuple(sorted({*given, *params(line[10:], True)})),
-            )
+        elif word == "parameters" and scope != "__top__":  # VACASK subckt params
+            view["parameters"][scope] = params(line[10:], True)  # not on the header
         elif word == "ends":
             scope = "__top__"
         elif word not in ("ground", "load", "model", "parameters"):
@@ -325,6 +321,29 @@ def test_read_gsch_stops_at_a_cycle(tmp_path):
     assert [c.name for c in nl.circuits] == ["__top__"]
 
 
+def test_read_gsch_rejects_a_missing_child(tmp_path):
+    doc = {
+        "a:X": {"type": "ckt", "name": "X", "model": "gone.gsch", "nets": {"p": "n"}}
+    }
+    (tmp_path / "a.gsch").write_text(json.dumps(doc))
+    with pytest.raises(ValueError, match=r"gone\.gsch"):
+        read_gsch(tmp_path / "a.gsch")
+
+
+def test_read_gsch_rejects_two_children_with_one_circuit_name(tmp_path):
+    child = {"c:p": {"type": "port", "name": "p", "nets": {"P": "n"}}}
+    for name in ("a/cell.gsch", "b/cell.gsch"):
+        (tmp_path / name).parent.mkdir()
+        (tmp_path / name).write_text(json.dumps(child))
+    doc = {
+        f"t:X{i}": {"type": "ckt", "name": f"X{i}", "model": m, "nets": {"p": "n"}}
+        for i, m in enumerate(("a/cell.gsch", "b/cell.gsch"))
+    }
+    (tmp_path / "top.gsch").write_text(json.dumps(doc))
+    with pytest.raises(ValueError, match=r"b/cell\.gsch"):
+        read_gsch(tmp_path / "top.gsch")
+
+
 @pytest.mark.parametrize("sim", ["spectre", "", "hspice"])
 def test_unknown_simulator_is_rejected(sim):
     with pytest.raises(ValueError, match="sim"):
@@ -445,3 +464,46 @@ def test_a_missing_required_waveform_field_is_an_error():
     doc = pulse(initial=0, width="5n", period="10n")
     with pytest.raises(ValueError, match=r"V1.*pulsed"):
         parse_gsch(json.dumps(doc))
+
+
+# ── parse -> write_gsch is lossless (final fix wave) ───────────────────────────
+
+
+@pytest.mark.parametrize("sim", list(WRITERS))
+@pytest.mark.parametrize("stem", sorted(p.stem for p in FIXTURES.glob("*.gsch")))
+def test_an_unedited_schematic_is_written_back_unchanged(stem, sim):
+    text = (FIXTURES / f"{stem}.gsch").read_text()
+    nl = parse_gsch(text, models=MODELS, sim=sim, corners=CORNERS.get(stem, ()))
+    assert json.loads(write_gsch(nl)) == json.loads(text)
+
+
+def test_a_model_backed_primitive_keeps_the_pins_of_its_entry():
+    doc = {
+        "t:V1": {"type": "vsource", "name": "V1", "nets": {"P": "in", "N": "GND"},
+                 "props": {"dc": "1"}},
+        "t:R1": {"type": "ckt", "model": "pdk.rpoly", "name": "R1",
+                 "nets": {"A": "in", "B": "out"}, "props": {"width": 2}},
+    }  # fmt: skip
+    nl = parse_gsch(json.dumps(doc), models=MODELS)
+    assert "R1 in out w=2" in lines(nl)  # SPICE R pins p/n
+    assert json.loads(write_gsch(nl)) == doc
+    for c in nl.circuits[0].connections:  # an edit still lands on the entry's pins
+        if c.name == "out":
+            c.name = "in"
+    assert json.loads(write_gsch(nl))["t:R1"]["nets"] == {"A": "in", "B": "in"}
+
+
+def test_a_tied_bulk_is_written_only_once_moved_off_ground():
+    doc = {
+        "t:M1": {"type": "nmos", "name": "M1",
+                 "nets": {"D": "d", "G": "g", "S": "s"}, "props": {"model": "nch"}},
+        "t:R1": {"type": "resistor", "name": "R1", "nets": {"P": "d", "N": "s"}},
+    }  # fmt: skip
+    nl = parse_gsch(json.dumps(doc))
+    assert json.loads(write_gsch(nl)) == doc
+    for c in nl.circuits[0].connections:
+        if c.name == "GND":  # the bulk alone: move it to `s`
+            c.name = "s"
+    assert json.loads(write_gsch(nl))["t:M1"]["nets"] == {
+        "D": "d", "G": "g", "S": "s", "B": "s"
+    }  # fmt: skip

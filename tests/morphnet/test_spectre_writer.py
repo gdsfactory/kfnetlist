@@ -173,6 +173,17 @@ class TestExprParameters:
             Netlist(name="t", circuits=[inner])
         )
 
+    def test_vacask_subckt_params_are_a_parameters_line(self) -> None:
+        inner = Circuit(
+            name="inner",
+            ports=[make_port("p")],
+            parameters=[Parameter(name="k", properties={"expr": "2*x"})],
+        )
+        nl = Netlist(name="t", circuits=[inner], properties={"dialect": "vacask"})
+        lines = write_spectre(nl).splitlines()
+        i = lines.index("subckt inner (p)")
+        assert lines[i + 1] == "parameters k=2*x"
+
 
 class TestGroundNet:
     def test_ground_net_is_node_zero(self) -> None:

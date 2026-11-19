@@ -326,5 +326,40 @@
         "type": "electric"
       }
     ]
+  },
+  "models:pdk.rpoly": {
+    "name": "rpoly",
+    "ports": [
+      {
+        "name": "A",
+        "type": "electric"
+      },
+      {
+        "name": "B",
+        "type": "electric"
+      }
+    ],
+    "models": [
+      {
+        "implementation": "NgSpice",
+        "language": "spice",
+        "library": "pdk/models/rpoly.lib",
+        "name": "rppd",
+        "spice-type": "R",
+        "port-order": [
+          "A",
+          "B"
+        ],
+        "params": {
+          "w": "width"
+        }
+      }
+    ],
+    "props": [
+      {
+        "name": "width",
+        "default": 1
+      }
+    ]
   }
 }

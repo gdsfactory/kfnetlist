@@ -30,6 +30,7 @@ from kfnetlist.morphnet.netlist.gsch.parser import (
     terminal_ref,
     terminal_refs,
 )
+from kfnetlist.morphnet.netlist.gsch.sim import GROUND
 from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
 from kfnetlist.morphnet.netlist.value_utils import format_si_value
 
@@ -171,6 +172,13 @@ def stash_of(sub: SubCircuit) -> dict[str, Any] | None:
     return json.loads(sub.properties.get(INFO) or "{}").get(STASH)
 
 
+def parsed_master(stash: dict[str, Any]) -> str | None:
+    """The ``circuit_name`` the parser gave the instance of ``stash``."""
+    return stash.get(
+        "circuit", stash["entry"].get("model") or stash["entry"].get("type")
+    )
+
+
 def circuit_stash(circuit: Circuit, field: str) -> list[dict[str, Any]]:
     return json.loads(circuit.properties.get(INFO) or "{}").get(field) or []
 
@@ -197,8 +205,17 @@ def write_gsch(netlist: Netlist) -> str:
         sub.name: MOSAIC_PINS.get(symbol_of(sub, stashes[sub.name]), ())
         for sub in circuit.subcircuits
     }
+    parsed = {  # instances still on their parsed master: their device pins apply
+        sub.name: stash
+        for sub in circuit.subcircuits
+        if (stash := stashes[sub.name]) and sub.circuit_name == parsed_master(stash)
+    }
     pins: dict[str, dict[str, str]] = {}
     for (inst, pin), net in connections_to_instance_nets(circuit.connections).items():
+        device = parsed.get(inst, {})
+        if net == GROUND and pin in device.get("tied", ()):
+            continue  # the parser tied this open pin to ground
+        pin = device.get("pins", {}).get(pin, pin)  # SPICE `p` -> the entry's `A`
         if pin.upper() in symbols.get(inst, ()):  # `p` -> `P`
             pin = pin.upper()
         pins.setdefault(inst, {})[pin] = net
@@ -245,8 +262,7 @@ def write_gsch(netlist: Netlist) -> str:
             entry = {"type": "", **place()}
         key = stash["key"] if stash else synthesized(entry, sub.name)
         keys[sub.name] = key
-        parsed = stash and stash.get("circuit", entry.get("model") or entry.get("type"))
-        new_master = sub.circuit_name != parsed  # synthesized, or master changed
+        new_master = sub.name not in parsed  # synthesized, or master changed
         if new_master:
             builtin = sub.circuit_name in DEVICE_TYPES
             entry["type"] = sub.circuit_name if builtin else "ckt"
@@ -254,7 +270,8 @@ def write_gsch(netlist: Netlist) -> str:
                 entry.pop("model", None)
             else:
                 entry["model"] = sub.circuit_name
-        entry["name"] = sub.name
+        if not stash or "name" in stash["entry"] or sub.name != key:
+            entry["name"] = sub.name  # a parsed entry without `name` is named by key
         spelling = {
             pin.lower(): pin
             for pin in [
@@ -287,6 +304,8 @@ def write_gsch(netlist: Netlist) -> str:
             )
             p = p.model_copy(update={"name": prop})
             entry["props"][prop] = prop_value(p, stashed_props)
+        if stash and "props" not in stash["entry"] and not entry["props"]:
+            del entry["props"]
         # ponytail: params the simulation view derived (model `params` expressions
         # such as `w={...}`, model prop defaults, source `value`/waveform params)
         # have no prop to go back to, so their edits are lost; so are props removed

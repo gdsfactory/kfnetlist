@@ -120,7 +120,12 @@ class SpectreWriter:
                 param_strs.append(f"{param.name}={text}")
         params_suffix = " " + " ".join(param_strs) if param_strs else ""
 
-        lines.append(f"subckt {circuit.name} ({port_names}){params_suffix}")
+        if self.vacask:  # VACASK: params go on a `parameters` line in the body
+            lines.append(f"subckt {circuit.name} ({port_names})")
+            if param_strs:
+                lines.append("parameters" + params_suffix)
+        else:
+            lines.append(f"subckt {circuit.name} ({port_names}){params_suffix}")
 
         lines.extend(self.instance_lines(circuit, ext_by_name, circuit_by_name))
 

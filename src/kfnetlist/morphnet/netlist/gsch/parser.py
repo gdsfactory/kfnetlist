@@ -44,7 +44,8 @@ from kfnetlist.morphnet.netlist.value_utils import is_si_number, parse_parameter
 # The ``__`` prefix keeps it out of kfnetlist instance equality.
 INFO = "__info__"
 # {"key", "entry"[, "circuit": parsed circuit_name if not `model`][, "derived":
-# params the simulation view made, not the entry's props]}
+# params the simulation view made, not the entry's props][, "pins": IR pin -> entry
+# pin where they differ beyond case][, "tied": IR pins tied to ground, not in entry]}
 STASH = "__gsch__"
 MODEL = "__model__"  # the device's nyanlib model (FQN)
 TOP = "__top__"  # writers write a circuit with this name flat
@@ -314,11 +315,13 @@ def parse_gsch(
         for key, pin_name in nodes:
             key = key or ""
             add_port_to_net(net_map, net, names.get(key, ""), ir_pin(key, pin_name))
+    tied: dict[str, list[str]] = {}  # key -> pins tied to ground, not in the entry
     for key, device in devices.items():  # open MOS bulk: nyancad ties it to ground
         connected = {ir_pin(key, p) for n in nets.values() for k, p in n if k == key}
         for pin_name in device.ground if device else ():
             if pin_name not in connected:
                 add_port_to_net(net_map, GROUND, names[key], pin_name)
+                tied.setdefault(key, []).append(pin_name)
 
     # ── the external circuits instances use; pin domains for propagate_domains
     pins_seen: dict[str, dict[str, None]] = {}  # master -> pins, in order of first use
@@ -375,6 +378,16 @@ def parse_gsch(
             props["model_name"] = device.model_name
         if master(key) != master_of(entry):
             info[STASH]["circuit"] = master(key)
+        entry_pins = [
+            *(entry.get("nets") or {}),
+            *(p["name"] for p in entry.get("ports") or []),
+        ]
+        renamed = {ir_pin(key, p): p for p in entry_pins}
+        renamed = {q: p for q, p in renamed.items() if q.lower() != p.lower()}
+        if renamed:  # SPICE pins (`p`/`n`) of a device with its own (`A`/`B`)
+            info[STASH]["pins"] = renamed
+        if key in tied:
+            info[STASH]["tied"] = tied[key]
         raw = device.params if device else entry.get("props") or {}
         given = entry.get("props") or {}
         derived = {k for k, v in raw.items() if k not in given or given[k] != v}
@@ -469,11 +482,13 @@ def read_gsch(
 ) -> Netlist:
     """Read a ``.gsch`` file and the ``.gsch`` schematics its devices instantiate.
 
-    Each child (a device ``model`` ending in ``.gsch``, resolved against
-    ``project_root``) becomes a circuit named by its nyanlib ``name`` (else the file
-    stem), with the model's ports sorted by name as pins and its prop defaults as
-    header parameters, like nyancad's subcircuits. Libraries of the whole hierarchy
-    are gathered on the netlist, top first.
+    Each child becomes a circuit named by its nyanlib ``name`` (else the file stem),
+    with the model's ports sorted by name as pins and its prop defaults as header
+    parameters, like nyancad's subcircuits. Only wired devices (with Mosaic ``nets``)
+    whose ``model`` ends in ``.gsch`` and is not a library model (no nyanlib
+    ``models`` entries) are followed, resolved against ``project_root``. Libraries
+    of the whole hierarchy are gathered on the netlist, top first.
+
 
     Args:
         path: the top ``.gsch`` file.
@@ -482,6 +497,9 @@ def read_gsch(
             the project root.
         sim: as for :func:`parse_gsch`.
         corners: as for :func:`parse_gsch`.
+
+    Raises:
+        ValueError: a child file is missing, or two children share a circuit name.
     """
     path = Path(path)
     root = Path(project_root) if project_root is not None else path.parent
@@ -505,14 +523,21 @@ def read_gsch(
                 and not (models.get(key) or {}).get("models")  # else a library model
                 and model not in children
                 and model not in stack
-                and (root / model).is_file()
             ):
-                circuit = load(root / model, model, (*stack, model)).circuits[0]
+                child = root / model
+                if not child.is_file():
+                    raise ValueError(f"{file}: child schematic {child} not found")
+                circuit = load(child, model, (*stack, model)).circuits[0]
                 model_def = models.get(key) or {}
                 ports = model_def.get("ports") or [
                     {"name": p.name} for p in circuit.ports
                 ]
                 name = model_def.get("name") or Path(model).stem
+                for other, c in children.items():
+                    if c.name == name:
+                        raise ValueError(
+                            f"{child} and {root / other} are both circuit {name!r}"
+                        )
                 models[key] = {**model_def, "name": name, "ports": ports}
                 by_name = {p.name: p for p in circuit.ports}
                 circuit.name = name
