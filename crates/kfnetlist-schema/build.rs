@@ -11,6 +11,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .enum_attribute("circuit.Expression.node", "#[serde(rename_all = \"snake_case\")]")
         .field_attribute("circuit.TerminalReference.terminal_name", "#[serde(alias = \"Terminal_name\")]")
         .field_attribute("circuit.Circuit.terminals", "#[serde(alias = \"terminal\")]")
+        .field_attribute("circuit.Circuit.macros", "#[serde(skip_serializing_if = \"Vec::is_empty\")]")
+        .field_attribute("circuit.Netlist.macros", "#[serde(skip_serializing_if = \"Vec::is_empty\")]")
         .compile_protos(&["proto/circuit.proto", "proto/simulation.proto"], &["proto"])?;
     Ok(())
 }

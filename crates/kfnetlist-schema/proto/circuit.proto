@@ -156,6 +156,15 @@ message Directive {
     string        value = 3;
 }
 
+// A multi-line block in a simulator language (e.g. a nyanlib inline `code` entry),
+// written verbatim by writers whose dialect accepts that language.
+message Macro {
+    string              name       = 1;
+    string              language   = 2;
+    string              body       = 3;
+    map<string, string> properties = 4;
+}
+
 // ======================================================================
 // Model interfaces
 // ======================================================================
@@ -238,6 +247,7 @@ message Circuit {
     repeated Bus              buses            = 60;
     map<string, string>       properties       = 70;
     repeated Directive        directives       = 71;
+    repeated Macro            macros           = 72;
 }
 
 // A body-less circuit definition provided externally (device, model, PDK cell).
@@ -277,6 +287,7 @@ message Netlist {
     repeated Directive           directives   = 31;
     Simulation                   simulation   = 40;
     map<string, ExternalLibrary> libraries    = 45;
+    repeated Macro               macros       = 46;
 }
 
 // Kept for backwards compatibility.

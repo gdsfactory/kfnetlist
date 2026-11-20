@@ -635,6 +635,8 @@ class ProtoCircuit(_ProtoModel):
     def properties(self) -> dict[str, str]: ...
     @property
     def directives(self) -> list[dict[str, Any]]: ...
+    @property
+    def macros(self) -> list[dict[str, Any]]: ...
     def __init__(
         self,
         *,
@@ -651,6 +653,7 @@ class ProtoCircuit(_ProtoModel):
         buses: list[Bus] = ...,
         properties: dict[str, str] = ...,
         directives: list[dict[str, Any]] = ...,
+        macros: list[dict[str, Any]] = ...,
     ) -> None: ...
 
 class ProtoNetlist(_ProtoModel):
@@ -683,6 +686,8 @@ class ProtoNetlist(_ProtoModel):
     def simulation(self) -> dict[str, Any] | None: ...
     @property
     def libraries(self) -> dict[str, dict[str, Any]]: ...
+    @property
+    def macros(self) -> list[dict[str, Any]]: ...
     def __init__(
         self,
         *,
@@ -698,6 +703,7 @@ class ProtoNetlist(_ProtoModel):
         directives: list[dict[str, Any]] = ...,
         simulation: dict[str, Any] | None = ...,
         libraries: dict[str, dict[str, Any]] = ...,
+        macros: list[dict[str, Any]] = ...,
     ) -> None: ...
 
 class ArraySpec(_SchemaModel):

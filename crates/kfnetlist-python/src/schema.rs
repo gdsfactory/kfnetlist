@@ -175,6 +175,7 @@ scalar_field!(
     Value,
     serde_json::Map<String, Value>,
     proto::Directive,
+    proto::Macro,
     proto::Expression,
     kfnetlist_core::Directive,
     proto::Simulation,
@@ -446,7 +447,8 @@ proto_schema_class!(
         connections,
         buses,
         properties,
-        directives
+        directives,
+        macros
     ],
     {
         #[getter]
@@ -478,7 +480,8 @@ proto_schema_class!(
         properties,
         directives,
         simulation,
-        libraries
+        libraries,
+        macros
     ],
     {
         #[getter]

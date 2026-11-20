@@ -22,6 +22,7 @@ __all__ = [
     "ExternalCircuit",
     "ExternalCircuitKind",
     "Expression",
+    "Macro",
     "ModelInterface",
     "ModelReference",
     "Netlist",
@@ -235,6 +236,17 @@ class Directive(ProtoModel):
     value: str = ""
 
 
+class Macro(ProtoModel):
+    """A multi-line block in a simulator ``language``, written verbatim."""
+
+    _proto_type: ClassVar[type] = pb.Macro
+
+    name: str = ""
+    language: str = ""
+    body: str = ""
+    properties: dict[str, str] = {}
+
+
 # ======================================================================
 # Model interfaces
 # ======================================================================
@@ -331,6 +343,7 @@ class Circuit(ProtoModel):
     buses: list[Bus] = []
     properties: dict[str, str] = {}
     directives: list[Directive] = []
+    macros: list[Macro] = []
 
     def add_terminal(
         self,
@@ -442,6 +455,7 @@ class Netlist(ProtoModel):
     directives: list[Directive] = []
     simulation: Simulation | None = None
     libraries: dict[str, ExternalLibrary] = {}
+    macros: list[Macro] = []
 
     def add(self, *circuits: Circuit) -> "Netlist":
         self.circuits.extend(circuits)
