@@ -181,16 +181,37 @@ mod tests {
         let (a, b, c) = (name("a"), name("b"), name("c"));
         let cases = [
             (bin(Mul, num(0.13, 0), num(1e-6, 0)), "0.13 * 1e-6"),
-            (bin(Mul, bin(Add, a.clone(), b.clone()), c.clone()), "(a + b) * c"),
-            (bin(Add, a.clone(), bin(Mul, b.clone(), c.clone())), "a + b * c"),
-            (bin(Sub, a.clone(), bin(Sub, b.clone(), c.clone())), "a - (b - c)"),
-            (bin(Sub, bin(Sub, a.clone(), b.clone()), c.clone()), "a - b - c"),
-            (bin(Pow, a.clone(), bin(Pow, b.clone(), c.clone())), "a ** b ** c"),
-            (bin(Pow, bin(Pow, a.clone(), b.clone()), c.clone()), "(a ** b) ** c"),
+            (
+                bin(Mul, bin(Add, a.clone(), b.clone()), c.clone()),
+                "(a + b) * c",
+            ),
+            (
+                bin(Add, a.clone(), bin(Mul, b.clone(), c.clone())),
+                "a + b * c",
+            ),
+            (
+                bin(Sub, a.clone(), bin(Sub, b.clone(), c.clone())),
+                "a - (b - c)",
+            ),
+            (
+                bin(Sub, bin(Sub, a.clone(), b.clone()), c.clone()),
+                "a - b - c",
+            ),
+            (
+                bin(Pow, a.clone(), bin(Pow, b.clone(), c.clone())),
+                "a ** b ** c",
+            ),
+            (
+                bin(Pow, bin(Pow, a.clone(), b.clone()), c.clone()),
+                "(a ** b) ** c",
+            ),
             (neg(bin(Pow, a.clone(), b.clone())), "-(a ** b)"),
             (bin(Pow, neg(a.clone()), b.clone()), "(-a) ** b"),
             (bin(Mul, neg(a.clone()), b.clone()), "-a * b"),
-            (bin(Or, bin(Lt, a.clone(), b.clone()), c.clone()), "a < b || c"),
+            (
+                bin(Or, bin(Lt, a.clone(), b.clone()), c.clone()),
+                "a < b || c",
+            ),
         ];
         for (e, want) in cases {
             assert_eq!(canonical(&e), want);

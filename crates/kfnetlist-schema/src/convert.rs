@@ -169,7 +169,10 @@ fn merge_parameters(
             (Some(_), Some(_)) => {
                 if let Some(i) = fresh.iter().position(|f| f.name == s.name) {
                     let value = fresh.remove(i).default_value; // the rest stays (role, ...)
-                    out.push(p::Parameter { default_value: value, ..s.clone() });
+                    out.push(p::Parameter {
+                        default_value: value,
+                        ..s.clone()
+                    });
                 }
             }
             (None, Some(_)) if !keep_unset => {} // setting removed

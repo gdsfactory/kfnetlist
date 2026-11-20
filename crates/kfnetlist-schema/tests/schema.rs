@@ -459,7 +459,12 @@ fn morphnet_only_fields_survive_kfnetlist() {
         .unwrap()
         .to_netlists()
         .unwrap();
-    let r1 = netlists.get_mut("top").unwrap().instances.get_mut("R1").unwrap();
+    let r1 = netlists
+        .get_mut("top")
+        .unwrap()
+        .instances
+        .get_mut("R1")
+        .unwrap();
     r1.settings["w"] = json!("3*l");
     let edited = NetlistDocument::from_netlists(&netlists, None)
         .to_proto_netlist()
