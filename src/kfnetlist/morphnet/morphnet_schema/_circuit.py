@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
+from operator import not_
 from typing import ClassVar
 
 from pydantic import AliasChoices, Field, model_validator
@@ -343,7 +344,7 @@ class Circuit(ProtoModel):
     buses: list[Bus] = []
     properties: dict[str, str] = {}
     directives: list[Directive] = []
-    macros: list[Macro] = []
+    macros: list[Macro] = Field(default=[], exclude_if=not_)  # as Rust skips it
 
     def add_terminal(
         self,
@@ -455,7 +456,7 @@ class Netlist(ProtoModel):
     directives: list[Directive] = []
     simulation: Simulation | None = None
     libraries: dict[str, ExternalLibrary] = {}
-    macros: list[Macro] = []
+    macros: list[Macro] = Field(default=[], exclude_if=not_)  # as Rust skips it
 
     def add(self, *circuits: Circuit) -> "Netlist":
         self.circuits.extend(circuits)

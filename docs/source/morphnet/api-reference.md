@@ -412,7 +412,8 @@ A oneof value — exactly one field should be set:
 
 #### `Expression`
 
-A oneof (`node` in the schema), exactly one field set:
+A oneof, exactly one field set. JSON and YAML name the set field directly
+(`{"binary": {"op": 3, "lhs": ..., "rhs": ...}}`), in Python and Rust alike:
 
 | Field | Type | Description |
 |---|---|---|
@@ -430,7 +431,8 @@ resolve=None, *, named=False) -> str` live in
 or `'...'`, never raises, and returns `Expression(raw=text)` when the text does not
 parse. `^` is not in the grammar (it is XOR in SystemVerilog), so text with `^`
 stays raw. `format_expression` prints the canonical form (`2 * x`) and wraps a
-compound expression per dialect; `resolve(name)` substitutes a reference.
+compound expression per dialect; `resolve(name)` substitutes a reference. An
+unknown dialect raises `ValueError`.
 
 | Dialect | Wrapping | Example |
 |---|---|---|

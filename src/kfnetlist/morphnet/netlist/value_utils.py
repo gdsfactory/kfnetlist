@@ -103,15 +103,16 @@ def param_text(
 ) -> str | None:
     """Written value of a parameter: its expression printed for ``dialect`` (raw text
     wrapped only when ``named``; references through ``resolve``), else its default
-    formatted by ``fmt``. None when there is nothing to write (no value, or empty raw
-    text)."""
+    formatted by ``fmt``. None when there is nothing to write (no value, or an empty
+    expression)."""
     from kfnetlist.morphnet.netlist.expression import format_expression  # a cycle
 
     value = param.default_value
-    if value is None or (value.expression is not None and value.expression.raw == ""):
+    if value is None:
         return None
-    if value.expression is not None:
-        return format_expression(value.expression, dialect, resolve, named=named)
+    if value.expression is not None:  # empty raw text or no node: nothing to write
+        text = format_expression(value.expression, dialect, resolve, named=named)
+        return text or None
     return fmt(value)
 
 

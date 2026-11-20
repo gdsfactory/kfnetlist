@@ -313,7 +313,7 @@ proto_schema_class!(ParameterValue, proto::ParameterValue, [], {
             _ => None,
         }
     }
-    /// The expression tree as a dict (`{"node": {"binary": {...}}}`).
+    /// The expression tree as a dict (`{"binary": {...}}`).
     #[getter]
     fn expression(&self, py: Python<'_>) -> PyResult<PyObject> {
         match &self.0.value {

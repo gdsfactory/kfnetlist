@@ -192,3 +192,8 @@ def test_raw_text_already_wrapped_is_not_wrapped_again(text):
 @pytest.mark.parametrize("text", ["fast", "true", "1k"])
 def test_a_raw_bare_word_or_number_stays_bare(text):
     assert format_expression(Expression(raw=text), "ngspice", named=True) == text
+
+
+def test_an_unknown_dialect_is_a_value_error():
+    with pytest.raises(ValueError, match="ngspice"):
+        format_expression(parse_expression("a+b"), "verilog-a")

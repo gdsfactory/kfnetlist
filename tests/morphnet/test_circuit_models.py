@@ -422,3 +422,82 @@ class TestNetlistIntegration:
         from_json = Netlist.from_json(netlist.to_json())
         from_yaml = Netlist.from_yaml(netlist.to_yaml())
         assert from_proto == from_json == from_yaml == netlist
+
+
+# ======================================================================
+# JSON shared with the Rust schema (kfnetlist_schema.ProtoNetlist)
+# ======================================================================
+
+EXPRESSIONS = """* expressions
+.param w=1 c=1
+.subckt cell a b
+.ends
+X1 a b cell r={w*2} s={w} t={max(w, 2)} u={c ? 1 : w} v={a^2}
+.end
+"""
+
+
+def test_expression_json_round_trips_through_the_rust_schema():
+    from pathlib import Path
+
+    from kfnetlist.kfnetlist_schema import ProtoNetlist
+    from kfnetlist.morphnet.netlist import parse_gsch, parse_spice
+
+    gsch = Path(__file__).parent / "netlists" / "gsch" / "ihp_cmos_inverter.gsch"
+    for nl in (parse_spice(EXPRESSIONS), parse_gsch(gsch.read_text())):
+        rust = ProtoNetlist.from_json(nl.to_json())
+        assert Netlist.from_json(rust.to_json()) == nl
+    x1 = parse_spice(EXPRESSIONS).circuits[0].subcircuits[0]
+    kinds = {
+        p.name: next(k for k, v in p.default_value.expression.model_dump().items() if v)
+        for p in x1.parameters
+    }
+    assert kinds == {
+        "r": "binary",
+        "s": "reference",
+        "t": "call",
+        "u": "ternary",
+        "v": "raw",
+    }
+
+
+def test_json_omits_unset_oneofs_and_empty_macros():
+    nl = Netlist(
+        circuits=[
+            Circuit(
+                name="top",
+                parameters=[
+                    Parameter(
+                        name="w",
+                        default_value=ParameterValue(
+                            prefixed_value=PrefixedValue(double_value=1.0)
+                        ),
+                    )
+                ],
+            )
+        ]
+    )
+    for text in (nl.to_json(), nl.to_yaml()):
+        assert "macros" not in text
+        assert "expression" not in text
+        assert "null" not in text
+    assert Netlist.from_json(nl.to_json()) == nl
+    assert Netlist.from_yaml(nl.to_yaml()) == nl
+
+
+def test_an_expression_with_no_node_is_not_written():
+    from kfnetlist.morphnet.netlist import write_spice
+
+    nl = Netlist(top_circuit="top", circuits=[Circuit(name="top")])
+    nl.circuits[0].subcircuits.append(
+        SubCircuit(
+            name="X1",
+            circuit_name="cell",
+            parameters=[
+                Parameter(
+                    name="w", default_value=ParameterValue(expression=Expression())
+                )
+            ],
+        )
+    )
+    assert "w=" not in write_spice(nl)

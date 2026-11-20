@@ -219,12 +219,16 @@ def format_expression(
     (``DC 1 AC 1``) stays verbatim. ``resolve(name)`` may substitute a reference, or a
     word of raw text; the substitute is printed as is, not resolved again.
     """
+    if dialect not in WRAP:
+        raise ValueError(
+            f"unknown dialect {dialect!r}; expected one of {', '.join(WRAP)}"
+        )
     opening, closing = WRAP[dialect]
     text, prec = _text(expr, dialect, resolve)
     if prec == RAW:
         token = parse_expression(text)
         single = token.literal is not None or token.reference is not None
-        if not named or single or text[:1] + text[-1:] in ("{}", "''"):
+        if not text or not named or single or text[:1] + text[-1:] in ("{}", "''"):
             return text
     elif prec == ATOM:
         return text

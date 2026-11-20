@@ -37,8 +37,11 @@ class ProtoModel(BaseModel):
         return cls.from_proto(proto_msg)
 
     def to_json(self, **kwargs: Any) -> str:
-        # Keys are the kfnetlist schema (circuit.proto) field names.
+        # Keys are the kfnetlist schema (circuit.proto) field names. Unset oneof and
+        # message fields are left out, as the Rust schema does: older readers reject
+        # keys they do not know even when null.
         kwargs.setdefault("by_alias", True)
+        kwargs.setdefault("exclude_none", True)
         return self.model_dump_json(**kwargs)
 
     @classmethod
@@ -49,6 +52,7 @@ class ProtoModel(BaseModel):
         from pydantic_yaml import to_yaml_str
 
         kwargs.setdefault("by_alias", True)
+        kwargs.setdefault("exclude_none", True)
         return to_yaml_str(self, **kwargs)
 
     @classmethod

@@ -84,3 +84,63 @@ impl From<proto::ParameterValue> for ParameterValueWire {
         }
     }
 }
+
+// Expression's oneof is flat in JSON (`{"binary": {...}}`), as in protobuf JSON and
+// the pydantic mirror, rather than serde's `{"node": {"binary": {...}}}`.
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct ExpressionWire {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    literal: Option<proto::PrefixedValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reference: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    unary: Option<Box<proto::UnaryOp>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    binary: Option<Box<proto::BinaryOp>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    call: Option<proto::Call>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ternary: Option<Box<proto::Ternary>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    raw: Option<String>,
+}
+impl TryFrom<ExpressionWire> for proto::Expression {
+    type Error = Error;
+    fn try_from(w: ExpressionWire) -> Result<Self> {
+        use proto::expression::Node;
+        let mut nodes = [
+            w.literal.map(Node::Literal),
+            w.reference.map(Node::Reference),
+            w.unary.map(Node::Unary),
+            w.binary.map(Node::Binary),
+            w.call.map(Node::Call),
+            w.ternary.map(Node::Ternary),
+            w.raw.map(Node::Raw),
+        ]
+        .into_iter()
+        .flatten();
+        let node = nodes.next();
+        if nodes.next().is_some() {
+            return Err(Error("Expression accepts only one node".into()));
+        }
+        Ok(Self { node })
+    }
+}
+impl From<proto::Expression> for ExpressionWire {
+    fn from(e: proto::Expression) -> Self {
+        use proto::expression::Node;
+        let mut w = Self::default();
+        match e.node {
+            Some(Node::Literal(v)) => w.literal = Some(v),
+            Some(Node::Reference(v)) => w.reference = Some(v),
+            Some(Node::Unary(v)) => w.unary = Some(v),
+            Some(Node::Binary(v)) => w.binary = Some(v),
+            Some(Node::Call(v)) => w.call = Some(v),
+            Some(Node::Ternary(v)) => w.ternary = Some(v),
+            Some(Node::Raw(v)) => w.raw = Some(v),
+            None => {}
+        }
+        w
+    }
+}

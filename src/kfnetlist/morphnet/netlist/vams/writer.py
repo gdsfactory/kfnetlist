@@ -212,7 +212,7 @@ class VamsWriter:
         if pval.prefixed_value is not None:
             return format_si_value(pval.prefixed_value)
         if pval.expression is not None:
-            return format_expression(pval.expression, "vams", resolve)
+            return format_expression(pval.expression, "vams", resolve) or "0"
         return "0"
 
     def infer_port_order(

@@ -84,9 +84,13 @@ fn terminal_alias_and_oneof_validation_work_in_rust() {
     )
     .is_err());
     assert!(serde_json::from_value::<proto::ParameterValue>(
-        json!({"prefixed_value": {}, "expression": {"node": {"raw": "x"}}})
+        json!({"prefixed_value": {}, "expression": {"raw": "x"}})
     )
     .is_err());
+    assert!(
+        serde_json::from_value::<proto::Expression>(json!({"raw": "x", "reference": "y"})).is_err()
+    );
+    assert!(serde_json::from_value::<proto::Expression>(json!({"node": {"raw": "x"}})).is_err());
 }
 
 #[test]
@@ -346,11 +350,11 @@ fn morphnet_only_fields_survive_kfnetlist() {
             },
             proto::Parameter {
                 name: "w".into(),
-                default_value: serde_json::from_value(json!({"expression": {"node": {
+                default_value: serde_json::from_value(json!({"expression": {
                     "binary": {"op": proto::Operator::Mul as i32,
-                        "lhs": {"node": {"literal": {"double_value": 2.0}}},
-                        "rhs": {"node": {"reference": "l"}}}
-                }}}))
+                        "lhs": {"literal": {"double_value": 2.0}},
+                        "rhs": {"reference": "l"}}
+                }}))
                 .unwrap(),
                 properties: [("role".into(), "source".into())].into(),
                 ..Default::default()
@@ -464,7 +468,7 @@ fn morphnet_only_fields_survive_kfnetlist() {
     assert_eq!(w.name, "w");
     assert_eq!(
         serde_json::to_value(&w.default_value).unwrap(),
-        json!({"expression": {"node": {"raw": "3*l"}}})
+        json!({"expression": {"raw": "3*l"}})
     );
     assert_eq!(w.properties["role"], "source");
 }

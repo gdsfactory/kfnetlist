@@ -67,7 +67,7 @@ def format_param_value(param: Parameter, resolve: Resolve | None = None) -> str:
     if pval is not None and pval.prefixed_value is not None:
         return f"{to_float(pval.prefixed_value):.12g}"
     if pval is not None and pval.expression is not None:
-        return format_expression(pval.expression, "systemverilog", resolve)
+        return format_expression(pval.expression, "systemverilog", resolve) or "0"
     return "0"
 
 

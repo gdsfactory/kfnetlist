@@ -30,7 +30,11 @@
   SystemVerilog parsers produce it; the `properties["expr"]` text of earlier
   development builds is gone. A model parameter such as `w = width * 1e-6` is an
   expression over the source props, not a fixed number. `^` is XOR in
-  SystemVerilog, so text with `^` stays `raw`.
+  SystemVerilog, so text with `^` stays `raw`. JSON and YAML name the set node
+  directly (`{"binary": {...}}`) in Python and Rust alike, so
+  `ProtoNetlist.from_json(netlist.to_json())` loads expression parameters.
+  `format_expression()` raises `ValueError` for an unknown dialect; an expression
+  with no node is not written.
   Through the kfnetlist bridge an expression parameter is a string setting with
   its canonical text, and its tree rides in `info["__morphnet__"]`: unchanged
   text restores the tree, edited text comes back as `raw`. kfnetlist string and
@@ -58,6 +62,9 @@
     `parameters` line in the body, as nyancad does; plain Spectre keeps them on
     the `subckt` line.
 - **Output changes for existing users**:
+  - morphnet `to_json()` / `to_yaml()` leave out unset (`null`) fields and empty
+    `macros`, as the Rust schema does, so a document that uses no new field loads
+    in older kfnetlist readers. Pass `exclude_none=False` for the old output.
   - kfnetlist string and bool settings now reach SPICE and Spectre output as
     parameters (`mode=fast`, `on=true`); they used to be dropped.
   - The SPICE writers prepend the element letter, or `X` for a subcircuit call,
