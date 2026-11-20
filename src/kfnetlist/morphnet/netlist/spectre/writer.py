@@ -11,6 +11,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Expression,
     ExternalCircuit,
     Circuit,
+    Macro,
     Parameter,
     SubCircuit,
     OutputRequest,
@@ -22,13 +23,18 @@ from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PORT_TEMPLATES,
     DEVICE_PREFIX_TO_CIRCUIT,
+    SPICE_LANGUAGES,
     format_si_value,
     is_skipped,
+    macro_lines,
     param_text,
     sim_params,
 )
 
 CIRCUIT_TO_PREFIX: dict[str, str] = {v: k for k, v in DEVICE_PREFIX_TO_CIRCUIT.items()}
+SPICE_BLOCK = ("simulator lang=spice", "simulator lang=spectre")
+# VACASK has no `simulator lang` switch: every macro is skipped
+MACRO_LANGUAGES = {"spectre": None, **dict.fromkeys(SPICE_LANGUAGES, SPICE_BLOCK)}
 
 
 class SpectreWriter:
@@ -64,6 +70,7 @@ class SpectreWriter:
         circuit_by_name: dict[str, Circuit] = {m.name: m for m in netlist.circuits}
 
         self.write_directives(netlist.directives, lines)
+        lines.extend(self.macro_lines(netlist.macros))
 
         for ext in netlist.ext_circuits:
             model_type = ext.properties.get("model_type")
@@ -81,6 +88,9 @@ class SpectreWriter:
 
         lines.append("")
         return "\n".join(lines)
+
+    def macro_lines(self, macros: list[Macro]) -> list[str]:
+        return macro_lines(macros, {} if self.vacask else MACRO_LANGUAGES, "//")
 
     def write_directives(self, directives: list[Directive], lines: list[str]) -> None:
         params: dict[str, str] = {}
@@ -136,6 +146,7 @@ class SpectreWriter:
         else:
             lines.append(f"subckt {circuit.name} ({port_names}){params_suffix}")
 
+        lines.extend(self.macro_lines(circuit.macros))
         lines.extend(self.instance_lines(circuit, ext_by_name, circuit_by_name))
 
         lines.append(f"ends {circuit.name}")
@@ -147,6 +158,7 @@ class SpectreWriter:
         circuit_by_name: dict[str, Circuit],
         lines: list[str],
     ) -> None:
+        lines.extend(self.macro_lines(circuit.macros))
         lines.extend(self.instance_lines(circuit, ext_by_name, circuit_by_name))
 
     def instance_lines(

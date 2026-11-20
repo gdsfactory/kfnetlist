@@ -21,7 +21,13 @@ from kfnetlist.morphnet.netlist.hdl import (
 from kfnetlist.morphnet.netlist.net_utils import BIT_RE, connections_to_instance_nets
 from kfnetlist.morphnet.netlist.systemverilog.writer import sv_name
 from kfnetlist.morphnet.netlist.expression import Resolve, format_expression
-from kfnetlist.morphnet.netlist.value_utils import format_si_value, sim_params
+from kfnetlist.morphnet.netlist.value_utils import (
+    format_si_value,
+    macro_lines,
+    sim_params,
+)
+
+MACRO_LANGUAGES = dict.fromkeys(("verilog-ams", "verilog-a", "vams"))
 
 
 def declaration(keyword: str, names: list[str], rng: Range | None) -> str:
@@ -42,6 +48,7 @@ class VamsWriter:
         circuit_by_name: dict[str, Circuit] = {m.name: m for m in netlist.circuits}
 
         self.write_directives(netlist.directives, lines)
+        lines.extend(macro_lines(netlist.macros, MACRO_LANGUAGES, "//"))
 
         for ext in netlist.ext_circuits:
             if ext.kind == ExternalCircuitKind.NATURE:
@@ -94,6 +101,7 @@ class VamsWriter:
         port_names = [p.name for p in circuit.ports]
         ports_str = ", ".join(port_names)
         lines.append(f"module {circuit.name} ({ports_str});")
+        lines.extend(macro_lines(circuit.macros, MACRO_LANGUAGES, "//"))
 
         ranges = {
             p.name: declared_range(p.width, p.properties.get("range"))

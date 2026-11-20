@@ -23,8 +23,10 @@ from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PORT_TEMPLATES,
     DEVICE_PREFIX_TO_CIRCUIT,
+    SPICE_LANGUAGES,
     format_si_value,
     is_skipped,
+    macro_lines,
     param_text,
     sim_params,
 )
@@ -43,6 +45,7 @@ class SpiceWriter:
     # Keyword placed before subckt header / X-call params (Xyce: "PARAMS:")
     params_kw: str = ""
     dialect: str = "ngspice"  # expression wrapping (see format_expression)
+    macro_languages = dict.fromkeys(SPICE_LANGUAGES)
 
     def format_param_value(self, pval: ParameterValue) -> str:
         """Format any ParameterValue variant as a SPICE-compatible string."""
@@ -73,6 +76,7 @@ class SpiceWriter:
         circuit_by_name: dict[str, Circuit] = {m.name: m for m in netlist.circuits}
 
         self.write_directives(netlist.directives, lines)
+        lines.extend(macro_lines(netlist.macros, self.macro_languages, "*"))
 
         for ext in netlist.ext_circuits:
             model_type = ext.properties.get("model_type", "")
@@ -143,6 +147,7 @@ class SpiceWriter:
             header.append(self.params_kw)
         header.extend(kv)
         lines.append(" ".join(h for h in header if h))
+        lines.extend(macro_lines(circuit.macros, self.macro_languages, "*"))
         lines.extend(self.instance_lines(circuit, ext_by_name, circuit_by_name))
         lines.append(f".ends {circuit.name}")
 
@@ -154,6 +159,7 @@ class SpiceWriter:
         lines: list[str],
     ) -> None:
         """Emit top-level instances (outside any subcircuit)."""
+        lines.extend(macro_lines(circuit.macros, self.macro_languages, "*"))
         lines.extend(self.instance_lines(circuit, ext_by_name, circuit_by_name))
 
     def instance_lines(

@@ -18,6 +18,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Connection,
     Directive,
     ExternalCircuit,
+    Macro,
     Netlist,
     Parameter,
     ParameterValue,
@@ -38,6 +39,7 @@ from kfnetlist.morphnet.netlist.gsch.sim import (
     check_sim,
     element,
     library,
+    macro,
     select_entry,
 )
 from kfnetlist.morphnet.netlist.expression import parse_expression
@@ -490,11 +492,13 @@ def parse_gsch(
     properties = {"ground_net": GROUND}
     if sim == "vacask":
         properties["dialect"] = "vacask"
+    directives, macros = libraries(comps, models, sim, corners)
     netlist = Netlist(
         top_circuit=circuit_name,
         circuits=[circuit],
         ext_circuits=ext_circuits,
-        directives=libraries(comps, models, sim, corners),
+        directives=directives,
+        macros=macros,
         properties=properties,
     )
     propagate_domains(netlist, pin_domains=pin_domains)
@@ -506,18 +510,25 @@ def libraries(
     models: Mapping[str, Any],
     sim: str,
     corners: Sequence[str],
-) -> list[Directive]:
-    """Library directives of the models nyancad counts as used (devices with nets)."""
+) -> tuple[list[Directive], list[Macro]]:
+    """Library directives and inline-code macros (one per name) of the models
+    nyancad counts as used (devices with nets)."""
     out: list[Directive] = []
+    macros: list[Macro] = []
     for entry in comps.values():
         model_def = models.get(f"models:{entry.get('model')}")
         if not entry.get("nets") or not isinstance(model_def, dict):
             continue
         chosen = select_entry(model_def, sim)
-        directive = library(chosen, sim, corners) if chosen else None
+        if not chosen:
+            continue
+        directive = library(chosen, sim, corners)
         if directive is not None and directive not in out:
             out.append(directive)
-    return out
+        code = macro(chosen)
+        if code is not None and all(m.name != code.name for m in macros):
+            macros.append(code)
+    return out, macros
 
 
 def read_gsch(
@@ -535,7 +546,8 @@ def read_gsch(
     parameters, like nyancad's subcircuits. Only wired devices (with Mosaic ``nets``)
     whose ``model`` ends in ``.gsch`` and is not a library model (no nyanlib
     ``models`` entries) are followed, resolved against ``project_root``. Libraries
-    of the whole hierarchy are gathered on the netlist, top first.
+    and inline-code macros of the whole hierarchy are gathered on the netlist, top
+    first.
 
 
     Args:
@@ -614,12 +626,17 @@ def read_gsch(
     defined = {c.name for c in circuits}
     ext_circuits = {}
     directives: list[Directive] = []
+    macros: list[Macro] = []
     for netlist in [top, *netlists[:-1]]:  # top first
         for ext in netlist.ext_circuits:
             if ext.name not in defined:
                 ext_circuits.setdefault(ext.name, ext)
         directives += [d for d in netlist.directives if d not in directives]
+        for m in netlist.macros:
+            if all(m.name != seen.name for seen in macros):
+                macros.append(m)
     top.circuits = circuits
     top.ext_circuits = list(ext_circuits.values())
     top.directives = directives
+    top.macros = macros
     return top

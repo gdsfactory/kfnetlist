@@ -24,7 +24,7 @@ from kfnetlist.morphnet.netlist.hdl import (
 from kfnetlist.morphnet.netlist.net_utils import BIT_RE, connections_to_instance_nets
 from kfnetlist.morphnet.netlist.expression import format_expression
 from kfnetlist.morphnet.netlist.expression import Resolve
-from kfnetlist.morphnet.netlist.value_utils import sim_params, to_float
+from kfnetlist.morphnet.netlist.value_utils import macro_lines, sim_params, to_float
 
 IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*")
 RESERVED = {
@@ -71,12 +71,16 @@ def format_param_value(param: Parameter, resolve: Resolve | None = None) -> str:
     return "0"
 
 
+MACRO_LANGUAGES = dict.fromkeys(("systemverilog", "verilog"))
+
+
 class SystemVerilogWriter:
     """Convert a Netlist model to structural SystemVerilog text."""
 
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
         self.write_directives(netlist.directives, lines)
+        lines.extend(macro_lines(netlist.macros, MACRO_LANGUAGES, "//"))
         lines.extend(
             v
             for k, v in netlist.properties.items()
@@ -121,6 +125,7 @@ class SystemVerilogWriter:
         )
         ports = f"(\n  {ports}\n)" if ports else "()"
         lines.append(f"module {sv_name(circuit.name)}{params} {ports};")
+        lines.extend(macro_lines(circuit.macros, MACRO_LANGUAGES, "//"))
 
         for p in circuit.parameters:
             if p.properties.get("localparam") == "true":

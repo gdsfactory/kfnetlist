@@ -1,10 +1,12 @@
 from __future__ import annotations
 
 import re
-from collections.abc import Callable
+import warnings
+from collections.abc import Callable, Mapping, Sequence
 
 from kfnetlist.morphnet.morphnet_schema import (
     Expression,
+    Macro,
     Parameter,
     ParameterValue,
     PrefixedValue,
@@ -61,6 +63,30 @@ DEVICE_PREFIX_TO_CIRCUIT: dict[str, str] = {
     "V": "vsource",
     "I": "isource",
 }
+
+
+SPICE_LANGUAGES = ("spice", "ngspice", "xyce", "hspice")
+
+
+def macro_lines(
+    macros: Sequence[Macro],
+    accept: Mapping[str, tuple[str, str] | None],
+    comment: str,
+) -> list[str]:
+    """Bodies whose ``language`` is in ``accept``, verbatim (between the pair of
+    lines it maps to, if any); any other is a ``skipped macro`` comment and a
+    warning, never a silent drop."""
+    lines: list[str] = []
+    for m in macros:
+        if m.language.lower() not in accept:
+            note = f"skipped macro {m.name} ({m.language})"
+            warnings.warn(note, stacklevel=2)
+            lines.append(f"{comment} {note}")
+            continue
+        wrap = accept[m.language.lower()]
+        body = m.body.splitlines()
+        lines.extend([wrap[0], *body, wrap[1]] if wrap else body)
+    return lines
 
 
 def is_skipped(ref: SubCircuit) -> bool:

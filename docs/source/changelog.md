@@ -14,9 +14,9 @@
     simulator scaffolding (`.end`, analyses, `load *.osdi`).
   - Positions, wires, polylines and port markers survive `write_gsch`.
   - Limits: edits to derived parameters are not written back; a file written from
-    a non-gsch source has no Mosaic wires; inline nyanlib `code` blocks are
-    skipped; unnamed single-pin nets are written as `?`. See the
-    [API reference](morphnet/api-reference.md#gsch).
+    a non-gsch source has no Mosaic wires; unnamed single-pin nets are written
+    as `?`. See the [API reference](morphnet/api-reference.md#gsch).
+  - Inline nyanlib `code` blocks become `Netlist.macros` (see **Macros**).
 - **Expressions** — `ParameterValue` gains an `expression` variant, an
   `Expression` tree (literal, reference, unary, binary, call, ternary, or `raw`
   text no grammar parsed). `parse_expression()` / `format_expression()` in
@@ -27,6 +27,12 @@
   its canonical text, and its tree rides in `info["__morphnet__"]`: unchanged
   text restores the tree, edited text comes back as `raw`. kfnetlist string and
   bool settings become `raw` expressions.
+- **Macros** — a new `Macro` message (`name`, `language`, `body`,
+  `properties`) on `Netlist.macros` and `Circuit.macros` carries verbatim
+  blocks. Writers print a body when their dialect takes its language (Spectre
+  wraps SPICE bodies in `simulator lang=spice`); otherwise they write a
+  `skipped macro <name> (<language>)` comment and warn. VACASK takes none. The
+  kfnetlist bridge keeps both lists in `info["__morphnet__"]`.
 - **Lossless bridge** — `morphnet.to_netlists()` / `from_netlists()` keep what
   `kfnetlist.Netlist` has no field for. New `Netlist.directives` (file
   directives) and `Netlist.info` (metadata) hold it. Both are excluded from

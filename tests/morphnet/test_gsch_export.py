@@ -632,3 +632,108 @@ def test_a_model_param_named_like_its_prop_survives_the_bridge():
     message = "M1: 'w' is derived from model expression 'w * 2'; edit 'w' instead"
     with pytest.raises(ValueError, match=re.escape(message)):
         write_gsch(edited(nl, "M1", w="3"))
+
+
+# ── inline nyanlib `code` blocks are macros (#7) ───────────────────────────────
+
+
+def code_models(**codes: str) -> dict:
+    return {
+        f"models:{name}": {
+            "name": name,
+            "ports": [{"name": "a"}, {"name": "b"}],
+            "models": [
+                {
+                    "language": "spice",
+                    "name": name,
+                    "spice-type": "SUBCKT",
+                    "code": f"\n{code}\n",
+                }
+            ],  # fmt: skip
+        }
+        for name, code in codes.items()
+    }
+
+
+def test_inline_code_is_a_macro_deduplicated_across_the_hierarchy(tmp_path):
+    models = code_models(rdiv=".subckt rdiv a b\n.ends rdiv", rtop=".param r=1")
+    models["models:cell.gsch"] = {"name": "cell", "ports": [{"name": "p"}]}
+    child = {"c:X1": {"type": "ckt", "name": "X1", "model": "rdiv",
+                      "nets": {"a": "p", "b": "GND"}},
+             "c:p": {"type": "port", "name": "p", "nets": {"P": "p"}}}  # fmt: skip
+    top = json.loads(library_doc("rtop", "rdiv"))
+    top["top:C"] = {
+        "type": "ckt",
+        "name": "C",
+        "model": "cell.gsch",
+        "nets": {"p": "x"},
+    }
+    (tmp_path / "cell.gsch").write_text(json.dumps(child))
+    (tmp_path / "top.gsch").write_text(json.dumps(top))
+    nl = read_gsch(tmp_path / "top.gsch", models=models)
+    assert [(m.name, m.language, m.body) for m in nl.macros] == [
+        ("rtop", "spice", ".param r=1"),  # stripped, top first, rdiv once
+        ("rdiv", "spice", ".subckt rdiv a b\n.ends rdiv"),
+    ]
+    assert ".param r=1" in lines(nl)
+
+
+def macro_netlist(*macros: tuple[str, str], dialect: str = "") -> Netlist:
+    from kfnetlist.morphnet.morphnet_schema import Circuit, Macro
+
+    return Netlist(
+        top_circuit="__top__",
+        circuits=[
+            Circuit(name="cell", macros=[Macro(name="local", language="spice",
+                                               body="R1 a b 1k")]),
+            Circuit(name="__top__"),
+        ],
+        macros=[Macro(name=n, language=lang, body=f"{n} body") for n, lang in macros],
+        properties={"dialect": dialect} if dialect else {},
+    )  # fmt: skip
+
+
+def test_spectre_wraps_spice_macros_in_simulator_lang():
+    nl = macro_netlist(("sp", "ngspice"), ("sc", "spectre"))
+    text = write_spectre(nl).splitlines()
+    assert text[:4] == [
+        "simulator lang=spice",
+        "sp body",
+        "simulator lang=spectre",
+        "sc body",
+    ]
+    assert text[4:8] == [  # a circuit's own macros go inside its subckt
+        "subckt cell ()",
+        "simulator lang=spice",
+        "R1 a b 1k",
+        "simulator lang=spectre",
+    ]
+    assert lines(macro_netlist(("sp", "xyce")))[1:2] == ["sp body"]
+
+
+@pytest.mark.parametrize(
+    ("writer", "dialect", "comment"),
+    [
+        ("write_spice", "", "*"),
+        ("write_hspice", "", "*"),
+        ("write_spectre", "vacask", "//"),
+        ("write_systemverilog", "", "//"),
+        ("write_vams", "", "//"),
+    ],
+)
+def test_a_macro_in_another_language_is_a_comment_and_a_warning(
+    writer, dialect, comment
+):
+    from kfnetlist.morphnet import netlist as writers
+
+    nl = macro_netlist(("va", "verilog-a-ish"), dialect=dialect)
+    with pytest.warns(UserWarning, match=r"skipped macro va \(verilog-a-ish\)"):
+        text = getattr(writers, writer)(nl)
+    assert f"{comment} skipped macro va (verilog-a-ish)" in text.splitlines()
+    assert "va body" not in text
+
+
+def test_vacask_skips_the_spectre_code_nyancad_drops():
+    with pytest.warns(UserWarning, match=r"skipped macro rdiv \(spectre\)"):
+        text = write_spectre(export("demo_inline_code", "vacask"))
+    assert "// skipped macro rdiv (spectre)" in text.splitlines()

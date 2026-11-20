@@ -14,7 +14,7 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from kfnetlist.morphnet.morphnet_schema import Directive, DirectiveKind
+from kfnetlist.morphnet.morphnet_schema import Directive, DirectiveKind, Macro
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PORT_TEMPLATES,
     DEVICE_PREFIX_TO_CIRCUIT,
@@ -112,8 +112,6 @@ def library(
     entry: Mapping[str, Any], sim: str, corners: Sequence[str]
 ) -> Directive | None:
     """The ``.lib``/``.include`` of a model entry; paths are passed through."""
-    # ponytail: inline `code` entries are not written; emit them as an INCLUDE of a
-    # written file when a PDK needs them.
     path = entry.get("library")
     if not path:
         return None
@@ -123,6 +121,16 @@ def library(
     if section:
         return Directive(kind=DirectiveKind.LIB, value=f"{path} {section}", name=name)
     return Directive(kind=DirectiveKind.INCLUDE, value=path, name=name)
+
+
+def macro(entry: Mapping[str, Any]) -> Macro | None:
+    """The inline ``code`` of a model entry, which nyancad injects as SPICE."""
+    code = (entry.get("code") or "").strip()
+    if not code:
+        return None
+    return Macro(
+        name=entry.get("name", ""), language=entry.get("language", ""), body=code
+    )
 
 
 def eval_params(

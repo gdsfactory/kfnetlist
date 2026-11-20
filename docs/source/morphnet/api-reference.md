@@ -200,7 +200,10 @@ Remaining differences from nyancad's output:
 - Through the kfnetlist bridge, the key order inside `.gsch` entries is not
   preserved: `write_gsch` output after `from_netlists(to_netlists(nl))` is
   JSON-equal to the output for `nl`, not text-equal.
-- Inline nyanlib `code` blocks are skipped. Only `library` paths become directives.
+- Inline nyanlib `code` blocks become `Netlist.macros`, one per entry name across
+  the hierarchy. A writer that cannot take the block's language (VACASK, SPICE
+  writers for a `spectre` block, ...) writes a `skipped macro <name> (<language>)`
+  comment and warns.
 - An unnamed single-pin net (for example a lone Livewire pin) is written as `?`.
   A named Mosaic label keeps its own node.
 
@@ -275,6 +278,7 @@ Top-level container: circuit definitions, external circuits, directives and simu
 | `directives` | `directives` | `list[Directive]` | Include, lib, param directives |
 | `simulation` | `simulation` | `Simulation \| None` | Simulation configuration |
 | `libraries` | `libraries` | `dict[str, ExternalLibrary]` | External model libraries by name |
+| `macros` | `macros` | `list[Macro]` | Verbatim blocks, written after the directives |
 
 #### `Circuit`
 
@@ -292,6 +296,7 @@ A circuit definition: ports, parameters, subcircuit instances and connections.
 | `buses` | `buses` | `list[Bus]` | Bus definitions |
 | `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
 | `directives` | `directives` | `list[Directive]` | Circuit-level directives |
+| `macros` | `macros` | `list[Macro]` | Verbatim blocks, written inside the circuit |
 
 #### `ExternalCircuit`
 
@@ -417,6 +422,21 @@ A oneof value — exactly one field should be set:
 | `kind` | `kind` | `DirectiveKind` | Directive type |
 | `name` | `name` | `str` | Directive name/key |
 | `value` | `value` | `str` | Directive value |
+
+#### `Macro`
+
+A multi-line block in one simulator language, written verbatim where the writer's
+dialect accepts that language: SPICE writers take `spice`, `ngspice`, `xyce` and
+`hspice`; Spectre takes `spectre` and wraps SPICE bodies in `simulator lang=spice`
+/ `simulator lang=spectre`; VACASK takes none. Any other block is a
+`skipped macro <name> (<language>)` comment plus a warning.
+
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `name` | `name` | `str` | Macro name (a nyanlib model entry name) |
+| `language` | `language` | `str` | Language of the body (`spice`, `spectre`, ...) |
+| `body` | `body` | `str` | The block, written as is |
+| `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
 
 ### Simulation Models
 
