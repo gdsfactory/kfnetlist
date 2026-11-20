@@ -9,6 +9,7 @@ import pytest
 from kfnetlist import Netlist, NetlistPort, PortRef, morphnet
 from kfnetlist.kfnetlist_schema import NetlistDocument, ProtoNetlist
 from kfnetlist.morphnet.morphnet_schema import circuit_pb2 as pb
+from kfnetlist.morphnet.netlist.expression import parse_expression
 from kfnetlist.morphnet.netlist import (
     parse_gsch,
     parse_spectre,
@@ -517,22 +518,35 @@ def _bridged() -> tuple[dict[str, Netlist], morphnet.Netlist]:
     return netlists, morphnet.from_netlists(netlists)
 
 
-def test_bridge_keeps_string_and_bool_settings_as_raw_expressions():
+def test_bridge_parses_string_and_bool_settings_as_expressions():
     from kfnetlist.morphnet.morphnet_schema import Expression, ParameterValue
 
     nl = Netlist()
     nl.create_inst(
-        "X1", kcl="", component="cell", settings={"w": "2*l", "on": True, "n": 2}
+        "X1",
+        kcl="",
+        component="cell",
+        settings={"w": "2*l", "on": True, "n": 2, "v": "DC 1"},
     )
     sub = morphnet.from_netlists({"top": nl}).circuits[0].subcircuits[0]
     params = {p.name: p for p in sub.parameters}
-    assert params["w"].default_value == ParameterValue(expression=Expression(raw="2*l"))
+    assert params["w"].default_value == ParameterValue(
+        expression=parse_expression("2*l")
+    )
     assert params["on"].default_value == ParameterValue(
-        expression=Expression(raw="true")
+        expression=Expression(reference="true")
+    )
+    assert params["v"].default_value == ParameterValue(  # no expression: kept as text
+        expression=Expression(raw="DC 1")
     )
     assert params["w"].properties == {}
     back = morphnet.to_netlists(morphnet.from_netlists({"top": nl}))["top"]
-    assert back.instances["X1"].settings == {"w": "2*l", "on": True, "n": 2}
+    assert back.instances["X1"].settings == {
+        "w": "2*l",
+        "on": True,
+        "n": 2,
+        "v": "DC 1",
+    }
 
 
 def test_bridge_shows_an_expression_as_its_text_and_keeps_its_tree():
@@ -544,21 +558,23 @@ def test_bridge_shows_an_expression_as_its_text_and_keeps_its_tree():
     )
 
 
-def test_an_edited_expression_setting_comes_back_raw():
-    from kfnetlist.morphnet.morphnet_schema import Expression, ParameterValue
+def test_an_edited_expression_setting_comes_back_structured():
+    from kfnetlist.morphnet.morphnet_schema import ParameterValue
 
     netlists = morphnet.to_netlists(_ir())
     old = netlists["top"]
     edited = Netlist()
     for name, inst in old.instances.items():
-        settings = {**inst.settings, "w": "3*l"}
+        settings = {**inst.settings, "w": "2 * width"}
         edited.create_inst(
             name, kcl="", component=inst.component, settings=settings, info=inst.info
         )
     edited.info = old.info
     back = morphnet.from_netlists({"top": edited})
     params = {p.name: p for p in back.circuits[0].subcircuits[0].parameters}
-    assert params["w"].default_value == ParameterValue(expression=Expression(raw="3*l"))
+    w = parse_expression("2 * width")
+    assert w.binary is not None  # a tree, not `raw`
+    assert params["w"].default_value == ParameterValue(expression=w)
     assert params["r"] == _ir().circuits[0].subcircuits[0].parameters[0]
 
 

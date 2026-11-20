@@ -18,6 +18,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     ProtoModel,
     SignalDomain,
 )
+from kfnetlist.morphnet.netlist.expression import parse_expression
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PORT_TEMPLATES,
     DEVICE_PREFIX_TO_CIRCUIT,
@@ -70,6 +71,16 @@ def _restore_order(netlist: Netlist) -> None:
         props.update(ordered)
 
 
+def _parse_raw(netlist: Netlist) -> None:
+    """Parse the ``raw`` expressions an edited setting leaves (unparsable text stays)."""
+    for circuit in [*netlist.circuits, *netlist.ext_circuits]:
+        subs = getattr(circuit, "subcircuits", [])
+        for param in [*circuit.parameters, *(p for s in subs for p in s.parameters)]:
+            value = param.default_value
+            if value is not None and value.expression and value.expression.raw:
+                value.expression = parse_expression(value.expression.raw)
+
+
 def from_netlists(
     netlists: Mapping[str, KfNetlist], toplevel: str | None = None
 ) -> Netlist:
@@ -87,6 +98,7 @@ def from_netlists(
     doc = NetlistDocument.from_netlists(dict(netlists), toplevel)
     netlist = Netlist.from_proto_bytes(doc.to_proto())
     _restore_order(netlist)
+    _parse_raw(netlist)
     # Masters the restored source document used without declaring stay undeclared.
     undeclared = {
         name
