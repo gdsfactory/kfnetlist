@@ -48,7 +48,8 @@ from kfnetlist.morphnet.netlist.value_utils import is_si_number, parse_parameter
 INFO = "__info__"
 # {"key", "entry"[, "circuit": parsed circuit_name if not `model`][, "params": param
 # -> the model expression it is derived from][, "computed": param -> value the
-# simulation view computed from props (source waveforms, ...)][, "defaults": model
+# simulation view computed from props (source waveforms, a model param named like
+# a prop it reads, ...)][, "defaults": model
 # prop defaults the entry does not set][, "pins": IR pin -> entry pin where they
 # differ beyond case][, "tied": IR pins tied to ground, not in entry]}
 STASH = "__gsch__"
@@ -133,7 +134,9 @@ def parameters(
     A model with ``params`` makes each an expression over the instance's source
     props (``w = width * 1e-6``), which become ``role=source`` params; a bare rename
     of a prop (``m = m``) is that prop. Writers resolve the references (nyancad
-    substitutes them textually).
+    substitutes them textually). A model param named like a prop it reads
+    (``w = w * 1e-6``) keeps its substituted value: two params of one name would not
+    survive the kfnetlist bridge (settings by name).
     """
     if device is None:  # not simulated: the params are the props
         return [parameter(k, v) for k, v in (entry.get("props") or {}).items()]
@@ -143,20 +146,19 @@ def parameters(
         expr = device.exprs.get(k)
         if expr is not None and expr.strip() != k:
             exprs[k] = expr
-            out.append(parameter(k, expr))
-            continue
-        if not (
+            if k not in device.sources:
+                out.append(parameter(k, expr))
+                continue
+            computed[k] = v  # `w = w * 1e-6`: its value, the prop `w` has the name
+        elif not (
             (k in given and given[k] == v)
             or (k in device.defaults and device.defaults[k] == v)
             or (k == "value" and entry.get("type") in VALUE_PROPS)  # resistance/...
         ):
             computed[k] = v  # source waveforms, $mfactor, ...: not props
         out.append(parameter(k, v))
-    # ponytail: a model param named like a prop it does not just rename (`w = w*2`)
-    # gives two params of one name; the IR is fine, the kfnetlist bridge (settings
-    # by name) is not. Rename the source param if a PDK does that.
     for k, v in device.sources.items():
-        if not (k in device.params and device.exprs.get(k, "").strip() == k):
+        if k not in device.params:
             source = {"properties": {"role": "source"}}  # read by model expressions
             out.append(parameter(k, v).model_copy(update=source))
     names = {p.name for p in out}

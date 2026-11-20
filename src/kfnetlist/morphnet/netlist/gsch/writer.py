@@ -78,12 +78,23 @@ def same(param: Parameter, raw: Any) -> bool:
 def check_derived(sub: SubCircuit, param: Parameter, stash: dict[str, Any]) -> None:
     """Raise unless ``param``, which is not a prop, still has its parsed value."""
     expr = stash.get("params", {}).get(param.name)
-    if same(param, expr if expr is not None else stash["computed"][param.name]):
+    computed = stash.get("computed", {})
+    if same(param, computed[param.name] if param.name in computed else expr):
         return
-    sources = {p.name for p in sub.parameters if p.properties.get("role") == "source"}
-    props = [w for w in dict.fromkeys(WORD_RE.findall(expr or "")) if w in sources]
+    entry_props = list(stash["entry"].get("props") or {})
+    if expr is not None:
+        sources = {
+            p.name for p in sub.parameters if p.properties.get("role") == "source"
+        }
+        props = [
+            w
+            for w in dict.fromkeys(WORD_RE.findall(expr))
+            if w in sources or w in entry_props
+        ]
+    else:  # computed by the simulation view (waveforms, ...) from the entry's props
+        props = entry_props
     origin = f"model expression {expr!r}" if expr is not None else "the device's props"
-    edit = ", ".join(map(repr, props)) or "those props"
+    edit = ", ".join(map(repr, props)) or "its model"
     raise ValueError(
         f"{sub.name}: {param.name!r} is derived from {origin}; edit {edit} instead"
     )

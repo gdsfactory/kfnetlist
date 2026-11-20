@@ -609,5 +609,26 @@ def test_an_edited_model_default_is_written_and_a_computed_param_is_an_error():
     subs["X2"].parameters = [parameter("rload", "2k")]
     assert json.loads(write_gsch(nl))["top:X2"]["props"]["rload"] == "2k"
     subs["V1"].parameters = [parameter("value", "DC 5")]
-    with pytest.raises(ValueError, match="V1: 'value' is derived from the device's"):
+    message = (
+        "V1: 'value' is derived from the device's props; edit 'dc', 'tran' instead"
+    )
+    with pytest.raises(ValueError, match=re.escape(message)):
         write_gsch(nl)
+
+
+def test_a_model_param_named_like_its_prop_survives_the_bridge():
+    models = json.loads(json.dumps(MODELS))
+    nmos = models["models:ihp.cells.fet_transistors.nmos"]
+    for variant in nmos["models"]:
+        variant["params"]["w"] = "w * 2"
+    doc = json.loads((FIXTURES / "ihp_cmos_inverter.gsch").read_text())
+    doc["demo2:M1"]["props"]["w"] = 0.5
+    nl = parse_gsch(json.dumps(doc), models=models)
+    (m1,) = [line for line in lines(nl) if line.startswith("XM1 ")]
+    assert m1.endswith(" w={0.5 * 2}")
+    back = morphnet.from_netlists(morphnet.to_netlists(nl), nl.top_circuit)
+    assert write_spice(back) == write_spice(nl)
+    assert json.loads(write_gsch(back)) == doc
+    message = "M1: 'w' is derived from model expression 'w * 2'; edit 'w' instead"
+    with pytest.raises(ValueError, match=re.escape(message)):
+        write_gsch(edited(nl, "M1", w="3"))
