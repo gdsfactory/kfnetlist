@@ -170,14 +170,27 @@ def _text(expr: Expression, dialect: str, resolve: Resolve | None) -> tuple[str,
 
 
 def format_expression(
-    expr: Expression, dialect: str, resolve: Resolve | None = None
+    expr: Expression,
+    dialect: str,
+    resolve: Resolve | None = None,
+    *,
+    named: bool = False,
 ) -> str:
     """Canonical text of ``expr`` for ``dialect``.
 
     ngspice/xyce wrap a compound expression in ``{…}``, hspice in ``'…'``; spectre,
-    vacask, systemverilog and vams print it bare. A literal, a reference or raw text is
-    never wrapped. ``resolve(name)`` may substitute an expression for a reference.
+    vacask, systemverilog and vams print it bare. A literal or a reference is never
+    wrapped. Raw text is wrapped only as the value of a ``named`` (``k=v``) param, and
+    not when it is already wrapped or a bare word or number; a positional value
+    (``DC 1 AC 1``) stays verbatim. ``resolve(name)`` may substitute a reference.
     """
     opening, closing = WRAP[dialect]
     text, prec = _text(expr, dialect, resolve)
-    return text if prec in (ATOM, RAW) else f"{opening}{text}{closing}"
+    if prec == RAW:
+        token = parse_expression(text)
+        single = token.literal is not None or token.reference is not None
+        if not named or single or text[:1] + text[-1:] in ("{}", "''"):
+            return text
+    elif prec == ATOM:
+        return text
+    return f"{opening}{text}{closing}"

@@ -172,3 +172,23 @@ def test_a_built_tree_prints_like_its_parsed_text():
 )
 def test_canonical_text_round_trips(text):
     assert canonical(canonical(text)) == canonical(text) == text
+
+
+@pytest.mark.parametrize(
+    ("dialect", "printed"),
+    [("ngspice", "{x^2}"), ("xyce", "{x^2}"), ("hspice", "'x^2'"), ("vacask", "x^2")],
+)
+def test_raw_text_of_a_named_param_is_wrapped(dialect, printed):
+    assert format_expression(parse_expression("x^2"), dialect, named=True) == printed
+    assert format_expression(parse_expression("x^2"), dialect) == "x^2"  # positional
+
+
+@pytest.mark.parametrize("text", ["{x^2}", "'x^2'"])
+def test_raw_text_already_wrapped_is_not_wrapped_again(text):
+    expr = Expression(raw=text)  # e.g. a bridged kfnetlist setting
+    assert format_expression(expr, "ngspice", named=True) == text
+
+
+@pytest.mark.parametrize("text", ["fast", "true", "1k"])
+def test_a_raw_bare_word_or_number_stays_bare(text):
+    assert format_expression(Expression(raw=text), "ngspice", named=True) == text

@@ -46,8 +46,8 @@ class SpiceWriter:
             return format_si_value(pval.prefixed_value)
         return "0"
 
-    def param_text(self, param: Parameter) -> str | None:
-        return param_text(param, self.format_param_value, self.dialect)
+    def param_text(self, param: Parameter, named: bool = True) -> str | None:
+        return param_text(param, self.format_param_value, self.dialect, named)
 
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
@@ -207,10 +207,11 @@ class SpiceWriter:
             value_str = ""
             other_params: list[str] = []
             for param in ref.parameters:
-                text = self.param_text(param)
+                positional = param.name == "value"
+                text = self.param_text(param, named=not positional)
                 if text is None:
                     continue
-                if param.name == "value":
+                if positional:
                     value_str = text
                 else:
                     other_params.append(f"{param.name}={text}")

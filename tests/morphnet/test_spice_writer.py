@@ -368,3 +368,10 @@ class TestSpiceLibDirective:
             directives=[Directive(kind=DirectiveKind.LIB, value="m.lib tt")],
         )
         assert ".lib m.lib tt" in write_spice(nl)
+
+
+def test_an_empty_expression_is_not_written() -> None:
+    nl = _prim_netlist(
+        params=[Parameter(name="w", default_value=expr("")), Parameter(name="n")]
+    )
+    assert "R1 a b\n" in write_spice(nl)  # no `w=`

@@ -67,7 +67,9 @@
     loses them.
   - Writers print expression parameters in canonical form, wrapped per dialect:
     `{…}` for ngspice and Xyce, `'…'` for HSPICE, bare for Spectre, VACASK,
-    SystemVerilog and Verilog-AMS. A bare name or number is never wrapped. Xyce
+    SystemVerilog and Verilog-AMS. A bare name or number is never wrapped; text no
+    grammar parses (`x^2`) is wrapped as a `k=v` value unless already wrapped, and a
+    positional value (`DC 1 AC 1`) stays verbatim. An empty value is not written. Xyce
     expressions now carry braces, and a `.gsch` prop written `{vdd}` reaches
     VACASK as `vdd`.
   - The key order inside `.gsch` entries is not preserved through the kfnetlist

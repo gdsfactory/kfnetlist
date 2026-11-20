@@ -68,17 +68,21 @@ def is_skipped(ref: SubCircuit) -> bool:
 
 
 def param_text(
-    param: Parameter, fmt: Callable[[ParameterValue], str], dialect: str
+    param: Parameter,
+    fmt: Callable[[ParameterValue], str],
+    dialect: str,
+    named: bool = True,
 ) -> str | None:
-    """Written value of a parameter: its expression printed for ``dialect``, else
-    its default formatted by ``fmt``."""
+    """Written value of a parameter: its expression printed for ``dialect`` (raw text
+    wrapped only when ``named``), else its default formatted by ``fmt``. None when
+    there is nothing to write (no value, or empty raw text)."""
     from kfnetlist.morphnet.netlist.expression import format_expression  # a cycle
 
     value = param.default_value
-    if value is None:
+    if value is None or (value.expression is not None and value.expression.raw == ""):
         return None
     if value.expression is not None:
-        return format_expression(value.expression, dialect)
+        return format_expression(value.expression, dialect, named=named)
     return fmt(value)
 
 

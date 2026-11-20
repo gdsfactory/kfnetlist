@@ -255,7 +255,9 @@ def test_child_schematics_become_subcircuits_and_hoist_their_libraries():
     assert [c.name for c in nl.circuits] == ["hier_cell", "__top__"]
     cell = nl.circuits[0]
     assert [p.name for p in cell.ports] == ["in", "out", "vdd"]  # sorted model ports
-    assert [p.name for p in cell.parameters] == ["rload"]
+    (rload,) = cell.parameters
+    assert rload.name == "rload"
+    assert rload.default_value.prefixed_value is not None  # a number, no expression
     # top first, then the child's; the child's nmos shares the top pmos library
     assert libs(nl) == [
         (LIB, "ihp/models/ngspice/models/cornerMOSlv.lib mos_ff", ""),
@@ -465,6 +467,37 @@ def test_an_expression_keeps_its_slot_in_a_waveform():
         'v1 (a 0) vsource dc=0 type="pulse" val0=0 val1=vdd fall=0 width=5n period=10n'
         in text
     )
+
+
+def test_an_unparsed_derived_expression_keeps_its_ngspice_braces():
+    doc = {
+        "t:M1": {"type": "nmos", "name": "M1", "model": "nch", "props": {"W": "1u"},
+                 "nets": {"D": "d", "G": "g", "S": "GND", "B": "GND"}},
+    }  # fmt: skip
+    models = {
+        "models:nch": {
+            "name": "nch",
+            "ports": [{"name": n} for n in "DGSB"],
+            "models": [  # `^` is not parsed: the derived `w` stays raw
+                {
+                    "language": lang,
+                    "name": "nch",
+                    "spice-type": "M",
+                    "params": {"w": "W^2"},
+                }
+                for lang in ("spice", "spectre")
+            ],
+        }  # fmt: skip
+    }
+    for sim, want in (("ngspice", "w={1u^2}"), ("vacask", "w=1u^2")):
+        nl = parse_gsch(json.dumps(doc), models=models, sim=sim)
+        assert want in WRITERS[sim](nl)
+
+
+def test_a_positional_raw_value_is_not_wrapped():
+    doc = {"t:V1": {"type": "vsource", "name": "V1", "nets": {"P": "a", "N": "GND"},
+                    "props": {"dc": "0.9", "ac": "1"}}}  # fmt: skip
+    assert "V1 a 0 DC 0.9 AC 1" in lines(parse_gsch(json.dumps(doc)))
 
 
 def test_a_missing_required_waveform_field_is_an_error():
