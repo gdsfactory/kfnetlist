@@ -824,7 +824,8 @@ fn macros_ride_the_stash_and_merge_lead_first() {
     assert_eq!(back.macros, source.macros);
     assert_eq!(back.circuits[0].macros, source.circuits[0].macros);
 
-    // cells of two documents: the lead's macros, then the others' it lacks (by name)
+    // cells of two documents: the lead's macros, then the others' it lacks (equal
+    // macros once; a same-named one with other code is kept)
     let cells = |nl: &proto::Netlist| {
         NetlistDocument::from_proto_netlist(nl)
             .unwrap()
@@ -832,7 +833,8 @@ fn macros_ride_the_stash_and_merge_lead_first() {
             .unwrap()
     };
     let mut both = cells(&source);
-    let other = vec![mac("rdiv", "x"), mac("extra", "y")];
+    let rdiv = ".subckt rdiv a b\n.ends rdiv";
+    let other = vec![mac("rdiv", "x"), mac("extra", "y"), mac("rdiv", rdiv)];
     both.extend(cells(&netlist("other", other)));
     let back = NetlistDocument::from_netlists(&both, Some("other".into()))
         .to_proto_netlist()
@@ -842,7 +844,7 @@ fn macros_ride_the_stash_and_merge_lead_first() {
         .iter()
         .map(|m| (m.name.as_str(), m.body.as_str()))
         .collect();
-    assert_eq!(bodies, [("rdiv", "x"), ("extra", "y")]);
+    assert_eq!(bodies, [("rdiv", "x"), ("extra", "y"), ("rdiv", rdiv)]);
 
     // no macros: the stash JSON is what it was before macros existed
     let mut plain = proto::Netlist {

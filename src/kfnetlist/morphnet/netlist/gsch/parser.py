@@ -8,6 +8,7 @@ is stashed as raw JSON so ``write_gsch`` can restore it.
 from __future__ import annotations
 
 import json
+import warnings
 from collections.abc import Mapping, Sequence
 from itertools import chain, count
 from pathlib import Path
@@ -515,7 +516,7 @@ def libraries(
     sim: str,
     corners: Sequence[str],
 ) -> tuple[list[Directive], list[Macro]]:
-    """Library directives and inline-code macros (one per name) of the models
+    """Library directives and inline-code macros (equal ones once) of the models
     nyancad counts as used (devices with nets)."""
     out: list[Directive] = []
     macros: list[Macro] = []
@@ -530,9 +531,21 @@ def libraries(
         if directive is not None and directive not in out:
             out.append(directive)
         code = macro(chosen)
-        if code is not None and all(m.name != code.name for m in macros):
-            macros.append(code)
+        if code is not None:
+            add_macro(macros, code)
     return out, macros
+
+
+def add_macro(macros: list[Macro], code: Macro) -> None:
+    """Append ``code`` unless an equal macro is there; warn on a same-named one."""
+    if code in macros:
+        return
+    if code.name and any(m.name == code.name for m in macros):
+        warnings.warn(
+            f"macro {code.name!r} has different code in two models; both are kept",
+            stacklevel=3,
+        )
+    macros.append(code)
 
 
 def read_gsch(
@@ -637,8 +650,7 @@ def read_gsch(
                 ext_circuits.setdefault(ext.name, ext)
         directives += [d for d in netlist.directives if d not in directives]
         for m in netlist.macros:
-            if all(m.name != seen.name for seen in macros):
-                macros.append(m)
+            add_macro(macros, m)
     top.circuits = circuits
     top.ext_circuits = list(ext_circuits.values())
     top.directives = directives

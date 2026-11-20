@@ -44,7 +44,9 @@
   blocks. Writers print a body when their dialect takes its language (Spectre
   wraps SPICE bodies in `simulator lang=spice`); otherwise they write a
   `skipped macro <name> (<language>)` comment and warn. VACASK takes none. The
-  kfnetlist bridge keeps both lists in `info["__morphnet__"]`.
+  kfnetlist bridge keeps both lists in `info["__morphnet__"]`. Equal macros are
+  kept once; same-named blocks with different code are all kept (`parse_gsch`
+  warns). A nyanlib `code` entry with no `language` is `spice`.
 - **Lossless bridge** — `morphnet.to_netlists()` / `from_netlists()` keep what
   `kfnetlist.Netlist` has no field for. New `Netlist.directives` (file
   directives) and `Netlist.info` (metadata) hold it. Both are excluded from

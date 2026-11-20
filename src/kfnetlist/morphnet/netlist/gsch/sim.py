@@ -129,7 +129,7 @@ def macro(entry: Mapping[str, Any]) -> Macro | None:
     if not code:
         return None
     return Macro(
-        name=entry.get("name", ""), language=entry.get("language", ""), body=code
+        name=entry.get("name", ""), language=entry.get("language") or "spice", body=code
     )
 
 

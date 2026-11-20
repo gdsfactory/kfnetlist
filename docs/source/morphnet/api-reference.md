@@ -221,8 +221,8 @@ naming the props to edit, for example `M1: 'w' is derived from model expression
 - Through the kfnetlist bridge, the key order inside `.gsch` entries is not
   preserved: `write_gsch` output after `from_netlists(to_netlists(nl))` is
   JSON-equal to the output for `nl`, not text-equal.
-- Inline nyanlib `code` blocks become `Netlist.macros`, one per entry name across
-  the hierarchy. A writer that cannot take the block's language (VACASK, SPICE
+- Inline nyanlib `code` blocks become `Netlist.macros`; equal blocks appear once
+  across the hierarchy. A writer that cannot take the block's language (VACASK, SPICE
   writers for a `spectre` block, ...) writes a `skipped macro <name> (<language>)`
   comment and warns.
 - An unnamed single-pin net (for example a lone Livewire pin) is written as `?`.
@@ -492,9 +492,11 @@ Verilog-AMS takes `verilog-ams`, `verilog-a` and `vams`. Any other block is a
 warning, so a macro is never dropped silently. The VACASK writer
 takes none, not even `spectre`: every macro is skipped, as nyancad drops them.
 
-`parse_gsch` reads a macro from a nyanlib model entry's inline `code`, one per
-entry name across the hierarchy (the first wins). `write_gsch` does not write
-macros back. A netlist's macros come after its directives; a circuit's inside it.
+`parse_gsch` reads a macro from a nyanlib model entry's inline `code` (language
+`spice` when the entry names none, as nyancad injects it). Equal macros (name,
+language, body) appear once across the hierarchy; a block with the name of another
+but different code is kept as well, with a warning. The kfnetlist bridge merges
+cells' macros the same way. `write_gsch` does not write macros back. A netlist's macros come after its directives; a circuit's inside it.
 
 | Field | Schema name | Type | Description |
 |---|---|---|---|

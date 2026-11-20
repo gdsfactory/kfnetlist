@@ -755,3 +755,30 @@ def test_an_expression_reading_a_colliding_prop_gets_its_value():
     message = "M1: 'ad' is derived from model expression 'w * 0.5'; edit 'w' instead"
     with pytest.raises(ValueError, match=re.escape(message)):
         write_gsch(edited(nl, "M1", ad="3"))
+
+
+def test_same_named_code_with_different_bodies_is_all_kept_with_a_warning():
+    models = code_models(ra=".param ra=1", rb=".param rb=2")
+    for model in models.values():
+        model["models"][0]["name"] = "shared"
+    with pytest.warns(UserWarning, match="macro 'shared'"):
+        nl = parse_gsch(library_doc("ra", "rb"), models=models)
+    assert {".param ra=1", ".param rb=2"} <= set(lines(nl))
+
+
+def test_nameless_code_entries_are_not_collapsed():
+    models = code_models(ra=".param ra=1", rb=".param rb=2")
+    for model in models.values():
+        del model["models"][0]["name"]
+    nl = parse_gsch(library_doc("ra", "rb"), models=models)
+    assert [m.body for m in nl.macros] == [".param ra=1", ".param rb=2"]
+
+
+def test_code_without_a_language_is_spice():
+    models = code_models(ra=".param ra=1")
+    entry = models["models:ra"]["models"][0]
+    del entry["language"]
+    entry["implementation"] = "ngspice"
+    nl = parse_gsch(library_doc("ra"), models=models)
+    assert [m.language for m in nl.macros] == ["spice"]
+    assert ".param ra=1" in lines(nl)

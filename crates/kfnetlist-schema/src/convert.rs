@@ -737,7 +737,7 @@ impl NetlistDocument {
     pub fn to_proto_netlist(&self) -> Result<p::Netlist> {
         let lead = self.lead();
         // Every module carries the document header: the lead's wins, the others add
-        // the external circuits and macros it lacks (by name).
+        // the external circuits it lacks (by name) and macros it lacks (equal ones once).
         let mut header: Option<p::Netlist> = None;
         for m in lead.into_iter().chain(self.modules.values()) {
             let Some(stashed) = Stash::take(&m.info)?.1.netlist else {
@@ -752,7 +752,7 @@ impl NetlistDocument {
                         }
                     }
                     for mac in stashed.macros {
-                        if h.macros.iter().all(|m| m.name != mac.name) {
+                        if !h.macros.contains(&mac) {
                             h.macros.push(mac);
                         }
                     }
