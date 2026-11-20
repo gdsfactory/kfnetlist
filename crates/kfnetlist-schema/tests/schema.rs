@@ -652,3 +652,118 @@ fn buses_and_foreign_dunder_properties_survive_kfnetlist() {
     // A second trip is stable.
     assert_eq!(through_netlists(&back), back);
 }
+
+fn endpoint(instance: &str, terminal: &str) -> Option<proto::TerminalReference> {
+    Some(proto::TerminalReference {
+        instance_name: instance.into(),
+        terminal_name: terminal.into(),
+    })
+}
+
+/// A circuit of instances `names` (each of master `x`) around `connections` and `buses`.
+fn circuit_of(
+    names: &[&str],
+    connections: Vec<proto::Connection>,
+    buses: Vec<proto::Bus>,
+) -> proto::Netlist {
+    proto::Netlist {
+        name: "doc".into(),
+        top_circuit: "top".into(),
+        circuits: vec![proto::Circuit {
+            name: "top".into(),
+            subcircuits: names
+                .iter()
+                .map(|n| proto::SubCircuit {
+                    name: (*n).into(),
+                    circuit_name: "x".into(),
+                    ..Default::default()
+                })
+                .collect(),
+            connections,
+            buses,
+            ..Default::default()
+        }],
+        ..Default::default()
+    }
+}
+fn link(
+    name: &str,
+    source: (&str, &str),
+    target: (&str, &str),
+    extra: &[(&str, &str)],
+) -> proto::Connection {
+    proto::Connection {
+        name: name.into(),
+        source: endpoint(source.0, source.1),
+        target: endpoint(target.0, target.1),
+        properties: extra
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect(),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn a_bus_with_out_of_order_pins_is_restored() {
+    // A `Netlist` sorts net members: `Z,p` then `A,n` comes back as `A,n`, `Z,p`.
+    let bus = proto::Bus {
+        name: "data".into(),
+        connections: vec![link("d0", ("Z", "p"), ("A", "n"), &[])],
+        ..Default::default()
+    };
+    let back = through_netlists(&circuit_of(&["Z", "A"], vec![], vec![bus.clone()]));
+    assert_eq!(back.circuits[0].buses, [bus]);
+    assert!(back.circuits[0].connections.is_empty());
+}
+
+#[test]
+fn foreign_properties_stay_on_their_own_connection() {
+    // An unnamed connection, and one net whose two connections differ.
+    let back = through_netlists(&circuit_of(
+        &["A", "B", "C"],
+        vec![
+            link("", ("A", "o3"), ("B", "o3"), &[("__x", "u")]),
+            link("m", ("A", "o2"), ("B", "o2"), &[("__x", "1")]),
+            link("m", ("A", "o2"), ("C", "o2"), &[]),
+        ],
+        vec![],
+    ));
+    // (terminal, other instance) -> the `__x` it carries.
+    let x = |terminal: &str, other: &str| {
+        back.circuits[0]
+            .connections
+            .iter()
+            .find(|c| {
+                let ends: Vec<_> = [&c.source, &c.target]
+                    .into_iter()
+                    .flatten()
+                    .map(|t| (t.instance_name.as_str(), t.terminal_name.as_str()))
+                    .collect();
+                ends.contains(&(other, terminal))
+            })
+            .unwrap_or_else(|| panic!("no connection to {other},{terminal}"))
+            .properties
+            .get("__x")
+            .cloned()
+    };
+    assert_eq!(x("o3", "B").as_deref(), Some("u"));
+    assert_eq!(x("o2", "B").as_deref(), Some("1"));
+    assert_eq!(x("o2", "C"), None);
+}
+
+#[test]
+fn a_bus_sharing_a_circuit_connection_keeps_both() {
+    // The shape of tests/morphnet/conftest.py: the bus carries a circuit connection.
+    let shared = link("n1", ("A", "o1"), ("B", "o1"), &[]);
+    let bus = proto::Bus {
+        name: "data_bus".into(),
+        width: 4,
+        connections: vec![shared.clone()],
+        ..Default::default()
+    };
+    let back = through_netlists(&circuit_of(&["A", "B"], vec![shared], vec![bus.clone()]));
+    assert_eq!(back.circuits[0].buses, [bus]);
+    assert_eq!(back.circuits[0].connections.len(), 1);
+    assert_eq!(back.circuits[0].connections[0].name, "n1");
+}

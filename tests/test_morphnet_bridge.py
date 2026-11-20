@@ -364,6 +364,54 @@ def test_bridge_lossless(make):
 # ---- focused: each morphnet-only field survives the bridge ----
 
 
+def test_bridge_keeps_risky_bus_and_connection_shapes():
+    from kfnetlist.morphnet.morphnet_schema import (
+        Bus,
+        Circuit,
+        Connection,
+        PortReference,
+        SubCircuit,
+    )
+
+    def ref(inst, pin):
+        return PortReference(instance_name=inst, port_name=pin)
+
+    def conn(name, a, b, **props):
+        return Connection(name=name, source=ref(*a), target=ref(*b), properties=props)
+
+    shared = conn("n1", ("A", "o1"), ("B", "o1"))
+    out_of_order = Bus(name="ooo", connections=[conn("d0", ("C", "p"), ("A", "n"))])
+    circuit = Circuit(
+        name="top",
+        subcircuits=[SubCircuit(name=n, circuit_name="x") for n in "ABC"],
+        connections=[
+            shared,  # also a bus connection, as in tests/morphnet/conftest.py
+            conn("", ("A", "o3"), ("B", "o3"), __x="u"),
+            conn("m", ("A", "o2"), ("B", "o2"), __x="1"),
+            conn("m", ("A", "o2"), ("C", "o2")),
+        ],
+        buses=[Bus(name="shared", width=4, connections=[shared]), out_of_order],
+    )
+    ir = morphnet.Netlist(name="d", top_circuit="top", circuits=[circuit])
+    back = morphnet.from_netlists(morphnet.to_netlists(ir)).circuits[0]
+    assert back.buses == circuit.buses
+    assert len(back.connections) == len(circuit.connections)
+
+    def foreign(pin, other):
+        (c,) = [
+            c
+            for c in back.connections
+            if {(t.instance_name, t.port_name) for t in (c.source, c.target) if t}
+            >= {(other, pin)}
+            and c.name != "n1"
+        ]
+        return c.properties.get("__x")
+
+    assert foreign("o3", "B") == "u"
+    assert foreign("o2", "B") == "1"
+    assert foreign("o2", "C") is None
+
+
 def test_bridge_keeps_buses_and_foreign_dunder_properties():
     ir = _bus_ir()
     netlists = morphnet.to_netlists(ir)

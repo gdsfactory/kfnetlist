@@ -20,7 +20,7 @@ fn get<T: DeserializeOwned + Default>(props: &Properties, key: &str) -> Result<T
 }
 /// `__` keys this crate writes and reads itself (`__order__`, the bridge's key-order
 /// record, is not one: it travels in the stash with the rest).
-const OWNED: [&str; 12] = [
+const OWNED: [&str; 11] = [
     "__array__",
     "__info__",
     "__name__",
@@ -32,15 +32,36 @@ const OWNED: [&str; 12] = [
     "__from__",
     "__members__",
     "__named__",
-    "__setting__",
 ];
-/// Properties morphnet owns, foreign `__` ones included: all but this crate's encoding.
+/// A `__` key neither this crate's (`__setting__*` is a prefix family) nor `__order__`.
+fn is_foreign(key: &str) -> bool {
+    key.starts_with("__")
+        && key != "__order__"
+        && !key.starts_with("__setting__")
+        && !OWNED.contains(&key)
+}
+/// Properties morphnet owns (no `__` prefix, plus the bridge's `__order__` key-order
+/// record); the other `__` ones are this crate's encoding or foreign.
 fn public(props: &Properties) -> Properties {
     props
         .iter()
-        .filter(|(k, _)| !OWNED.iter().any(|o| k.starts_with(o)))
+        .filter(|(k, _)| !k.starts_with("__") || *k == "__order__")
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect()
+}
+/// The foreign `__` properties of `props`.
+fn foreign(props: &Properties) -> Properties {
+    props
+        .iter()
+        .filter(|(k, _)| is_foreign(k))
+        .map(|(k, v)| (k.clone(), v.clone()))
+        .collect()
+}
+/// `public` plus `foreign`: what an instance or circuit stashes.
+fn carried(props: &Properties) -> Properties {
+    let mut out = public(props);
+    out.extend(foreign(props));
+    out
 }
 
 /// Morphnet data with no kfnetlist counterpart, kept in kfnetlist `info["__morphnet__"]`.
@@ -76,6 +97,9 @@ struct Stash {
     /// morphnet's bridge does not add built-in declarations the source never had.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     undeclared: Vec<String>,
+    /// Connections carrying foreign `__` properties (name, endpoints and those only).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    connections: Vec<p::Connection>,
     /// `Circuit.buses`: their member nets are plain nets of the `Netlist`, so these are
     /// restored only while a net still has the bus's members.
     #[serde(skip_serializing_if = "Vec::is_empty")]
@@ -258,6 +282,18 @@ fn net_sequence(connections: &[p::Connection]) -> Vec<String> {
     }
     names
 }
+/// A connection's endpoints, sorted and without the net node (the empty-instance
+/// reference named like the net), which a regenerated star may place elsewhere.
+fn ends_of(c: &p::Connection) -> Vec<String> {
+    let mut ends: Vec<String> = [&c.source, &c.target]
+        .into_iter()
+        .flatten()
+        .filter(|t| !(t.instance_name.is_empty() && t.terminal_name == c.name))
+        .map(reference)
+        .collect();
+    ends.sort();
+    ends
+}
 fn connection(name: String, source: &str, target: &str) -> p::Connection {
     p::Connection {
         name,
@@ -329,7 +365,7 @@ impl SubCircuitDocument {
             r.parameters.clone()
         };
         Stash {
-            properties: public(&r.properties),
+            properties: carried(&r.properties),
             class_name: r.class_name.clone(),
             parameters,
             ..Default::default()
@@ -408,15 +444,23 @@ impl CircuitDocument {
         // after the net, from the port's net node (empty instance) or else the first pin.
         // `__from__`/`__members__`/`__named__` (ignored by morphnet) restore the exact
         // document. Same order as the pre-morphnet encoding: connections, ports, nets.
-        // A stashed bus is restored while a net still has its members; that net is the
-        // bus's, not a connection of its own.
+        // A stashed bus is restored while an unnamed net still has its members (in any
+        // order: a `Netlist` sorts them); that net is the bus's, not a connection of its
+        // own. The last such net, as buses are read after the connections' nets.
+        let sorted = |m: &[String]| {
+            let mut m = m.to_vec();
+            m.sort();
+            m
+        };
         let mut buses = Vec::new();
         let mut bus_nets = HashSet::new();
         for bus in &stash.buses {
-            let members = bus_members(bus)?;
-            if let Some(i) =
-                (0..self.nets.len()).find(|i| !bus_nets.contains(i) && self.nets[*i] == members)
-            {
+            let members = sorted(&bus_members(bus)?);
+            if let Some(i) = (0..self.nets.len()).rev().find(|i| {
+                !bus_nets.contains(i)
+                    && self.net_name(*i).is_none()
+                    && sorted(&self.nets[*i]) == members
+            }) {
                 bus_nets.insert(i);
                 buses.push(bus.clone());
             }
@@ -473,6 +517,12 @@ impl CircuitDocument {
                     c.domain = t.domain;
                     c.weight = t.weight;
                     c.properties.extend(t.properties.clone());
+                }
+                // Foreign properties belong to one connection: match its endpoints.
+                let ends = ends_of(c);
+                let own = stash.connections.iter().find(|f| ends_of(f) == ends);
+                if let Some(f) = own {
+                    c.properties.extend(f.properties.clone());
                 }
             }
             put(&mut star[0].properties, "__members__", &members)?;
@@ -612,6 +662,18 @@ impl CircuitDocument {
             .store(&mut module.info)?;
         }
         module.directives = pm.directives.iter().map(directive_from_proto).collect();
+        let connections: Vec<p::Connection> = pm
+            .connections
+            .iter()
+            .filter(|c| c.properties.keys().any(|k| is_foreign(k)))
+            .map(|c| p::Connection {
+                name: c.name.clone(),
+                source: c.source.clone(),
+                target: c.target.clone(),
+                properties: foreign(&c.properties),
+                ..Default::default()
+            })
+            .collect();
         let mut nets = BTreeMap::new();
         for c in &pm.connections {
             let properties = public(&c.properties);
@@ -653,7 +715,7 @@ impl CircuitDocument {
                         == sequence.iter().collect::<HashSet<_>>()
             });
         Stash {
-            properties: public(&pm.properties),
+            properties: carried(&pm.properties),
             class_name: pm.class_name.clone(),
             parameters,
             terminals: if pm.terminals == plain {
@@ -663,6 +725,7 @@ impl CircuitDocument {
             },
             model_interfaces: pm.model_interfaces.clone(),
             nets,
+            connections,
             order,
             sequence: if reordered { sequence } else { Vec::new() },
             buses,

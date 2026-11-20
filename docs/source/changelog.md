@@ -51,8 +51,10 @@
     (`info['__morphnet__'] must be an object`) instead of being dropped.
   - `Circuit.buses` and `__`-prefixed properties the bridge does not own (on
     instances, circuits and connections) round-trip through `info["__morphnet__"]`.
-    A bus is restored while a net still has its members; its member nets stay plain
-    nets in kfnetlist.
+    A bus is restored while an unnamed net still has its members; its member nets
+    stay plain nets in kfnetlist. Foreign properties of a connection come back on
+    the connection with the same endpoints; a net edited to connect different pins
+    loses them.
   - The key order inside `.gsch` entries is not preserved through the kfnetlist
     bridge: `write_gsch` output is JSON-equal, not text-equal.
 
