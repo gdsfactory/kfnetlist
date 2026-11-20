@@ -187,11 +187,30 @@ Remaining differences from nyancad's output:
 - Unknown `spice-type` letters are called like subcircuits (`X`).
 - Fixtures where nyancad crashes still netlist, with `?` for open pins.
 
+#### Parameters and write-back
+
+`parse_gsch` gives each device the parameters of the simulation view:
+
+- **Source** (`properties["role"] == "source"`): an entry prop merged with its
+  model's prop defaults. A source param is **editable**: `write_gsch` writes its
+  value back to the entry's `props`, and the SPICE, Spectre, VACASK, SystemVerilog
+  and Verilog-AMS writers leave it out of the device parameters and print its value
+  where a derived parameter refers to it.
+- **Derived**: a model `params` entry, an `Expression` over the source props
+  (`w = width * 1e-6`). Not written to `props`.
+- **Computed**: a value the simulation code works out from the props (a source's
+  `value` or waveform, `$mfactor`), and a model param named like the prop it reads
+  (`w = w * 2`), which is one param holding the substituted value.
+- **Defaults**: model prop defaults the entry does not set. They are written back
+  only once edited.
+
+An edit to a derived or computed param makes `write_gsch` raise `ValueError`
+naming the props to edit, for example `M1: 'w' is derived from model expression
+'width * 1e-6'; edit 'width' instead`. An unedited param is not an error.
+
 #### Known limits
 
-- Edits to parameters derived by the simulation view (model `params` expressions,
-  model prop defaults, a source's value or waveform) and props removed from a
-  simulated instance are not written back by `write_gsch`.
+- Props removed from a simulated instance are not written back by `write_gsch`.
 - A file written from a non-gsch source has no Mosaic wires. Mosaic recomputes
   `nets` on the first edit; Livewire keeps them.
 - Restored Mosaic `wire` entries are written as parsed. Mosaic recomputes `nets`
@@ -389,6 +408,41 @@ A oneof value — exactly one field should be set:
 |---|---|---|---|
 | `prefixed_value` | `prefixed_value` | `PrefixedValue \| None` | SI-prefixed numeric value |
 | `model_ref` | `model_ref` | `ModelReference \| None` | Reference to a model |
+| `expression` | `expression` | `Expression \| None` | Expression tree or raw text |
+
+#### `Expression`
+
+A oneof (`node` in the schema), exactly one field set:
+
+| Field | Type | Description |
+|---|---|---|
+| `literal` | `PrefixedValue` | A number |
+| `reference` | `str` | A parameter name (may contain `$`) |
+| `unary` | `UnaryOp` | `op` (`-` or `!`) and `operand` |
+| `binary` | `BinaryOp` | `op` (`+ - * / % ** == != < <= > >= && \|\|`), `lhs`, `rhs` |
+| `call` | `Call` | `name` and `args` |
+| `ternary` | `Ternary` | `cond`, `then`, `otherwise` |
+| `raw` | `str` | Text no grammar parsed, kept verbatim |
+
+`parse_expression(text) -> Expression` and `format_expression(expr, dialect,
+resolve=None, *, named=False) -> str` live in
+`kfnetlist.morphnet.netlist.expression`. `parse_expression` strips one outer `{}`
+or `'...'`, never raises, and returns `Expression(raw=text)` when the text does not
+parse. `^` is not in the grammar (it is XOR in SystemVerilog), so text with `^`
+stays raw. `format_expression` prints the canonical form (`2 * x`) and wraps a
+compound expression per dialect; `resolve(name)` substitutes a reference.
+
+| Dialect | Wrapping | Example |
+|---|---|---|
+| `ngspice`, `xyce` | `{...}` | `{2 * x}` |
+| `hspice` | `'...'` | `'2 * x'` |
+| `spectre`, `vacask`, `systemverilog`, `vams`, `gsch` | bare | `2 * x` |
+
+A number or a bare name is never wrapped. Raw text is wrapped only when
+`named=True` (the value of a `k=v` parameter) and it is not already wrapped, so
+`x^2` becomes `{x^2}` in `k=v` position; a positional value such as `DC 1 AC 1`
+stays verbatim. `parameter_value(text)` and `value_text(pval, dialect)` in the
+same module build a `ParameterValue` from text and print one as `k=v` text.
 
 #### `PrefixedValue`
 
@@ -428,8 +482,15 @@ A oneof value — exactly one field should be set:
 A multi-line block in one simulator language, written verbatim where the writer's
 dialect accepts that language: SPICE writers take `spice`, `ngspice`, `xyce` and
 `hspice`; Spectre takes `spectre` and wraps SPICE bodies in `simulator lang=spice`
-/ `simulator lang=spectre`; VACASK takes none. Any other block is a
-`skipped macro <name> (<language>)` comment plus a warning.
+/ `simulator lang=spectre`; SystemVerilog takes `systemverilog` and `verilog`;
+Verilog-AMS takes `verilog-ams`, `verilog-a` and `vams`. Any other block is a
+`skipped macro <name> (<language>)` comment (`*` in SPICE, `//` elsewhere) plus a
+warning, so a macro is never dropped silently. The VACASK writer
+takes none, not even `spectre`: every macro is skipped, as nyancad drops them.
+
+`parse_gsch` reads a macro from a nyanlib model entry's inline `code`, one per
+entry name across the hierarchy (the first wins). `write_gsch` does not write
+macros back. A netlist's macros come after its directives; a circuit's inside it.
 
 | Field | Schema name | Type | Description |
 |---|---|---|---|

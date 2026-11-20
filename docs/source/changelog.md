@@ -13,16 +13,24 @@
     parameter expressions, sources and waveforms. It exports the circuit, not the
     simulator scaffolding (`.end`, analyses, `load *.osdi`).
   - Positions, wires, polylines and port markers survive `write_gsch`.
-  - Limits: edits to derived parameters are not written back; a file written from
-    a non-gsch source has no Mosaic wires; unnamed single-pin nets are written
-    as `?`. See the [API reference](morphnet/api-reference.md#gsch).
+  - Source props (`role="source"`) are editable: an edit reaches the `.gsch` props
+    and the SPICE output. An edit to a derived or computed parameter (a model
+    `params` expression, a source's value or waveform, a model param named like
+    the prop it reads) raises `ValueError` from `write_gsch`, naming the props to
+    edit. Model prop defaults are written once edited.
+  - Limits: a file written from a non-gsch source has no Mosaic wires; unnamed
+    single-pin nets are written as `?`. See the
+    [API reference](morphnet/api-reference.md#gsch).
   - Inline nyanlib `code` blocks become `Netlist.macros` (see **Macros**).
 - **Expressions** — `ParameterValue` gains an `expression` variant, an
   `Expression` tree (literal, reference, unary, binary, call, ternary, or `raw`
   text no grammar parsed). `parse_expression()` / `format_expression()` in
   `kfnetlist.morphnet.netlist.expression` read any dialect's text and print the
-  canonical form (`0.13 * 1e-6`). The `.gsch` and SystemVerilog parsers produce
-  it; the `properties["expr"]` text of earlier development builds is gone.
+  canonical form (`0.13 * 1e-6`). The `.gsch`, SPICE, HSPICE, Xyce, Spectre and
+  SystemVerilog parsers produce it; the `properties["expr"]` text of earlier
+  development builds is gone. A model parameter such as `w = width * 1e-6` is an
+  expression over the source props, not a fixed number. `^` is XOR in
+  SystemVerilog, so text with `^` stays `raw`.
   Through the kfnetlist bridge an expression parameter is a string setting with
   its canonical text, and its tree rides in `info["__morphnet__"]`: unchanged
   text restores the tree, edited text comes back as `raw`. kfnetlist string and
@@ -78,6 +86,18 @@
     positional value (`DC 1 AC 1`) stays verbatim. An empty value is not written. Xyce
     expressions now carry braces, and a `.gsch` prop written `{vdd}` reaches
     VACASK as `vdd`.
+  - The SPICE-family and Spectre parsers keep expression values (`{a*b+1}`,
+    `'a*b+1'`, Spectre `a*b+1`), where they dropped them. Written back, the
+    ngspice and Xyce text is `{a * b + 1}`: braces and canonical spacing, so
+    `{2*x}` is written `{2 * x}`. An identifier value (`l=a`) is written as
+    `l=a`, where it was written `l=0`. `.option`, analysis, `.meas` and `.ic`
+    values (`errpreset=moderate`) are kept, where they were empty. A `.param`
+    directive keeps its text in the dialect it was parsed from.
+  - A source prop of a `.gsch` device is left out of the SPICE, Spectre, VACASK,
+    SystemVerilog and Verilog-AMS output as a device parameter; references to it
+    are replaced by its value.
+  - A bridged parameter keeps its properties (`role`) when its setting is edited,
+    and text the bridge reads back as `raw` is parsed again when it can be.
   - The key order inside `.gsch` entries is not preserved through the kfnetlist
     bridge: `write_gsch` output is JSON-equal, not text-equal.
 

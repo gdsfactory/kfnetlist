@@ -238,7 +238,8 @@ Things to know:
   An unnamed net that contains a top-level port is named after the port; other
   unnamed nets are named `net_<i>`. Parsed nets come back named.
 - **Values.** SI prefixes are applied (`1k` becomes `1000.0`). String and bool
-  settings become expression parameters, written verbatim (`tc=2*t`, `on=true`).
+  settings become expression parameters, parsed and written in the dialect's
+  form (`tc={2 * t}` in ngspice, `on=true`).
   Directives, libraries and other morphnet data without a kfnetlist counterpart
   travel in `kfnetlist.Netlist.directives` and `.info`, so a round trip keeps them.
 - **Names.** The SPICE writers prepend the device letter when an instance name
