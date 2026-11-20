@@ -46,6 +46,13 @@ def _string_maps(model: ProtoModel) -> Iterator[dict[str, str]]:
                     yield from _string_maps(item)
 
 
+def _stash(info: Mapping) -> Mapping:
+    stash = info.get("__morphnet__", {})
+    if not isinstance(stash, dict):
+        raise ValueError("info['__morphnet__'] must be an object")
+    return stash
+
+
 def _record_order(netlist: Netlist) -> Netlist:
     netlist = netlist.model_copy(deep=True)
     for props in _string_maps(netlist):
@@ -84,8 +91,7 @@ def from_netlists(
     undeclared = {
         name
         for nl in netlists.values()
-        if isinstance(stash := nl.info.get("__morphnet__"), dict)
-        for name in stash.get("undeclared", [])
+        for name in _stash(nl.info).get("undeclared", [])
     }
     defined = {c.name for c in [*netlist.circuits, *netlist.ext_circuits]}
     used = (

@@ -7,7 +7,7 @@ from pathlib import Path
 import pytest
 
 from kfnetlist import Netlist, NetlistPort, PortRef, morphnet
-from kfnetlist.kfnetlist_schema import ProtoNetlist
+from kfnetlist.kfnetlist_schema import NetlistDocument, ProtoNetlist
 from kfnetlist.morphnet.morphnet_schema import circuit_pb2 as pb
 from kfnetlist.morphnet.netlist import (
     parse_gsch,
@@ -549,9 +549,26 @@ def test_a_read_gsch_child_exported_alone_keeps_its_ground():
     assert "M1 out in 0 0 sg13_lv_nmos" in write_spice(child)
 
 
-@pytest.mark.parametrize("value", ["x", [1], None])
-def test_a_foreign_morphnet_info_value_is_not_a_stash(value):
+# ---- named port nets and a malformed stash ----
+
+
+def test_net_names_survive_the_yaml_and_bridge_round_trips():
+    src = (_FIXTURES / "hspice" / "hierarchical_subckt.sp").read_text()
+    nl = morphnet.to_netlists(parse_spice(src))["inverter"]
+    names = [n.name for n in nl.nets]
+    assert names == ["in_", "out", "vss"]
+    doc = NetlistDocument.from_netlists({"inverter": nl}, "inverter")
+    yaml_back = NetlistDocument.from_yaml(doc.to_yaml()).to_netlists()["inverter"]
+    assert [n.name for n in yaml_back.nets] == names
+    bridged = morphnet.to_netlists(morphnet.from_netlists({"inverter": nl}))
+    assert [n.name for n in bridged["inverter"].nets] == names
+
+
+@pytest.mark.parametrize("value", ["garbage", [1], None])
+def test_malformed_morphnet_stash_raises(value):
     nl = rc()
-    plain = morphnet.from_netlists({"rc": nl})
     nl.info = {"__morphnet__": value}
-    assert morphnet.from_netlists({"rc": nl}) == plain
+    with pytest.raises(ValueError, match="must be an object"):
+        NetlistDocument.from_netlists({"rc": nl}, "rc").to_proto()
+    with pytest.raises(ValueError, match="must be an object"):
+        morphnet.from_netlists({"rc": nl})

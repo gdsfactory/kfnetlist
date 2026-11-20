@@ -69,7 +69,8 @@ impl Stash {
         let mut info = info.clone();
         let stash = match info.remove(STASH) {
             Some(value @ Value::Object(_)) => serde_json::from_value(value).map_err(error)?,
-            _ => Self::default(), // not a stash: nothing of the bridge's to restore
+            Some(_) => return Err(error("info['__morphnet__'] must be an object")),
+            None => Self::default(),
         };
         Ok((info, stash))
     }

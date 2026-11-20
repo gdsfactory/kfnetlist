@@ -628,15 +628,17 @@ def _port_net_doc(name: str | None) -> NetlistDocument:
     return NetlistDocument.from_netlists({"top": nl}, "top")
 
 
-def test_a_port_net_named_after_its_port_keeps_the_port_form():
-    for name in (None, "o1"):  # unnamed, or named exactly like its port
+def test_only_an_unnamed_port_net_uses_the_port_form():
+    top = _port_net_doc(None).modules["top"]
+    assert top.ports == {"o1": "mmi,o1"}
+    assert top.nets == [] and top.net_names == []
+    assert "net_names" not in _port_net_doc(None).to_yaml()
+    for name in ("o1", "sig"):  # named, even exactly like its port: a named net
         top = _port_net_doc(name).modules["top"]
-        assert top.ports == {"o1": "mmi,o1"}
-        assert top.nets == [] and top.net_names == []
-        assert "net_names" not in _port_net_doc(name).to_yaml()
-    top = _port_net_doc("sig").modules["top"]  # any other name is a named net
-    assert top.ports == {"o1": "o1"}
-    assert (top.nets, top.net_names) == ([["o1", "mmi,o1"]], ["sig"])
+        assert top.ports == {"o1": "o1"}
+        assert (top.nets, top.net_names) == ([["o1", "mmi,o1"]], [name])
+        back = NetlistDocument.from_yaml(_port_net_doc(name).to_yaml())
+        assert [n.name for n in back.to_netlists()["top"].nets] == [name]
 
 
 def test_circuit_document_exposes_net_names_and_directives():

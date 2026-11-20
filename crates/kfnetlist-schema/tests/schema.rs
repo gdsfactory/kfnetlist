@@ -539,7 +539,7 @@ fn every_module_carries_the_document_header() {
 }
 
 #[test]
-fn a_port_net_named_after_its_port_keeps_the_port_form() {
+fn only_an_unnamed_port_net_uses_the_port_form() {
     let mut nl = Netlist::default();
     nl.create_port("o1".into());
     nl.create_inst(
@@ -565,5 +565,17 @@ fn a_port_net_named_after_its_port_keeps_the_port_form() {
     nl.create_net(members()).unwrap();
     let plain = CircuitDocument::from_netlist("top".into(), &nl);
     assert_eq!(plain.ports["o1"], "mmi,o1");
-    assert_eq!(CircuitDocument::from_netlist("top".into(), &named), plain);
+    let named = CircuitDocument::from_netlist("top".into(), &named);
+    assert_eq!(named.ports["o1"], "o1");
+    assert_eq!(named.net_name(0), Some("o1"));
+}
+
+#[test]
+fn a_non_object_morphnet_stash_is_an_error() {
+    let doc: NetlistDocument = serde_json::from_value(json!({
+        "modules": {"top": {"info": {"__morphnet__": "garbage"}}}
+    }))
+    .unwrap();
+    let err = doc.to_proto().unwrap_err();
+    assert_eq!(err.to_string(), "info['__morphnet__'] must be an object");
 }

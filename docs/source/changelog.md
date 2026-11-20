@@ -44,9 +44,11 @@
   - The document header (name, properties, external circuits, libraries,
     simulation) is kept on every cell, so `from_netlists()` of a subset or with
     another `toplevel` keeps `.model` cards and `ground_net`.
-  - A port net named after its port (a bridged netlist names every net) is written
-    in the plain `ports: {o1: mmi,o1}` form by `NetlistDocument.from_netlists()`,
-    as before net names existed.
+  - A port net named after its port (a bridged netlist names every net) keeps its
+    name: `NetlistDocument.from_netlists()` writes it as a named net, and only an
+    unnamed port net uses the plain `ports: {o1: mmi,o1}` form.
+  - A present but non-object `info["__morphnet__"]` raises `ValueError`
+    (`info['__morphnet__'] must be an object`) instead of being dropped.
   - The key order inside `.gsch` entries is not preserved through the kfnetlist
     bridge: `write_gsch` output is JSON-equal, not text-equal.
 
