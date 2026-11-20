@@ -1,0 +1,45 @@
+// Dialect-neutral parameter expressions, shared by every netlist format.
+// Adapted from systemverilog.lark's expression rules, with SPICE SI-suffixed numbers,
+// comparisons, logic, `**`, calls and `?:`. Precedence, loosest first.
+
+?start: ternary
+
+?ternary: or_expr
+        | or_expr "?" ternary ":" ternary
+?or_expr: and_expr
+        | or_expr "||" and_expr     -> or
+?and_expr: eq_expr
+         | and_expr "&&" eq_expr    -> and
+?eq_expr: rel_expr
+        | eq_expr "==" rel_expr     -> eq
+        | eq_expr "!=" rel_expr     -> ne
+?rel_expr: add_expr
+         | rel_expr "<" add_expr    -> lt
+         | rel_expr "<=" add_expr   -> le
+         | rel_expr ">" add_expr    -> gt
+         | rel_expr ">=" add_expr   -> ge
+?add_expr: mul_expr
+         | add_expr "+" mul_expr    -> add
+         | add_expr "-" mul_expr    -> sub
+?mul_expr: unary
+         | mul_expr "*" unary       -> mul
+         | mul_expr "/" unary       -> div
+         | mul_expr "%" unary       -> mod
+?unary: power
+      | "-" unary                   -> neg
+      | "!" unary                   -> not
+      | "+" unary
+?power: atom
+      | atom "**" unary             -> pow
+?atom: NUMBER                       -> literal
+     | NAME                         -> reference
+     | NAME "(" _args? ")"         -> call
+     | "(" ternary ")"
+_args: ternary
+     | _args "," ternary
+
+// 10k  2.2u  100meg  1e-6  .5  (value_utils.parse_si_number reads the token)
+NUMBER: /(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?(?:meg|mil|[afpnumkgtx])?/i
+NAME: /[A-Za-z_$][A-Za-z0-9_$]*/
+
+%ignore /\s+/
