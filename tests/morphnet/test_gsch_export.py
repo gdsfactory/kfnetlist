@@ -42,8 +42,14 @@ SCALE |= {"n": 1e-9, "p": 1e-12, "f": 1e-15}
 
 
 def value(text: str, fold: bool) -> object:
-    """A number (any SI suffix or unit) as a float; anything else without spaces."""
+    """A number (any SI suffix or unit) as a float; anything else without spaces.
+
+    One outer ``{…}``/``'…'`` is dialect wrapping, not circuit content: our writers
+    wrap Xyce expressions in braces, nyancad does not.
+    """
     text = text.strip()
+    if len(text) >= 2 and (text[0], text[-1]) in (("{", "}"), ("'", "'")):
+        text = text[1:-1]
     m = NUMBER.match(text)
     if m:
         number = float(m[1]) * SCALE.get((m[2] or "").lower(), 1)
@@ -246,9 +252,7 @@ def test_child_schematics_become_subcircuits_and_hoist_their_libraries():
     assert [c.name for c in nl.circuits] == ["hier_cell", "__top__"]
     cell = nl.circuits[0]
     assert [p.name for p in cell.ports] == ["in", "out", "vdd"]  # sorted model ports
-    assert [(p.name, p.properties.get("expr")) for p in cell.parameters] == [
-        ("rload", None)
-    ]
+    assert [p.name for p in cell.parameters] == ["rload"]
     # top first, then the child's; the child's nmos shares the top pmos library
     assert libs(nl) == [
         (LIB, "ihp/models/ngspice/models/cornerMOSlv.lib mos_ff", ""),
@@ -454,8 +458,8 @@ def test_an_expression_keeps_its_slot_in_a_waveform():
         parse_gsch(json.dumps(doc))
     )
     text = write_spectre(parse_gsch(json.dumps(doc), sim="vacask"))
-    assert (
-        'v1 (a 0) vsource dc=0 type="pulse" val0=0 val1={vdd} fall=0 width=5n period=10n'
+    assert (  # `{}` is SPICE wrapping: VACASK writes the expression bare
+        'v1 (a 0) vsource dc=0 type="pulse" val0=0 val1=vdd fall=0 width=5n period=10n'
         in text
     )
 

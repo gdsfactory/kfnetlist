@@ -20,6 +20,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     ExternalCircuit,
     Netlist,
     Parameter,
+    ParameterValue,
     Port,
     SignalDomain,
     SubCircuit,
@@ -38,6 +39,7 @@ from kfnetlist.morphnet.netlist.gsch.sim import (
     library,
     select_entry,
 )
+from kfnetlist.morphnet.netlist.expression import parse_expression
 from kfnetlist.morphnet.netlist.value_utils import is_si_number, parse_parameter_number
 
 # Instance stash: ``SubCircuit.properties["__info__"]`` = ``{"__gsch__": {"key", "entry"}}``.
@@ -109,13 +111,15 @@ def terminal_refs(entry: Mapping[str, Any]) -> list[tuple[str, str] | None]:
 
 
 def parameter(name: str, raw: Any) -> Parameter:
-    """SI-prefixed numbers become values; anything else is kept as ``expr`` text."""
+    """SI-prefixed numbers become values; anything else an expression (raw if unparsed)."""
     if isinstance(raw, (int, float)) and not isinstance(raw, bool):
         raw = repr(raw)
     if isinstance(raw, str) and is_si_number(raw):
         return Parameter(name=name, default_value=parse_parameter_number(raw))
-    expr = raw if isinstance(raw, str) else json.dumps(raw)
-    return Parameter(name=name, properties={"expr": expr})
+    text = raw if isinstance(raw, str) else json.dumps(raw)
+    return Parameter(
+        name=name, default_value=ParameterValue(expression=parse_expression(text))
+    )
 
 
 def _find(parent: dict[Node, Node], node: Node) -> Node:

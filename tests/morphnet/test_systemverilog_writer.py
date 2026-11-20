@@ -45,7 +45,7 @@ def test_header_ports_and_parameters(written: str) -> None:
     assert "`timescale 1ns/1ps" in written
     assert "module dc #(parameter real gap = 2e-07, parameter int n = 10) (" in written
     assert "  input optical o1,\n" in written
-    assert "  localparam W = 2*n+1;" in written
+    assert "  localparam W = 2 * n + 1;" in written
 
 
 def test_instances_use_named_connections(written: str) -> None:

@@ -38,6 +38,7 @@ class SpiceWriter:
     ground: str = ""
     # Keyword placed before subckt header / X-call params (Xyce: "PARAMS:")
     params_kw: str = ""
+    dialect: str = "ngspice"  # expression wrapping (see format_expression)
 
     def format_param_value(self, pval: ParameterValue) -> str:
         """Format any ParameterValue variant as a SPICE-compatible string."""
@@ -46,7 +47,7 @@ class SpiceWriter:
         return "0"
 
     def param_text(self, param: Parameter) -> str | None:
-        return param_text(param, self.format_param_value)
+        return param_text(param, self.format_param_value, self.dialect)
 
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []

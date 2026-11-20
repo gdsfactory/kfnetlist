@@ -53,6 +53,7 @@ from kfnetlist.morphnet.netlist import (
     parse_vams,
     parse_xyce,
 )
+from kfnetlist.morphnet.netlist.expression import format_expression
 from kfnetlist.morphnet.netlist.value_utils import format_si_value
 
 
@@ -60,7 +61,9 @@ def value(param: morphnet.Parameter) -> str:
     pv = param.default_value
     if pv is not None and pv.prefixed_value is not None:
         return format_si_value(pv.prefixed_value)
-    return param.properties.get("expr", "?")
+    if pv is not None and pv.expression is not None:
+        return format_expression(pv.expression, "spectre")
+    return "?"
 
 
 def summary(netlist: morphnet.Netlist) -> None:
@@ -300,7 +303,7 @@ show_kfnetlist(vams, "divider")
 # - ANSI headers `(input wire [3:0] a, output y)` and non-ANSI port lists with
 #   body declarations;
 # - `parameter`/`localparam`, also in the `#(...)` header; numbers, sized
-#   literals (`4'b1010`) and expressions (kept as text in an `expr` property);
+#   literals (`4'b1010`) and expressions (parsed into an `Expression` tree);
 # - instances with named `.p(n)`, positional, implicit `.p`, wildcard `.*` and
 #   empty `.p()` connections, several per statement;
 # - `assign a = b;` and `alias a = b = c;`, which merge nets.

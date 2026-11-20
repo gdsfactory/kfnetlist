@@ -40,7 +40,8 @@ class SpectreWriter:
         return "0"
 
     def param_text(self, param: Parameter) -> str | None:
-        return param_text(param, self.format_param_value)
+        dialect = "vacask" if self.vacask else "spectre"
+        return param_text(param, self.format_param_value, dialect)
 
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []

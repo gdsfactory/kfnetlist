@@ -20,6 +20,7 @@ from kfnetlist.morphnet.netlist.hdl import (
 )
 from kfnetlist.morphnet.netlist.net_utils import BIT_RE, connections_to_instance_nets
 from kfnetlist.morphnet.netlist.systemverilog.writer import sv_name
+from kfnetlist.morphnet.netlist.expression import format_expression
 from kfnetlist.morphnet.netlist.value_utils import format_si_value
 
 
@@ -201,6 +202,8 @@ class VamsWriter:
             return str(pval)
         if pval.prefixed_value is not None:
             return format_si_value(pval.prefixed_value)
+        if pval.expression is not None:
+            return format_expression(pval.expression, "vams")
         return "0"
 
     def infer_port_order(

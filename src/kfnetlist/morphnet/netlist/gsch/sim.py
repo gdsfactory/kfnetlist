@@ -3,7 +3,7 @@
 Mirrors ``nyancad/netlist.py`` in gdsfactoryplus (``_add_nyancad_element``,
 ``_select_model_entry``, ``_select_corner``, ``_eval_params``, ``_add_source`` and
 the library includes of ``NyanCircuit``), resolved into the IR fields the SPICE and
-Spectre writers read: circuit name, pin order, ``model_name``, ``expr`` params and
+Spectre writers read: circuit name, pin order, ``model_name``, expression params and
 LIB/INCLUDE directives.
 """
 
@@ -126,7 +126,7 @@ def library(
 
 
 def eval_params(
-    entry_params: Mapping[str, str], props: Mapping[str, Any], sim: str
+    entry_params: Mapping[str, str], props: Mapping[str, Any]
 ) -> dict[str, Any]:
     """nyancad ``_eval_params``: rename, or substitute props into an expression."""
     out: dict[str, Any] = {}
@@ -138,7 +138,7 @@ def eval_params(
         text = IDENTIFIER_RE.sub(
             lambda m: str(props[m[0]]) if m[0] in props else m[0], expr
         )
-        out[name] = "{" + text + "}" if sim == "ngspice" else text
+        out[name] = text  # bare: writers wrap expressions per dialect
     return out
 
 
@@ -286,7 +286,7 @@ def _element(
             props["model"] = name
             if chosen.get("params"):
                 given = {**defaults, **(entry.get("props") or {})}
-                props = eval_params(chosen["params"], given, sim)
+                props = eval_params(chosen["params"], given)
         else:
             props = {**defaults, **props}
             props.setdefault("model", name)

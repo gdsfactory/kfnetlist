@@ -13,6 +13,7 @@ class XyceWriter(SpiceWriter):
     """
 
     params_kw = "PARAMS:"
+    dialect = "xyce"
 
     def format_param_value(self, pval: ParameterValue) -> str:
         return super().format_param_value(pval)

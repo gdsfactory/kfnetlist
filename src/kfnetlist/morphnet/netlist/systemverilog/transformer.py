@@ -40,6 +40,7 @@ from kfnetlist.morphnet.netlist.net_utils import (
     propagate_domains,
     typed_connections,
 )
+from kfnetlist.morphnet.netlist.expression import parse_expression
 from kfnetlist.morphnet.netlist.value_utils import (
     is_si_number,
     parse_parameter_number,
@@ -188,15 +189,15 @@ def _ident(tok: Token) -> str:
     return str(tok).removeprefix("\\")
 
 
-def parameter_value(expr: str) -> tuple[ParameterValue | None, dict[str, str]]:
-    """Numeric value when ``expr`` is a literal, else the expression text."""
+def parameter_value(expr: str) -> ParameterValue:
+    """Numeric value when ``expr`` is a literal, else its expression tree."""
     if is_si_number(expr):
-        return parse_parameter_number(expr.replace("_", "")), {}
+        return parse_parameter_number(expr.replace("_", ""))
     m = SIZED_RE.fullmatch(expr)
     if m:
         value = int(m.group(2).replace("_", ""), BASES[m.group(1).lower()])
-        return parse_parameter_number(str(value)), {}
-    return None, {"expr": expr}
+        return parse_parameter_number(str(value))
+    return ParameterValue(expression=parse_expression(expr))
 
 
 class SystemVerilogTransformer(Transformer[Token, Netlist]):
@@ -522,17 +523,14 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
             param_names = target.param_names() if target else []
             target_ranges = target.port_ranges() if target else None
             params = [
-                Parameter(name=n, default_value=v, properties=props)
+                Parameter(name=n, default_value=parameter_value(expr))
                 for n, expr in stmt.named_params.items()
-                for v, props in [parameter_value(expr)]
             ] + [
                 Parameter(
                     name=param_names[i] if i < len(param_names) else f"p{i}",
-                    default_value=v,
-                    properties=props,
+                    default_value=parameter_value(expr),
                 )
                 for i, expr in enumerate(stmt.ordered_params)
-                for v, props in [parameter_value(expr)]
             ]
             for inst in stmt.instances:
                 rng = decl_range(inst.name, inst.dims)
@@ -562,7 +560,7 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
 
     @staticmethod
     def _parameter(spec: ParamSpec) -> Parameter:
-        value, props = parameter_value(spec.expr)
+        value, props = parameter_value(spec.expr), {}
         if spec.local:
             props["localparam"] = "true"
         if spec.type:

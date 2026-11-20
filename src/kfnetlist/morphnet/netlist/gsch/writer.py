@@ -32,6 +32,7 @@ from kfnetlist.morphnet.netlist.gsch.parser import (
 )
 from kfnetlist.morphnet.netlist.gsch.sim import GROUND
 from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
+from kfnetlist.morphnet.netlist.expression import format_expression
 from kfnetlist.morphnet.netlist.value_utils import format_si_value
 
 # Mosaic device symbol types (frontend/mosaic common.cljc `device-types`). Any other
@@ -64,7 +65,9 @@ def prop_value(param: Parameter, stashed: dict[str, Any]) -> Any:
         if pv.prefix != SIPrefix.UNSPECIFIED:
             return format_si_value(pv)
         return int(pv.double_value) if pv.double_value.is_integer() else pv.double_value
-    return param.properties.get("expr", "")
+    if value is not None and value.expression is not None:
+        return format_expression(value.expression, "gsch")
+    return ""
 
 
 def component_ref(terminal: Any) -> dict[str, Any]:

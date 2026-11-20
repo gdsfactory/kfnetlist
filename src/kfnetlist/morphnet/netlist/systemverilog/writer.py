@@ -22,6 +22,7 @@ from kfnetlist.morphnet.netlist.hdl import (
     port_pins,
 )
 from kfnetlist.morphnet.netlist.net_utils import BIT_RE, connections_to_instance_nets
+from kfnetlist.morphnet.netlist.expression import format_expression
 from kfnetlist.morphnet.netlist.value_utils import to_float
 
 IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*")
@@ -64,7 +65,9 @@ def format_param_value(param: Parameter) -> str:
     pval = param.default_value
     if pval is not None and pval.prefixed_value is not None:
         return f"{to_float(pval.prefixed_value):.12g}"
-    return param.properties.get("expr", "0")
+    if pval is not None and pval.expression is not None:
+        return format_expression(pval.expression, "systemverilog")
+    return "0"
 
 
 class SystemVerilogWriter:

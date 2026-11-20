@@ -15,7 +15,10 @@ from kfnetlist.morphnet.morphnet_schema import (
     SignalDomain,
     SIPrefix,
 )
+from kfnetlist.morphnet.netlist.expression import parse_expression
+from kfnetlist.morphnet.netlist.hspice.writer import write_hspice
 from kfnetlist.morphnet.netlist.spice.writer import write_spice
+from kfnetlist.morphnet.netlist.xyce.writer import write_xyce
 
 
 def make_port(name: str) -> Port:
@@ -30,6 +33,10 @@ def make_pv(value: float, prefix: SIPrefix = SIPrefix.UNSPECIFIED) -> ParameterV
     return ParameterValue(
         prefixed_value=PrefixedValue(double_value=value, prefix=prefix)
     )
+
+
+def expr(text: str) -> ParameterValue:
+    return ParameterValue(expression=parse_expression(text))
 
 
 def make_conn(
@@ -233,17 +240,17 @@ class TestExprParameters:
     def test_expr_is_positional_value_and_kv(self) -> None:
         nl = _prim_netlist(
             params=[
-                Parameter(name="value", properties={"expr": "DC 1 AC 1"}),
-                Parameter(name="w", properties={"expr": "{w*1e-6}"}),
+                Parameter(name="value", default_value=expr("DC 1 AC 1")),  # raw
+                Parameter(name="w", default_value=expr("{w*1e-6}")),
             ]
         )
-        assert "R1 a b DC 1 AC 1 w={w*1e-6}" in write_spice(nl)
+        assert "R1 a b DC 1 AC 1 w={w * 1e-6}" in write_spice(nl)
 
     def test_expr_on_header_and_call_params(self) -> None:
         inner = Circuit(
             name="inner",
             ports=[make_port("p")],
-            parameters=[Parameter(name="k", properties={"expr": "2*x"})],
+            parameters=[Parameter(name="k", default_value=expr("2*x"))],
         )
         outer = Circuit(
             name="outer",
@@ -252,33 +259,27 @@ class TestExprParameters:
                 SubCircuit(
                     name="X1",
                     circuit_name="inner",
-                    parameters=[Parameter(name="k", properties={"expr": "{3*y}"})],
+                    parameters=[Parameter(name="k", default_value=expr("{3*y}"))],
                 )
             ],
             connections=[make_conn("a", "", "a", "X1", "p")],
         )
         out = write_spice(Netlist(name="t", circuits=[inner, outer]))
-        assert ".subckt inner p k=2*x" in out
-        assert "X1 a inner k={3*y}" in out
+        assert ".subckt inner p k={2 * x}" in out
+        assert "X1 a inner k={3 * y}" in out
 
-    def test_expr_wins_over_numeric_default(self) -> None:
-        both = Parameter(
-            name="w", default_value=make_pv(5.0), properties={"expr": "{w*2}"}
-        )
-        nl = _prim_netlist(
-            params=[
-                both,
-                Parameter(
-                    name="value",
-                    default_value=make_pv(7.0),
-                    properties={"expr": "DC 1"},
-                ),
-            ]
-        )
-        out = write_spice(nl)
-        assert "R1 a b DC 1 w={w*2}" in out
-        assert "w=5" not in out
-        assert " 7" not in out
+    def test_each_dialect_wraps_its_own_way(self) -> None:
+        nl = _prim_netlist(params=[Parameter(name="w", default_value=expr("w*2"))])
+        assert "w={w * 2}" in write_spice(nl)
+        assert "w={w * 2}" in write_xyce(nl)
+        assert "w='w * 2'" in write_hspice(nl)
+
+    def test_a_bare_reference_or_literal_is_not_wrapped(self) -> None:
+        params = [
+            Parameter(name="w", default_value=expr("wmin")),
+            Parameter(name="l", default_value=expr("2.2u")),
+        ]
+        assert "w=wmin l=2.2u" in write_spice(_prim_netlist(params=params))
 
 
 class TestSpicePrefix:
@@ -312,7 +313,7 @@ class TestGroundNet:
                 SubCircuit(
                     name="R1",
                     circuit_name="resistor",
-                    parameters=[Parameter(name="value", properties={"expr": "1k"})],
+                    parameters=[Parameter(name="value", default_value=expr("1k"))],
                 )
             ],
             connections=[

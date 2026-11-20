@@ -52,7 +52,7 @@ def test_mosaic_rc_filter():
     assert ext_ports(nl, "resistor") == {"p": ELECTRICAL, "n": ELECTRICAL}
 
 
-def test_mosaic_props_become_si_values_or_expr_text():
+def test_mosaic_props_become_si_values_or_expressions():
     nl = load("ihp_rc_filter")
     r1 = nl.circuits[0].subcircuits[1]
     (resistance,) = r1.parameters  # nyancad: `resistance` is R's value
@@ -63,8 +63,8 @@ def test_mosaic_props_become_si_values_or_expr_text():
     nl = load("ihp_cmos_inverter")
     v2 = next(s for s in nl.circuits[0].subcircuits if s.name == "V2")
     (value,) = v2.parameters  # a `tran` string is no waveform: nyancad drops it
-    assert value.default_value is None
-    assert value.properties == {"expr": "DC 0.9 AC 1"}
+    assert value.default_value.expression.raw == "DC 0.9 AC 1"  # no expression
+    assert value.properties == {}
     m1 = next(s for s in nl.circuits[0].subcircuits if s.name == "M1")
     by_name = {p.name: p for p in m1.parameters}
     assert by_name["width"].default_value.prefixed_value.double_value == 0.15

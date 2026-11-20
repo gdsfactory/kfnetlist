@@ -17,6 +17,12 @@
     a non-gsch source has no Mosaic wires; inline nyanlib `code` blocks are
     skipped; unnamed single-pin nets are written as `?`. See the
     [API reference](morphnet/api-reference.md#gsch).
+- **Expressions** — `ParameterValue` gains an `expression` variant, an
+  `Expression` tree (literal, reference, unary, binary, call, ternary, or `raw`
+  text no grammar parsed). `parse_expression()` / `format_expression()` in
+  `kfnetlist.morphnet.netlist.expression` read any dialect's text and print the
+  canonical form (`0.13 * 1e-6`). The `.gsch` and SystemVerilog parsers produce
+  it; the `properties["expr"]` text of earlier development builds is gone.
 - **Lossless bridge** — `morphnet.to_netlists()` / `from_netlists()` keep what
   `kfnetlist.Netlist` has no field for. New `Netlist.directives` (file
   directives) and `Netlist.info` (metadata) hold it. Both are excluded from
@@ -55,6 +61,11 @@
     stay plain nets in kfnetlist. Foreign properties of a connection come back on
     the connection with the same endpoints; a net edited to connect different pins
     loses them.
+  - Writers print expression parameters in canonical form, wrapped per dialect:
+    `{…}` for ngspice and Xyce, `'…'` for HSPICE, bare for Spectre, VACASK,
+    SystemVerilog and Verilog-AMS. A bare name or number is never wrapped. Xyce
+    expressions now carry braces, and a `.gsch` prop written `{vdd}` reaches
+    VACASK as `vdd`.
   - The key order inside `.gsch` entries is not preserved through the kfnetlist
     bridge: `write_gsch` output is JSON-equal, not text-equal.
 

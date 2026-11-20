@@ -15,6 +15,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     SIPrefix,
     ParameterValue,
 )
+from kfnetlist.morphnet.netlist.expression import parse_expression
 from kfnetlist.morphnet.netlist.spectre.writer import write_spectre
 
 
@@ -24,6 +25,10 @@ def make_port(name: str) -> Port:
         direction=PortDirection.INOUT,
         domain=SignalDomain.ELECTRICAL,
     )
+
+
+def expr(text: str) -> ParameterValue:
+    return ParameterValue(expression=parse_expression(text))
 
 
 def make_pv(value: float, prefix: SIPrefix = SIPrefix.UNSPECIFIED) -> ParameterValue:
@@ -147,29 +152,19 @@ class TestExprParameters:
     def test_expr_verbatim_not_dropped(self) -> None:
         nl = _prim_netlist(
             params=[
-                Parameter(name="r", properties={"expr": "{w*1e-6}"}),
-                Parameter(name="dc", properties={"expr": "1.8"}),
+                Parameter(name="r", default_value=expr("{w*1e-6}")),
+                Parameter(name="dc", default_value=expr("1.8")),
             ]
         )
-        assert "R1 (a b) resistor r={w*1e-6} dc=1.8" in write_spectre(nl)
-
-    def test_expr_wins_over_numeric_default(self) -> None:
-        nl = _prim_netlist(
-            params=[
-                Parameter(
-                    name="r", default_value=make_pv(5.0), properties={"expr": "{w*2}"}
-                )
-            ]
-        )
-        assert "R1 (a b) resistor r={w*2}" in write_spectre(nl)
+        assert "R1 (a b) resistor r=w * 1e-6 dc=1.8" in write_spectre(nl)
 
     def test_expr_on_subckt_header(self) -> None:
         inner = Circuit(
             name="inner",
             ports=[make_port("p")],
-            parameters=[Parameter(name="k", properties={"expr": "2*x"})],
+            parameters=[Parameter(name="k", default_value=expr("2*x"))],
         )
-        assert "subckt inner (p) k=2*x" in write_spectre(
+        assert "subckt inner (p) k=2 * x" in write_spectre(
             Netlist(name="t", circuits=[inner])
         )
 
@@ -177,12 +172,12 @@ class TestExprParameters:
         inner = Circuit(
             name="inner",
             ports=[make_port("p")],
-            parameters=[Parameter(name="k", properties={"expr": "2*x"})],
+            parameters=[Parameter(name="k", default_value=expr("2*x"))],
         )
         nl = Netlist(name="t", circuits=[inner], properties={"dialect": "vacask"})
         lines = write_spectre(nl).splitlines()
         i = lines.index("subckt inner (p)")
-        assert lines[i + 1] == "parameters k=2*x"
+        assert lines[i + 1] == "parameters k=2 * x"
 
 
 class TestGroundNet:
@@ -209,22 +204,22 @@ class TestVacaskDialect:
     def test_value_maps_to_device_param(self) -> None:
         nl = _prim_netlist(
             params=[
-                Parameter(name="value", properties={"expr": "1k"}),
-                Parameter(name="tc1", properties={"expr": "0"}),
+                Parameter(name="value", default_value=expr("1k")),
+                Parameter(name="tc1", default_value=expr("0")),
             ],
             props={"dialect": "vacask"},
         )
         assert "r1 (a b) resistor r=1k tc1=0" in write_spectre(nl)
 
     def test_value_kept_without_vacask(self) -> None:
-        nl = _prim_netlist(params=[Parameter(name="value", properties={"expr": "1k"})])
+        nl = _prim_netlist(params=[Parameter(name="value", default_value=expr("1k"))])
         assert "R1 (a b) resistor value=1k" in write_spectre(nl)
 
     def test_source_params_pass_through(self) -> None:
         nl = _prim_netlist(
             params=[
-                Parameter(name="dc", properties={"expr": "1"}),
-                Parameter(name="mag", properties={"expr": "1"}),
+                Parameter(name="dc", default_value=expr("1")),
+                Parameter(name="mag", default_value=expr("1")),
             ],
             circuit_name="vsource",
             props={"dialect": "vacask"},
