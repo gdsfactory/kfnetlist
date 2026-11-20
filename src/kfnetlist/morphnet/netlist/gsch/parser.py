@@ -42,7 +42,7 @@ from kfnetlist.morphnet.netlist.gsch.sim import (
     macro,
     select_entry,
 )
-from kfnetlist.morphnet.netlist.expression import parse_expression
+from kfnetlist.morphnet.netlist.expression import WORD_RE, parse_expression
 from kfnetlist.morphnet.netlist.value_utils import is_si_number, parse_parameter_number
 
 # Instance stash: ``SubCircuit.properties["__info__"]`` = ``{"__gsch__": {"key", "entry"}}``.
@@ -138,17 +138,21 @@ def parameters(
     of a prop (``m = m``) is that prop. Writers resolve the references (nyancad
     substitutes them textually). A model param named like a prop it reads
     (``w = w * 1e-6``) keeps its substituted value: two params of one name would not
-    survive the kfnetlist bridge (settings by name).
+    survive the kfnetlist bridge (settings by name). So does any expression reading
+    such a prop (``ad = w * 0.5``), since ``w`` then names the device param.
     """
     if device is None:  # not simulated: the params are the props
         return [parameter(k, v) for k, v in (entry.get("props") or {}).items()]
     given = entry.get("props") or {}
+    collide = {
+        k for k, e in device.exprs.items() if k in device.sources and e.strip() != k
+    }
     out, exprs, computed = [], {}, {}
     for k, v in device.params.items():
         expr = device.exprs.get(k)
         if expr is not None and expr.strip() != k:
             exprs[k] = expr
-            if k not in device.sources:
+            if k not in device.sources and not collide & set(WORD_RE.findall(expr)):
                 out.append(parameter(k, expr))
                 continue
             computed[k] = v  # `w = w * 1e-6`: its value, the prop `w` has the name

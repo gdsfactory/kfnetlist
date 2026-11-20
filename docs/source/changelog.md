@@ -16,7 +16,7 @@
   - Source props (`role="source"`) are editable: an edit reaches the `.gsch` props
     and the SPICE output. An edit to a derived or computed parameter (a model
     `params` expression, a source's value or waveform, a model param named like
-    the prop it reads) raises `ValueError` from `write_gsch`, naming the props to
+    the prop it reads, or an expression reading such a prop) raises `ValueError` from `write_gsch`, naming the props to
     edit. Model prop defaults are written once edited.
   - Limits: a file written from a non-gsch source has no Mosaic wires; unnamed
     single-pin nets are written as `?`. See the

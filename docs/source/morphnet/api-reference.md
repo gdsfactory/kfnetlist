@@ -200,7 +200,9 @@ Remaining differences from nyancad's output:
   (`w = width * 1e-6`). Not written to `props`.
 - **Computed**: a value the simulation code works out from the props (a source's
   `value` or waveform, `$mfactor`), and a model param named like the prop it reads
-  (`w = w * 2`), which is one param holding the substituted value.
+  (`w = w * 2`), which is one param holding the substituted value. Any other
+  model param that reads that prop (`ad = w * 0.5`) holds its substituted value
+  too, since `w` then names the device param.
 - **Defaults**: model prop defaults the entry does not set. They are written back
   only once edited.
 

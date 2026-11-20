@@ -737,3 +737,21 @@ def test_vacask_skips_the_spectre_code_nyancad_drops():
     with pytest.warns(UserWarning, match=r"skipped macro rdiv \(spectre\)"):
         text = write_spectre(export("demo_inline_code", "vacask"))
     assert "// skipped macro rdiv (spectre)" in text.splitlines()
+
+
+def test_an_expression_reading_a_colliding_prop_gets_its_value():
+    models = json.loads(json.dumps(MODELS))
+    nmos = models["models:ihp.cells.fet_transistors.nmos"]
+    for variant in nmos["models"]:
+        variant["params"].update(w="w * 2", ad="w * 0.5")
+    doc = json.loads((FIXTURES / "ihp_cmos_inverter.gsch").read_text())
+    doc["demo2:M1"]["props"]["w"] = 0.5
+    nl = parse_gsch(json.dumps(doc), models=models)
+    (m1,) = [line for line in lines(nl) if line.startswith("XM1 ")]
+    assert " w={0.5 * 2} " in f"{m1} " and " ad={0.5 * 0.5}" in f" {m1}"
+    back = morphnet.from_netlists(morphnet.to_netlists(nl), nl.top_circuit)
+    assert write_spice(back) == write_spice(nl)
+    assert json.loads(write_gsch(back)) == doc
+    message = "M1: 'ad' is derived from model expression 'w * 0.5'; edit 'w' instead"
+    with pytest.raises(ValueError, match=re.escape(message)):
+        write_gsch(edited(nl, "M1", ad="3"))
