@@ -38,6 +38,7 @@ __all__ = ["format_expression", "parameter_value", "parse_expression", "value_te
 
 # A netlist identifier (the SPICE/Spectre IDENT token): a bare reference by name.
 IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.\[\]:!#]*")
+WORD_RE = re.compile(r"\b[A-Za-z_]\w*", re.ASCII)  # what nyancad substitutes in text
 
 # Dialect -> (open, close) around a compound expression.
 WRAP: dict[str, tuple[str, str]] = {
@@ -164,8 +165,8 @@ def _text(expr: Expression, dialect: str, resolve: Resolve | None) -> tuple[str,
     """Printed ``expr`` and its binding strength."""
     if expr.reference is not None:
         sub = resolve(expr.reference) if resolve else None
-        if sub is not None:
-            return _text(sub, dialect, resolve)
+        if sub is not None:  # once, like nyancad's textual substitution
+            return _text(sub, dialect, None)
         return expr.reference, ATOM
     if expr.literal is not None:
         return _number(expr.literal, dialect), ATOM
@@ -192,6 +193,13 @@ def _text(expr: Expression, dialect: str, resolve: Resolve | None) -> tuple[str,
         then = part(t.then, lambda p: p == RAW)
         otherwise = part(t.otherwise, lambda p: p == RAW)
         return f"{cond} ? {then} : {otherwise}", TERNARY
+    if resolve and expr.raw:  # unparsed: substitute words, as nyancad does
+
+        def word(m: re.Match[str]) -> str:
+            sub = resolve(m[0])
+            return m[0] if sub is None else _text(sub, dialect, None)[0]
+
+        return WORD_RE.sub(word, expr.raw), RAW
     return expr.raw or "", RAW
 
 
@@ -208,7 +216,8 @@ def format_expression(
     vacask, systemverilog and vams print it bare. A literal or a reference is never
     wrapped. Raw text is wrapped only as the value of a ``named`` (``k=v``) param, and
     not when it is already wrapped or a bare word or number; a positional value
-    (``DC 1 AC 1``) stays verbatim. ``resolve(name)`` may substitute a reference.
+    (``DC 1 AC 1``) stays verbatim. ``resolve(name)`` may substitute a reference, or a
+    word of raw text; the substitute is printed as is, not resolved again.
     """
     opening, closing = WRAP[dialect]
     text, prec = _text(expr, dialect, resolve)

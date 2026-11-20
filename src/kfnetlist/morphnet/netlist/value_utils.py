@@ -4,6 +4,7 @@ import re
 from collections.abc import Callable
 
 from kfnetlist.morphnet.morphnet_schema import (
+    Expression,
     Parameter,
     ParameterValue,
     PrefixedValue,
@@ -72,18 +73,47 @@ def param_text(
     fmt: Callable[[ParameterValue], str],
     dialect: str,
     named: bool = True,
+    resolve: Callable[[str], Expression | None] | None = None,
 ) -> str | None:
     """Written value of a parameter: its expression printed for ``dialect`` (raw text
-    wrapped only when ``named``), else its default formatted by ``fmt``. None when
-    there is nothing to write (no value, or empty raw text)."""
+    wrapped only when ``named``; references through ``resolve``), else its default
+    formatted by ``fmt``. None when there is nothing to write (no value, or empty raw
+    text)."""
     from kfnetlist.morphnet.netlist.expression import format_expression  # a cycle
 
     value = param.default_value
     if value is None or (value.expression is not None and value.expression.raw == ""):
         return None
     if value.expression is not None:
-        return format_expression(value.expression, dialect, named=named)
+        return format_expression(value.expression, dialect, resolve, named=named)
     return fmt(value)
+
+
+def sim_params(
+    ref: SubCircuit,
+) -> tuple[list[Parameter], Callable[[str], Expression | None]]:
+    """The params of ``ref`` a simulator sees, and the ``resolve`` that prints a
+    reference to one of its source props as that prop's value.
+
+    Source props (``properties["role"] == "source"``, e.g. a ``.gsch`` ``width``) are
+    what model expressions (``w = width * 1e-6``) read; they are not device params.
+    """
+    sources = {
+        p.name: p.default_value
+        for p in ref.parameters
+        if p.properties.get("role") == "source" and p.default_value is not None
+    }
+
+    def resolve(name: str) -> Expression | None:
+        value = sources.get(name)
+        if value is None or value.expression is not None:
+            return value.expression if value else None
+        if value.prefixed_value is not None:
+            return Expression(literal=value.prefixed_value)
+        return None
+
+    params = [p for p in ref.parameters if p.properties.get("role") != "source"]
+    return params, resolve
 
 
 # Deprecated name, kept for code written before the ExternalCircuit rename.

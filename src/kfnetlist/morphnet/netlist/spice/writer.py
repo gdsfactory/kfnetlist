@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from kfnetlist.morphnet.morphnet_schema import (
     Analysis,
     AnalysisKind,
     Netlist,
     Directive,
     DirectiveKind,
+    Expression,
     ExternalCircuit,
     Measurement,
     Circuit,
@@ -23,6 +26,7 @@ from kfnetlist.morphnet.netlist.value_utils import (
     format_si_value,
     is_skipped,
     param_text,
+    sim_params,
 )
 
 # Reverse lookup: module name → SPICE device prefix letter — O(1) per instance
@@ -46,8 +50,13 @@ class SpiceWriter:
             return format_si_value(pval.prefixed_value)
         return "0"
 
-    def param_text(self, param: Parameter, named: bool = True) -> str | None:
-        return param_text(param, self.format_param_value, self.dialect, named)
+    def param_text(
+        self,
+        param: Parameter,
+        named: bool = True,
+        resolve: Callable[[str], Expression | None] | None = None,
+    ) -> str | None:
+        return param_text(param, self.format_param_value, self.dialect, named, resolve)
 
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
@@ -191,6 +200,7 @@ class SpiceWriter:
         prefix = CIRCUIT_TO_PREFIX.get(ref.circuit_name)
         ext_circuit = ext_by_name.get(ref.circuit_name)
 
+        params, resolve = sim_params(ref)
         if prefix:
             # Primitive device: R1 net1 net2 value param=val ...
             inst_name = ref.name
@@ -206,9 +216,9 @@ class SpiceWriter:
             model_name = ref.properties.get("model_name", "")
             value_str = ""
             other_params: list[str] = []
-            for param in ref.parameters:
+            for param in params:
                 positional = param.name == "value"
-                text = self.param_text(param, named=not positional)
+                text = self.param_text(param, not positional, resolve)
                 if text is None:
                     continue
                 if positional:
@@ -241,8 +251,8 @@ class SpiceWriter:
 
         params_parts = [
             f"{p.name}={text}"
-            for p in ref.parameters
-            if (text := self.param_text(p)) is not None
+            for p in params
+            if (text := self.param_text(p, resolve=resolve)) is not None
         ]
         out_name = self.out_name(ref, ext_by_name, circuit_by_name)
         parts = [out_name, nets_str, subckt_name]

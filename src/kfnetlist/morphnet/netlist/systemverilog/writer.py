@@ -23,7 +23,8 @@ from kfnetlist.morphnet.netlist.hdl import (
 )
 from kfnetlist.morphnet.netlist.net_utils import BIT_RE, connections_to_instance_nets
 from kfnetlist.morphnet.netlist.expression import format_expression
-from kfnetlist.morphnet.netlist.value_utils import to_float
+from kfnetlist.morphnet.netlist.expression import Resolve
+from kfnetlist.morphnet.netlist.value_utils import sim_params, to_float
 
 IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*")
 RESERVED = {
@@ -60,13 +61,13 @@ def declaration(type_name: str, name: str, rng: Range | None) -> str:
     return " ".join(p for p in (type_name, dim, sv_name(name)) if p)
 
 
-def format_param_value(param: Parameter) -> str:
+def format_param_value(param: Parameter, resolve: Resolve | None = None) -> str:
     """Plain number (SI suffixes are not SystemVerilog), else the expression text."""
     pval = param.default_value
     if pval is not None and pval.prefixed_value is not None:
         return f"{to_float(pval.prefixed_value):.12g}"
     if pval is not None and pval.expression is not None:
-        return format_expression(pval.expression, "systemverilog")
+        return format_expression(pval.expression, "systemverilog", resolve)
     return "0"
 
 
@@ -176,12 +177,13 @@ class SystemVerilogWriter:
         buses: Buses | None = None,
     ) -> str:
         params = ""
-        if ref.parameters:
+        shown, resolve = sim_params(ref)
+        if shown:
             params = (
                 " #("
                 + ", ".join(
-                    f".{sv_name(p.name)}({format_param_value(p)})"
-                    for p in ref.parameters
+                    f".{sv_name(p.name)}({format_param_value(p, resolve)})"
+                    for p in shown
                 )
                 + ")"
             )

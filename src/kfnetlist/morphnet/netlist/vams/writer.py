@@ -20,8 +20,8 @@ from kfnetlist.morphnet.netlist.hdl import (
 )
 from kfnetlist.morphnet.netlist.net_utils import BIT_RE, connections_to_instance_nets
 from kfnetlist.morphnet.netlist.systemverilog.writer import sv_name
-from kfnetlist.morphnet.netlist.expression import format_expression
-from kfnetlist.morphnet.netlist.value_utils import format_si_value
+from kfnetlist.morphnet.netlist.expression import Resolve, format_expression
+from kfnetlist.morphnet.netlist.value_utils import format_si_value, sim_params
 
 
 def declaration(keyword: str, names: list[str], rng: Range | None) -> str:
@@ -165,10 +165,11 @@ class VamsWriter:
         buses: Buses | None = None,
     ) -> str:
         params_str = ""
-        if ref.parameters:
+        shown, resolve = sim_params(ref)
+        if shown:
             param_parts = [
-                f".{p.name}({self.format_param_value(p.default_value)})"
-                for p in ref.parameters
+                f".{p.name}({self.format_param_value(p.default_value, resolve)})"
+                for p in shown
                 if p.default_value
             ]
             params_str = f" #({', '.join(param_parts)})"
@@ -193,7 +194,7 @@ class VamsWriter:
 
         return f"  {ref.circuit_name}{params_str} {sv_name(ref.name)} ({ports_str});"
 
-    def format_param_value(self, pval: object) -> str:
+    def format_param_value(self, pval: object, resolve: Resolve | None = None) -> str:
         from kfnetlist.morphnet.morphnet_schema import ParameterValue
 
         if pval is None:
@@ -203,7 +204,7 @@ class VamsWriter:
         if pval.prefixed_value is not None:
             return format_si_value(pval.prefixed_value)
         if pval.expression is not None:
-            return format_expression(pval.expression, "vams")
+            return format_expression(pval.expression, "vams", resolve)
         return "0"
 
     def infer_port_order(

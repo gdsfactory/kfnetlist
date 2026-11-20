@@ -1,11 +1,14 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from kfnetlist.morphnet.morphnet_schema import (
     Analysis,
     AnalysisKind,
     Netlist,
     Directive,
     DirectiveKind,
+    Expression,
     ExternalCircuit,
     Circuit,
     Parameter,
@@ -22,6 +25,7 @@ from kfnetlist.morphnet.netlist.value_utils import (
     format_si_value,
     is_skipped,
     param_text,
+    sim_params,
 )
 
 CIRCUIT_TO_PREFIX: dict[str, str] = {v: k for k, v in DEVICE_PREFIX_TO_CIRCUIT.items()}
@@ -39,9 +43,13 @@ class SpectreWriter:
             return format_si_value(pval.prefixed_value)
         return "0"
 
-    def param_text(self, param: Parameter) -> str | None:
+    def param_text(
+        self,
+        param: Parameter,
+        resolve: Callable[[str], Expression | None] | None = None,
+    ) -> str | None:
         dialect = "vacask" if self.vacask else "spectre"
-        return param_text(param, self.format_param_value, dialect)
+        return param_text(param, self.format_param_value, dialect, resolve=resolve)
 
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
@@ -191,8 +199,9 @@ class SpectreWriter:
             prefix.lower() if self.vacask and prefix and prefix in "RCL" else "value"
         )
         param_strs: list[str] = []
-        for param in ref.parameters:
-            text = self.param_text(param)
+        params, resolve = sim_params(ref)
+        for param in params:
+            text = self.param_text(param, resolve)
             if text is not None:
                 name = value_name if param.name == "value" else param.name
                 param_strs.append(f"{name}={text}")
