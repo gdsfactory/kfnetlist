@@ -340,7 +340,7 @@ def test_read_gsch_rejects_two_children_with_one_circuit_name(tmp_path):
         for i, m in enumerate(("a/cell.gsch", "b/cell.gsch"))
     }
     (tmp_path / "top.gsch").write_text(json.dumps(doc))
-    with pytest.raises(ValueError, match=r"b/cell\.gsch"):
+    with pytest.raises(ValueError, match=re.escape(str(Path("b", "cell.gsch")))):
         read_gsch(tmp_path / "top.gsch")
 
 
