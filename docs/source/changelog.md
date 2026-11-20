@@ -37,8 +37,9 @@
   with no node is not written.
   Through the kfnetlist bridge an expression parameter is a string setting with
   its canonical text, and its tree rides in `info["__morphnet__"]`: unchanged
-  text restores the tree, edited text comes back as `raw`. kfnetlist string and
-  bool settings become `raw` expressions.
+  text restores the tree, edited text is parsed again (`raw` when it does not
+  parse). Other kfnetlist string and bool settings become `raw` expressions kept
+  verbatim (`model="nch-lvt"` stays `nch-lvt`).
 - **Macros** — a new `Macro` message (`name`, `language`, `body`,
   `properties`) on `Netlist.macros` and `Circuit.macros` carries verbatim
   blocks. Writers print a body when their dialect takes its language (Spectre

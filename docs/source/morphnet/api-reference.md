@@ -250,6 +250,12 @@ The document header (`name`, `properties`, `ext_circuits`, `libraries`,
 `simulation`) is stored on every cell, so `from_netlists()` of any subset of the
 cells, or with another `toplevel`, keeps it. Cells from several documents take the
 toplevel's header plus the external circuits it lacks, by name.
+
+An expression parameter is a string setting holding its canonical text (`2 * l`);
+its tree rides in the instance's `info["__morphnet__"]`. Unchanged text restores
+the tree; edited text is parsed again (`raw` when it does not parse). Any other
+string or bool setting becomes a `raw` expression kept verbatim (`nch-lvt`,
+`true`).
 `CircuitDocument.net_names` and `CircuitDocument.directives` expose net names and
 directives on the document side.
 
@@ -277,9 +283,9 @@ Base class for all kfnetlist.morphnet data models. Extends `pydantic.BaseModel` 
 | `to_proto_bytes() -> bytes` | Serialize to binary protobuf |
 | `from_proto_bytes(data: bytes) -> Self` | Deserialize from binary protobuf (classmethod) |
 | `from_proto(msg: ProtoMessage) -> Self` | Convert from a protobuf Message (classmethod) |
-| `to_json(**kwargs) -> str` | Serialize to JSON string |
+| `to_json(**kwargs) -> str` | Serialize to JSON string (unset fields and empty `macros` left out, as in Rust) |
 | `from_json(json_str: str) -> Self` | Deserialize from JSON string (classmethod) |
-| `to_yaml(**kwargs) -> str` | Serialize to YAML string |
+| `to_yaml(**kwargs) -> str` | Serialize to YAML string (same keys as `to_json`) |
 | `from_yaml(yaml_str: str) -> Self` | Deserialize from YAML string (classmethod) |
 | `model_copy(update={...})` | Create a modified copy (inherited from Pydantic) |
 

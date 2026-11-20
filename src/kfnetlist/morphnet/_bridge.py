@@ -71,14 +71,30 @@ def _restore_order(netlist: Netlist) -> None:
         props.update(ordered)
 
 
-def _parse_raw(netlist: Netlist) -> None:
-    """Parse the ``raw`` expressions an edited setting leaves (unparsable text stays)."""
-    for circuit in [*netlist.circuits, *netlist.ext_circuits]:
-        subs = getattr(circuit, "subcircuits", [])
-        for param in [*circuit.parameters, *(p for s in subs for p in s.parameters)]:
-            value = param.default_value
-            if value is not None and value.expression and value.expression.raw:
-                value.expression = parse_expression(value.expression.raw)
+def _trees(info: Mapping) -> set[str]:
+    """Names of the stashed params that held an expression tree (not ``raw`` text)."""
+    return {
+        p.get("name", "")
+        for p in _stash(info).get("parameters", [])
+        if (expr := (p.get("default_value") or {}).get("expression")) is not None
+        and "raw" not in expr
+    }
+
+
+def _parse_raw(netlist: Netlist, netlists: Mapping[str, KfNetlist]) -> None:
+    """Parse the ``raw`` text an edited expression setting leaves (unparsable text
+    stays). Other string settings were never expressions: they stay verbatim."""
+    for circuit in netlist.circuits:
+        instances = netlists[circuit.name].instances if circuit.name in netlists else {}
+        for sub in circuit.subcircuits:
+            if sub.name not in instances:
+                continue
+            trees = _trees(instances[sub.name].info)
+            for param in sub.parameters:
+                value = param.default_value
+                if param.name in trees and value and value.expression:
+                    if value.expression.raw:
+                        value.expression = parse_expression(value.expression.raw)
 
 
 def from_netlists(
@@ -98,7 +114,7 @@ def from_netlists(
     doc = NetlistDocument.from_netlists(dict(netlists), toplevel)
     netlist = Netlist.from_proto_bytes(doc.to_proto())
     _restore_order(netlist)
-    _parse_raw(netlist)
+    _parse_raw(netlist, netlists)
     # Masters the restored source document used without declaring stay undeclared.
     undeclared = {
         name

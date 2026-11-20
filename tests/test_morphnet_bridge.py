@@ -545,35 +545,41 @@ def _bridged() -> tuple[dict[str, Netlist], morphnet.Netlist]:
     return netlists, morphnet.from_netlists(netlists)
 
 
-def test_bridge_parses_string_and_bool_settings_as_expressions():
+def test_bridge_keeps_string_and_bool_settings_verbatim():
     from kfnetlist.morphnet.morphnet_schema import Expression, ParameterValue
 
+    text = {"model": "nch-lvt", "path": "models/a", "date": "2024-01-01"}
     nl = Netlist()
     nl.create_inst(
         "X1",
         kcl="",
         component="cell",
-        settings={"w": "2*l", "on": True, "n": 2, "v": "DC 1"},
+        settings={**text, "w": "2*l", "on": True, "n": 2, "v": "DC 1"},
     )
     sub = morphnet.from_netlists({"top": nl}).circuits[0].subcircuits[0]
     params = {p.name: p for p in sub.parameters}
-    assert params["w"].default_value == ParameterValue(
-        expression=parse_expression("2*l")
-    )
-    assert params["on"].default_value == ParameterValue(
-        expression=Expression(reference="true")
-    )
-    assert params["v"].default_value == ParameterValue(  # no expression: kept as text
-        expression=Expression(raw="DC 1")
-    )
+    for name, raw in {**text, "w": "2*l", "on": "true", "v": "DC 1"}.items():
+        assert params[name].default_value == ParameterValue(
+            expression=Expression(raw=raw)
+        )
     assert params["w"].properties == {}
     back = morphnet.to_netlists(morphnet.from_netlists({"top": nl}))["top"]
     assert back.instances["X1"].settings == {
+        **text,
         "w": "2*l",
         "on": True,
         "n": 2,
         "v": "DC 1",
     }
+    # the strings reach every writer unchanged, through a second trip too
+    for doc in (nl, back):
+        ir = morphnet.from_netlists({"top": doc})
+        props = json.loads(write_gsch(ir))
+        (x1,) = [e["props"] for e in props.values() if e.get("name") == "X1"]
+        assert {k: x1[k] for k in text} == text
+        for k, v in text.items():
+            assert f"{k}={v}" in write_spectre(ir)
+            assert f"{k}={{{v}}}" in write_spice(ir)  # raw text keeps the wrapper
 
 
 def test_bridge_shows_an_expression_as_its_text_and_keeps_its_tree():
