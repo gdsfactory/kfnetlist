@@ -16,7 +16,8 @@ from pathlib import Path
 import pytest
 
 from kfnetlist import morphnet
-from kfnetlist.morphnet.morphnet_schema import DirectiveKind, Netlist
+from kfnetlist.morphnet.morphnet_schema import DirectiveKind, Expression, Netlist
+from kfnetlist.morphnet.netlist.expression import parse_expression
 from kfnetlist.morphnet.netlist.gsch.parser import parameter
 from kfnetlist.morphnet.netlist import (
     parse_gsch,
@@ -547,3 +548,66 @@ def test_a_tied_bulk_is_written_only_once_moved_off_ground():
     assert json.loads(write_gsch(nl))["t:M1"]["nets"] == {
         "D": "d", "G": "g", "S": "s", "B": "s"
     }  # fmt: skip
+
+
+# ── source props and model-derived params (#4) ─────────────────────────────────
+
+
+def inverter() -> Netlist:
+    return parse_gsch((FIXTURES / "ihp_cmos_inverter.gsch").read_text(), models=MODELS)
+
+
+def edited(nl: Netlist, inst: str, **settings) -> Netlist:
+    """``nl`` through the kfnetlist bridge, with ``settings`` changed on ``inst``."""
+    from kfnetlist import Netlist as KfNetlist
+
+    netlists = morphnet.to_netlists(nl)
+    doc = netlists[nl.top_circuit].to_dict()
+    doc["instances"][inst]["settings"].update(settings)
+    netlists[nl.top_circuit] = KfNetlist.from_dict(doc)
+    return morphnet.from_netlists(netlists, nl.top_circuit)
+
+
+def test_model_params_are_expressions_over_the_source_props():
+    m1 = next(s for s in inverter().circuits[0].subcircuits if s.name == "M1")
+    by_name = {p.name: p for p in m1.parameters}
+    sources = {n for n, p in by_name.items() if p.properties.get("role") == "source"}
+    assert sources == {"width", "length", "nf", "model"}  # `m = m`: one plain param
+    assert by_name["w"].default_value.expression == parse_expression("width * 1e-6")
+    assert by_name["ng"].default_value.expression == Expression(reference="nf")
+    assert by_name["width"].default_value == parameter("width", 0.15).default_value
+    assert "role" not in by_name["m"].properties
+
+
+def test_an_edited_source_prop_reaches_the_gsch_and_the_simulation():
+    raw = json.loads((FIXTURES / "ihp_cmos_inverter.gsch").read_text())["demo2:M1"]
+    back = edited(inverter(), "M1", width=0.3)
+    assert json.loads(write_gsch(back))["demo2:M1"]["props"] == {
+        **raw["props"],
+        "width": 0.3,
+    }
+    (m1,) = [line for line in lines(back) if line.startswith("XM1 ")]
+    assert m1.endswith(" w={0.3 * 1e-6}")
+    assert "width=0.3" not in m1  # a source prop is not a simulation param
+
+
+def test_an_edited_derived_param_is_an_error_not_a_silent_drop():
+    back = edited(inverter(), "M1", w="0.2 * 1e-6")
+    message = (
+        "M1: 'w' is derived from model expression 'width * 1e-6'; edit 'width' instead"
+    )
+    with pytest.raises(ValueError, match=re.escape(message)):
+        write_gsch(back)
+
+
+def test_an_edited_model_default_is_written_and_a_computed_param_is_an_error():
+    text = (FIXTURES / "ihp_hier_top.gsch").read_text()
+    nl = parse_gsch(text, models=MODELS)
+    subs = {s.name: s for s in nl.circuits[0].subcircuits}
+    # X2's `rload` is the model's default, not in the entry's props
+    assert [p.name for p in subs["X2"].parameters] == ["rload"]
+    subs["X2"].parameters = [parameter("rload", "2k")]
+    assert json.loads(write_gsch(nl))["top:X2"]["props"]["rload"] == "2k"
+    subs["V1"].parameters = [parameter("value", "DC 5")]
+    with pytest.raises(ValueError, match="V1: 'value' is derived from the device's"):
+        write_gsch(nl)

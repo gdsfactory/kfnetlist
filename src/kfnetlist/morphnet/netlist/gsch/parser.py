@@ -34,6 +34,7 @@ from kfnetlist.morphnet.netlist.net_utils import (
 )
 from kfnetlist.morphnet.netlist.gsch.sim import (
     GROUND,
+    Element,
     check_sim,
     element,
     library,
@@ -45,9 +46,11 @@ from kfnetlist.morphnet.netlist.value_utils import is_si_number, parse_parameter
 # Instance stash: ``SubCircuit.properties["__info__"]`` = ``{"__gsch__": {"key", "entry"}}``.
 # The ``__`` prefix keeps it out of kfnetlist instance equality.
 INFO = "__info__"
-# {"key", "entry"[, "circuit": parsed circuit_name if not `model`][, "derived":
-# params the simulation view made, not the entry's props][, "pins": IR pin -> entry
-# pin where they differ beyond case][, "tied": IR pins tied to ground, not in entry]}
+# {"key", "entry"[, "circuit": parsed circuit_name if not `model`][, "params": param
+# -> the model expression it is derived from][, "computed": param -> value the
+# simulation view computed from props (source waveforms, ...)][, "defaults": model
+# prop defaults the entry does not set][, "pins": IR pin -> entry pin where they
+# differ beyond case][, "tied": IR pins tied to ground, not in entry]}
 STASH = "__gsch__"
 MODEL = "__model__"  # the device's nyanlib model (FQN)
 TOP = "__top__"  # writers write a circuit with this name flat
@@ -120,6 +123,52 @@ def parameter(name: str, raw: Any) -> Parameter:
     return Parameter(
         name=name, default_value=ParameterValue(expression=parse_expression(text))
     )
+
+
+def parameters(
+    entry: Mapping[str, Any], device: Element | None, stash: dict[str, Any]
+) -> list[Parameter]:
+    """The IR params of a component, recording in ``stash`` which are not its props.
+
+    A model with ``params`` makes each an expression over the instance's source
+    props (``w = width * 1e-6``), which become ``role=source`` params; a bare rename
+    of a prop (``m = m``) is that prop. Writers resolve the references (nyancad
+    substitutes them textually).
+    """
+    if device is None:  # not simulated: the params are the props
+        return [parameter(k, v) for k, v in (entry.get("props") or {}).items()]
+    given = entry.get("props") or {}
+    out, exprs, computed = [], {}, {}
+    for k, v in device.params.items():
+        expr = device.exprs.get(k)
+        if expr is not None and expr.strip() != k:
+            exprs[k] = expr
+            out.append(parameter(k, expr))
+            continue
+        if not (
+            (k in given and given[k] == v)
+            or (k in device.defaults and device.defaults[k] == v)
+            or (k == "value" and entry.get("type") in VALUE_PROPS)  # resistance/...
+        ):
+            computed[k] = v  # source waveforms, $mfactor, ...: not props
+        out.append(parameter(k, v))
+    # ponytail: a model param named like a prop it does not just rename (`w = w*2`)
+    # gives two params of one name; the IR is fine, the kfnetlist bridge (settings
+    # by name) is not. Rename the source param if a PDK does that.
+    for k, v in device.sources.items():
+        if not (k in device.params and device.exprs.get(k, "").strip() == k):
+            source = {"properties": {"role": "source"}}  # read by model expressions
+            out.append(parameter(k, v).model_copy(update=source))
+    names = {p.name for p in out}
+    defaults = {k: v for k, v in device.defaults.items() if k in names}
+    for field, value in (
+        ("params", exprs),
+        ("computed", computed),
+        ("defaults", defaults),
+    ):
+        if value:
+            stash[field] = value
+    return out
 
 
 def _find(parent: dict[Node, Node], node: Node) -> Node:
@@ -392,18 +441,11 @@ def parse_gsch(
             info[STASH]["pins"] = renamed
         if key in tied:
             info[STASH]["tied"] = tied[key]
-        raw = device.params if device else entry.get("props") or {}
-        given = entry.get("props") or {}
-        derived = {k for k, v in raw.items() if k not in given or given[k] != v}
-        if entry.get("type") in VALUE_PROPS:  # `value` is the resistance/... prop
-            derived.discard("value")
-        if derived:  # model `params`, model defaults, source waveforms: not props
-            info[STASH]["derived"] = sorted(derived)
         subcircuits.append(
             SubCircuit(
                 name=names[key],
                 circuit_name=master(key),
-                parameters=[parameter(k, v) for k, v in raw.items()],
+                parameters=parameters(entry, device, info[STASH]),
                 properties={INFO: json.dumps(info), **props},
             )
         )

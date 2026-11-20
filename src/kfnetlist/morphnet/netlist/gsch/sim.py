@@ -235,6 +235,11 @@ class Element:
     prefix: str = ""  # SPICE letter of the circuit
     rename: dict[str, str] = field(default_factory=dict)  # device pin.lower() -> pin
     ground: list[str] = field(default_factory=list)  # pins tied to ground if open
+    # a model with `params`: the props its expressions read, and those expressions
+    sources: dict[str, Any] = field(default_factory=dict)
+    exprs: dict[str, str] = field(default_factory=dict)
+    # model prop defaults the entry's props do not set
+    defaults: dict[str, Any] = field(default_factory=dict)
 
     def pin(self, name: str) -> str:
         return self.rename.get(name.lower(), name)
@@ -261,7 +266,24 @@ def element(
 ) -> Element | None:
     """The device nyancad netlists for ``entry``, or None when it netlists none."""
     device = _element(entry, models, sim, entry.get("name") or key)  # nyancad's name
-    return device and vacask(device, sim)
+    model_def = models.get(f"models:{entry.get('model')}")
+    if device is None or not isinstance(model_def, dict):
+        return device and vacask(device, sim)
+    props, defaults = entry.get("props") or {}, model_defaults(model_def)
+    device.defaults = {k: v for k, v in defaults.items() if k not in props}
+    chosen = select_entry(model_def, sim)
+    if chosen and chosen.get("params"):
+        device.sources = {**defaults, **props}
+        device.exprs = dict(chosen["params"])
+    return vacask(device, sim)
+
+
+def model_defaults(model_def: Mapping[str, Any]) -> dict[str, Any]:
+    return {
+        p["name"]: p["default"]
+        for p in model_def.get("props") or []
+        if p.get("name") and p.get("default") is not None
+    }
 
 
 def _element(
@@ -274,11 +296,7 @@ def _element(
     props = dict(entry.get("props") or {})
     chosen, name = None, None
     if isinstance(model_def, dict):
-        defaults = {
-            p["name"]: p["default"]
-            for p in model_def.get("props") or []
-            if p.get("name") and p.get("default") is not None
-        }
+        defaults = model_defaults(model_def)
         name = model_def.get("name") or entry["model"]
         chosen = select_entry(model_def, sim)
         if chosen:
@@ -337,6 +355,8 @@ def vacask(device: Element, sim: str) -> Element:
         return device
     if device.prefix in VACASK_MASTER and not device.model_name:
         device.model_name = VACASK_MASTER[device.prefix]
+    # ponytail: `$mfactor` is computed from `m` here, so a later edit of a model's
+    # source `m` does not reach it; make it an expression if that edit matters.
     if device.prefix in ("D", "M", "Q") and "m" in device.params:
         m = device.params.pop("m")
         if number(m) != 1:

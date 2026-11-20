@@ -32,7 +32,7 @@ from kfnetlist.morphnet.netlist.gsch.parser import (
 )
 from kfnetlist.morphnet.netlist.gsch.sim import GROUND
 from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
-from kfnetlist.morphnet.netlist.expression import format_expression
+from kfnetlist.morphnet.netlist.expression import WORD_RE, format_expression
 from kfnetlist.morphnet.netlist.value_utils import format_si_value
 
 # Mosaic device symbol types (frontend/mosaic common.cljc `device-types`). Any other
@@ -57,7 +57,7 @@ PITCH = 4  # Mosaic grid units between synthesized symbols
 
 def prop_value(param: Parameter, stashed: dict[str, Any]) -> Any:
     """The ``props`` value of ``param``: the original JSON value while unchanged."""
-    if param.name in stashed and parameter(param.name, stashed[param.name]) == param:
+    if param.name in stashed and same(param, stashed[param.name]):
         return stashed[param.name]
     value = param.default_value
     if value is not None and value.prefixed_value is not None:
@@ -68,6 +68,25 @@ def prop_value(param: Parameter, stashed: dict[str, Any]) -> Any:
     if value is not None and value.expression is not None:
         return format_expression(value.expression, "gsch")
     return ""
+
+
+def same(param: Parameter, raw: Any) -> bool:
+    """``param`` still holds the JSON value ``raw`` (its role aside)."""
+    return parameter(param.name, raw).default_value == param.default_value
+
+
+def check_derived(sub: SubCircuit, param: Parameter, stash: dict[str, Any]) -> None:
+    """Raise unless ``param``, which is not a prop, still has its parsed value."""
+    expr = stash.get("params", {}).get(param.name)
+    if same(param, expr if expr is not None else stash["computed"][param.name]):
+        return
+    sources = {p.name for p in sub.parameters if p.properties.get("role") == "source"}
+    props = [w for w in dict.fromkeys(WORD_RE.findall(expr or "")) if w in sources]
+    origin = f"model expression {expr!r}" if expr is not None else "the device's props"
+    edit = ", ".join(map(repr, props)) or "those props"
+    raise ValueError(
+        f"{sub.name}: {param.name!r} is derived from {origin}; edit {edit} instead"
+    )
 
 
 def component_ref(terminal: Any) -> dict[str, Any]:
@@ -295,13 +314,19 @@ def write_gsch(netlist: Netlist) -> str:
             net_of[sub.name, pin.lower()] = net
         stashed_props = entry.get("props") or {}
         simulated = stash and not new_master and sub.properties.get("sim_skip") != "1"
-        derived = set(stash.get("derived", [])) if simulated else set()
+        sim = stash if simulated else {}
+        derived = {*sim.get("params", {}), *sim.get("computed", {})}
+        defaults = sim.get("defaults", {})
         # a simulated instance keeps the props its params do not show (`model`,
         # `tran` strings, ...); otherwise the params are the props
         entry["props"] = dict(stashed_props) if simulated else {}
         for p in sub.parameters:
-            if p.name in derived:
+            if p.name in derived and p.properties.get("role") != "source":
+                check_derived(sub, p, sim)  # no prop to go back to
                 continue
+            unset = p.name not in stashed_props and p.name in defaults
+            if unset and same(p, defaults[p.name]):
+                continue  # still the model's default
             prop = (
                 VALUE_PROPS.get(entry["type"], p.name) if p.name == "value" else p.name
             )
@@ -309,10 +334,8 @@ def write_gsch(netlist: Netlist) -> str:
             entry["props"][prop] = prop_value(p, stashed_props)
         if stash and "props" not in stash["entry"] and not entry["props"]:
             del entry["props"]
-        # ponytail: params the simulation view derived (model `params` expressions
-        # such as `w={...}`, model prop defaults, source `value`/waveform params)
-        # have no prop to go back to, so their edits are lost; so are props removed
-        # from a simulated instance.
+        # ponytail: a param removed from a simulated instance keeps its prop; drop
+        # props without a param once instances can say which props they show.
         out[key] = entry
 
     markers: dict[str, dict[str, Any]] = {}
