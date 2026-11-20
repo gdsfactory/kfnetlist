@@ -83,6 +83,10 @@ fn terminal_alias_and_oneof_validation_work_in_rust() {
         json!({"prefixed_value": {}, "model_ref": {}})
     )
     .is_err());
+    assert!(serde_json::from_value::<proto::ParameterValue>(
+        json!({"prefixed_value": {}, "expression": {"node": {"raw": "x"}}})
+    )
+    .is_err());
 }
 
 #[test]
@@ -342,7 +346,12 @@ fn morphnet_only_fields_survive_kfnetlist() {
             },
             proto::Parameter {
                 name: "w".into(),
-                properties: [("expr".into(), "2*l".into())].into(),
+                default_value: serde_json::from_value(json!({"expression": {"node": {
+                    "binary": {"op": proto::Operator::Mul as i32,
+                        "lhs": {"node": {"literal": {"double_value": 2.0}}},
+                        "rhs": {"node": {"reference": "l"}}}
+                }}}))
+                .unwrap(),
                 ..Default::default()
             },
         ],
@@ -396,7 +405,7 @@ fn morphnet_only_fields_survive_kfnetlist() {
 
     let doc = NetlistDocument::from_proto_netlist(&netlist).unwrap();
     let top = &doc.modules["top"];
-    assert_eq!(top.instances["R1"].settings["w"], json!("2*l"));
+    assert_eq!(top.instances["R1"].settings["w"], json!("2 * l"));
     assert_eq!(top.instances["R1"].info["gsch"], json!(1));
     assert_eq!(
         top.instances["R1"].info["__morphnet__"]["properties"],
@@ -439,6 +448,23 @@ fn morphnet_only_fields_survive_kfnetlist() {
     assert_eq!(nets, [("a", 1), ("mid", 1)]);
     // A second trip is stable.
     assert_eq!(through_netlists(&back), back);
+
+    // An edited expression setting comes back as raw text.
+    let mut netlists = NetlistDocument::from_proto_netlist(&netlist)
+        .unwrap()
+        .to_netlists()
+        .unwrap();
+    let r1 = netlists.get_mut("top").unwrap().instances.get_mut("R1").unwrap();
+    r1.settings["w"] = json!("3*l");
+    let edited = NetlistDocument::from_netlists(&netlists, None)
+        .to_proto_netlist()
+        .unwrap();
+    let w = &edited.circuits[0].subcircuits[0].parameters[1];
+    assert_eq!(w.name, "w");
+    assert_eq!(
+        serde_json::to_value(&w.default_value).unwrap(),
+        json!({"expression": {"node": {"raw": "3*l"}}})
+    );
 }
 
 #[test]

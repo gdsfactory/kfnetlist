@@ -1,3 +1,4 @@
+use super::expression::{canonical, scaled};
 use super::{error, proto as p, CircuitDocument, NetlistDocument, Result, SubCircuitDocument};
 use indexmap::IndexMap;
 use kfnetlist_core::{merge_directives, Directive};
@@ -128,19 +129,20 @@ impl Stash {
     }
 }
 
-/// The kfnetlist setting a parameter carries: its number, else its `expr` text.
+/// The kfnetlist setting a parameter carries: its number, else its expression's
+/// canonical text (the tree itself rides in the parameter stash).
 fn setting(param: &p::Parameter) -> Option<Value> {
-    param.default_value.as_ref().and_then(number).or_else(|| {
-        param
-            .properties
-            .get("expr")
-            .map(|e| Value::from(e.as_str()))
-    })
+    match &param.default_value.as_ref()?.value {
+        Some(p::parameter_value::Value::PrefixedValue(v)) => Some(Value::from(scaled(v))),
+        Some(p::parameter_value::Value::Expression(e)) => Some(Value::from(canonical(e))),
+        _ => None,
+    }
 }
 fn same(a: &Value, b: &Value) -> bool {
     a == b || a.as_f64().is_some_and(|x| Some(x) == b.as_f64())
 }
-/// Restore stashed parameters still matching `settings`; regenerate the rest. A stashed
+/// Restore stashed parameters still matching `settings` (an expression: its printed
+/// text); regenerate the rest, so an edited expression becomes `raw`. A stashed
 /// parameter missing from `settings` was removed, unless `keep_unset` (a kfnetlist
 /// `Netlist` has no circuit-level settings, so there absence means "not carried").
 fn merge_parameters(
@@ -191,30 +193,23 @@ fn directive_from_proto(d: &p::Directive) -> Directive {
         value: d.value.clone(),
     }
 }
+/// The parameter value of a setting: a number, else string and bool settings as raw
+/// expression text (bools as `true`/`false`).
 fn parameter(value: &Value) -> Option<p::ParameterValue> {
-    value.as_f64().map(|v| p::ParameterValue {
-        value: Some(p::parameter_value::Value::PrefixedValue(p::PrefixedValue {
-            double_value: v,
+    use p::parameter_value::Value as V;
+    let value = match value {
+        Value::String(s) => V::Expression(raw(s.clone())),
+        Value::Bool(b) => V::Expression(raw(b.to_string())),
+        _ => V::PrefixedValue(p::PrefixedValue {
+            double_value: value.as_f64()?,
             prefix: 0,
-        })),
-    })
+        }),
+    };
+    Some(p::ParameterValue { value: Some(value) })
 }
-// SIPrefix enum value -> power of ten (QUECTO = 1 ... QUETTA = 24).
-const SI_EXPONENT: [i32; 25] = [
-    0, -30, -27, -24, -21, -18, -15, -12, -9, -6, -3, -2, -1, 1, 2, 3, 6, 9, 12, 15, 18, 21, 24,
-    27, 30,
-];
-fn number(value: &p::ParameterValue) -> Option<Value> {
-    match &value.value {
-        Some(p::parameter_value::Value::PrefixedValue(v)) => {
-            let exponent = usize::try_from(v.prefix)
-                .ok()
-                .and_then(|i| SI_EXPONENT.get(i))
-                .copied()
-                .unwrap_or(0);
-            Some(Value::from(v.double_value * 10f64.powi(exponent)))
-        }
-        _ => None,
+fn raw(text: String) -> p::Expression {
+    p::Expression {
+        node: Some(p::expression::Node::Raw(text)),
     }
 }
 fn terminal(text: &str) -> p::TerminalReference {
@@ -264,14 +259,6 @@ fn reference(t: &p::TerminalReference) -> String {
         format!("{},{}", t.instance_name, t.terminal_name)
     }
 }
-/// String and bool settings become an `expr` parameter (bools as `true`/`false`).
-fn expr(value: &Value) -> Option<String> {
-    match value {
-        Value::String(s) => Some(s.clone()),
-        Value::Bool(b) => Some(b.to_string()),
-        _ => None,
-    }
-}
 /// Net names of `connections` in order of first use.
 fn net_sequence(connections: &[p::Connection]) -> Vec<String> {
     let mut names: Vec<String> = Vec::new();
@@ -307,15 +294,11 @@ impl SubCircuitDocument {
         self.settings
             .iter()
             .filter_map(|(key, value)| {
-                let mut param = p::Parameter {
+                Some(p::Parameter {
                     name: key.clone(),
-                    default_value: parameter(value),
+                    default_value: Some(parameter(value)?),
                     ..Default::default()
-                };
-                if param.default_value.is_none() {
-                    param.properties.insert("expr".into(), expr(value)?);
-                }
-                Some(param)
+                })
             })
             .collect()
     }
@@ -402,15 +385,9 @@ impl CircuitDocument {
         for (name, value) in &self.settings {
             let mut properties = Properties::new();
             put(&mut properties, "__json_value__", value)?;
-            let default_value = parameter(value);
-            if default_value.is_none() {
-                if let Some(e) = expr(value) {
-                    properties.insert("expr".into(), e);
-                }
-            }
             parameters.push(p::Parameter {
                 name: name.clone(),
-                default_value,
+                default_value: parameter(value),
                 properties,
                 ..Default::default()
             });

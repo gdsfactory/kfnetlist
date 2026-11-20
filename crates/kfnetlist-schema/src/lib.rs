@@ -7,6 +7,7 @@
 //! YAML and netlist conversions operate on native Rust values throughout.
 mod convert;
 mod document;
+mod expression;
 pub use document::{ArraySpec, CircuitDocument, NetlistDocument, SubCircuitDocument};
 
 #[deprecated(note = "renamed to NetlistDocument")]

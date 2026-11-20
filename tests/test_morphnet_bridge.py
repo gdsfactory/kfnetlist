@@ -452,6 +452,7 @@ def _ir() -> morphnet.Netlist:
         Simulation,
         SubCircuit,
     )
+    from kfnetlist.morphnet.netlist.expression import parse_expression
 
     def conn(net, inst, pin):
         return Connection(
@@ -469,7 +470,10 @@ def _ir() -> morphnet.Netlist:
         circuit_name="rmodel",
         parameters=[
             Parameter(name="r", default_value=kilo),
-            Parameter(name="w", properties={"expr": "2*l"}),
+            Parameter(
+                name="w",
+                default_value=ParameterValue(expression=parse_expression("2*l")),
+            ),
         ],
         properties={"model_name": "rpoly", "__info__": '{"gsch": {"x": 1}}'},
     )
@@ -513,25 +517,49 @@ def _bridged() -> tuple[dict[str, Netlist], morphnet.Netlist]:
     return netlists, morphnet.from_netlists(netlists)
 
 
-def test_bridge_keeps_string_and_bool_settings_as_expr_parameters():
+def test_bridge_keeps_string_and_bool_settings_as_raw_expressions():
+    from kfnetlist.morphnet.morphnet_schema import Expression, ParameterValue
+
     nl = Netlist()
     nl.create_inst(
         "X1", kcl="", component="cell", settings={"w": "2*l", "on": True, "n": 2}
     )
     sub = morphnet.from_netlists({"top": nl}).circuits[0].subcircuits[0]
     params = {p.name: p for p in sub.parameters}
-    assert params["w"].properties["expr"] == "2*l"
-    assert params["on"].properties["expr"] == "true"
-    assert params["w"].default_value is None
+    assert params["w"].default_value == ParameterValue(expression=Expression(raw="2*l"))
+    assert params["on"].default_value == ParameterValue(
+        expression=Expression(raw="true")
+    )
+    assert params["w"].properties == {}
     back = morphnet.to_netlists(morphnet.from_netlists({"top": nl}))["top"]
     assert back.instances["X1"].settings == {"w": "2*l", "on": True, "n": 2}
 
+
+def test_bridge_shows_an_expression_as_its_text_and_keeps_its_tree():
     netlists, back_ir = _bridged()
-    assert netlists["top"].instances["R1"].settings == {"r": 1000.0, "w": "2*l"}
+    assert netlists["top"].instances["R1"].settings == {"r": 1000.0, "w": "2 * l"}
     assert (
         back_ir.circuits[0].subcircuits[0].parameters
         == _ir().circuits[0].subcircuits[0].parameters
     )
+
+
+def test_an_edited_expression_setting_comes_back_raw():
+    from kfnetlist.morphnet.morphnet_schema import Expression, ParameterValue
+
+    netlists = morphnet.to_netlists(_ir())
+    old = netlists["top"]
+    edited = Netlist()
+    for name, inst in old.instances.items():
+        settings = {**inst.settings, "w": "3*l"}
+        edited.create_inst(
+            name, kcl="", component=inst.component, settings=settings, info=inst.info
+        )
+    edited.info = old.info
+    back = morphnet.from_netlists({"top": edited})
+    params = {p.name: p for p in back.circuits[0].subcircuits[0].parameters}
+    assert params["w"].default_value == ParameterValue(expression=Expression(raw="3*l"))
+    assert params["r"] == _ir().circuits[0].subcircuits[0].parameters[0]
 
 
 def test_bridge_keeps_properties_and_info_at_both_levels():

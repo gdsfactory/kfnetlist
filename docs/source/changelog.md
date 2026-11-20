@@ -23,6 +23,10 @@
   `kfnetlist.morphnet.netlist.expression` read any dialect's text and print the
   canonical form (`0.13 * 1e-6`). The `.gsch` and SystemVerilog parsers produce
   it; the `properties["expr"]` text of earlier development builds is gone.
+  Through the kfnetlist bridge an expression parameter is a string setting with
+  its canonical text, and its tree rides in `info["__morphnet__"]`: unchanged
+  text restores the tree, edited text comes back as `raw`. kfnetlist string and
+  bool settings become `raw` expressions.
 - **Lossless bridge** — `morphnet.to_netlists()` / `from_netlists()` keep what
   `kfnetlist.Netlist` has no field for. New `Netlist.directives` (file
   directives) and `Netlist.info` (metadata) hold it. Both are excluded from
