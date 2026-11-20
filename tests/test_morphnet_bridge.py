@@ -255,6 +255,61 @@ def _parse(path: Path) -> morphnet.Netlist:
     return parse[path.suffix](text)
 
 
+def _bus_ir() -> morphnet.Netlist:
+    """Buses and foreign `__x` properties on an instance, a circuit and a connection."""
+    from kfnetlist.morphnet.morphnet_schema import (
+        Bus,
+        Circuit,
+        Connection,
+        PortReference,
+        SignalDomain,
+        SubCircuit,
+    )
+
+    def ref(inst, pin):
+        return PortReference(instance_name=inst, port_name=pin)
+
+    return morphnet.Netlist(
+        name="doc",
+        top_circuit="top",
+        circuits=[
+            Circuit(
+                name="top",
+                subcircuits=[
+                    SubCircuit(
+                        name="R1",
+                        circuit_name="resistor",
+                        properties={"__sub_x": '"a"', "kept": "1"},
+                    ),
+                    SubCircuit(name="R2", circuit_name="resistor"),
+                ],
+                connections=[
+                    Connection(
+                        name="mid",
+                        source=ref("R1", "n"),
+                        target=ref("R2", "p"),
+                        properties={"__conn_x": "2"},
+                    )
+                ],
+                buses=[
+                    Bus(
+                        name="data",
+                        width=2,
+                        domain=SignalDomain.ELECTRICAL,
+                        connections=[
+                            Connection(
+                                name="d0", source=ref("R1", "p"), target=ref("R2", "n")
+                            )
+                        ],
+                        properties={"protocol": "spi", "__bus_x": "1"},
+                    )
+                ],
+                properties={"__circuit_x": "3"},
+            )
+        ],
+    )
+
+
 def _lossless_cases():
     from kfnetlist.morphnet.netlist import parse_spectre_spice, parse_xyce
 
@@ -269,6 +324,7 @@ def _lossless_cases():
         for f in files
     ]
     cases += [
+        pytest.param(_bus_ir, id="buses_and_foreign_properties"),
         pytest.param(lambda: parse_spice(_SPICE), id="spice"),
         pytest.param(lambda: parse_xyce(_XYCE), id="xyce"),
         pytest.param(lambda: parse_spectre_spice(_SPECTRE_SPICE), id="spectre_spice"),
@@ -306,6 +362,25 @@ def test_bridge_lossless(make):
 
 
 # ---- focused: each morphnet-only field survives the bridge ----
+
+
+def test_bridge_keeps_buses_and_foreign_dunder_properties():
+    ir = _bus_ir()
+    netlists = morphnet.to_netlists(ir)
+    # kfnetlist sees the bus members as a plain net; connectivity is unchanged.
+    assert len(netlists["top"].nets) == 2
+    top = morphnet.from_netlists(netlists).circuits[0]
+    original = ir.circuits[0]
+    assert top.buses == original.buses
+    assert top.properties["__circuit_x"] == "3"
+    assert top.subcircuits[0].properties["__sub_x"] == '"a"'
+    assert {c.properties["__conn_x"] for c in top.connections if c.name == "mid"} == {
+        "2"
+    }
+    # A bus whose net no longer exists is dropped, not resurrected.
+    nl = netlists["top"]
+    nl.remove_instances(["R2"])
+    assert not morphnet.from_netlists(netlists).circuits[0].buses
 
 
 def _ir() -> morphnet.Netlist:

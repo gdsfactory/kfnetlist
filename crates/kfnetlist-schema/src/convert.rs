@@ -18,12 +18,27 @@ fn get<T: DeserializeOwned + Default>(props: &Properties, key: &str) -> Result<T
         .transpose()
         .map(|v| v.unwrap_or_default())
 }
-/// Properties morphnet owns (no `__` prefix, plus the bridge's `__order__` key-order
-/// record); the other `__` ones are this crate's encoding.
+/// `__` keys this crate writes and reads itself (`__order__`, the bridge's key-order
+/// record, is not one: it travels in the stash with the rest).
+const OWNED: [&str; 12] = [
+    "__array__",
+    "__info__",
+    "__name__",
+    "__placements__",
+    "__routes__",
+    "__nets__",
+    "__undeclared__",
+    "__json_value__",
+    "__from__",
+    "__members__",
+    "__named__",
+    "__setting__",
+];
+/// Properties morphnet owns, foreign `__` ones included: all but this crate's encoding.
 fn public(props: &Properties) -> Properties {
     props
         .iter()
-        .filter(|(k, _)| !k.starts_with("__") || *k == "__order__")
+        .filter(|(k, _)| !OWNED.iter().any(|o| k.starts_with(o)))
         .map(|(k, v)| (k.clone(), v.clone()))
         .collect()
 }
@@ -61,6 +76,10 @@ struct Stash {
     /// morphnet's bridge does not add built-in declarations the source never had.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     undeclared: Vec<String>,
+    /// `Circuit.buses`: their member nets are plain nets of the `Netlist`, so these are
+    /// restored only while a net still has the bus's members.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    buses: Vec<p::Bus>,
 }
 const STASH: &str = "__morphnet__";
 impl Stash {
@@ -197,6 +216,22 @@ fn terminal_pins(t: &p::Terminal) -> Vec<String> {
     (0..=(msb - lsb).abs())
         .map(|k| format!("{}[{}]", t.name, msb + step * k))
         .collect()
+}
+/// Pins of a bus: its `__members__`, else its connections' references in order.
+fn bus_members(bus: &p::Bus) -> Result<Vec<String>> {
+    if bus.properties.contains_key("__members__") {
+        return get(&bus.properties, "__members__");
+    }
+    let mut members = Vec::new();
+    for c in &bus.connections {
+        for t in [&c.source, &c.target].into_iter().flatten() {
+            let r = reference(t);
+            if members.last() != Some(&r) {
+                members.push(r);
+            }
+        }
+    }
+    Ok(members)
 }
 fn reference(t: &p::TerminalReference) -> String {
     if t.instance_name.is_empty() {
@@ -373,6 +408,19 @@ impl CircuitDocument {
         // after the net, from the port's net node (empty instance) or else the first pin.
         // `__from__`/`__members__`/`__named__` (ignored by morphnet) restore the exact
         // document. Same order as the pre-morphnet encoding: connections, ports, nets.
+        // A stashed bus is restored while a net still has its members; that net is the
+        // bus's, not a connection of its own.
+        let mut buses = Vec::new();
+        let mut bus_nets = HashSet::new();
+        for bus in &stash.buses {
+            let members = bus_members(bus)?;
+            if let Some(i) =
+                (0..self.nets.len()).find(|i| !bus_nets.contains(i) && self.nets[*i] == members)
+            {
+                bus_nets.insert(i);
+                buses.push(bus.clone());
+            }
+        }
         let groups = self
             .connections
             .iter()
@@ -383,14 +431,15 @@ impl CircuitDocument {
                     .filter(|(name, target)| name != target)
                     .map(|(name, target)| ("port", vec![name.clone(), target.clone()], None)),
             )
-            .chain(
-                self.nets
-                    .iter()
-                    .enumerate()
-                    .map(|(i, members)| ("net", members.clone(), self.net_name(i))),
-            );
+            .chain(self.nets.iter().enumerate().map(|(i, members)| {
+                let from = if bus_nets.contains(&i) { "bus" } else { "net" };
+                (from, members.clone(), self.net_name(i))
+            }));
         let mut stars = Vec::new();
         for (i, (from, mut members, named)) in groups.enumerate() {
+            if from == "bus" {
+                continue; // keeps `i`: unnamed nets are named by position
+            }
             if let Some(order) = named.and_then(|n| stash.order.get(n)) {
                 if self.netlist_order(order) == Some(members.clone()) {
                     members = order.clone();
@@ -445,6 +494,7 @@ impl CircuitDocument {
             model_interfaces: stash.model_interfaces,
             subcircuits,
             connections,
+            buses,
             properties,
             ..Default::default()
         })
@@ -544,21 +594,22 @@ impl CircuitDocument {
             }
         }
         for bus in &pm.buses {
-            let members = if bus.properties.contains_key("__members__") {
-                get(&bus.properties, "__members__")?
-            } else {
-                let mut members = Vec::new();
-                for c in &bus.connections {
-                    for t in [&c.source, &c.target].into_iter().flatten() {
-                        let r = reference(t);
-                        if members.last() != Some(&r) {
-                            members.push(r);
-                        }
-                    }
-                }
-                members
-            };
-            module.nets.push(members);
+            module.nets.push(bus_members(bus)?);
+        }
+        // A bus with `__members__` is a net in the pre-morphnet encoding, not a morphnet bus.
+        let buses: Vec<p::Bus> = pm
+            .buses
+            .iter()
+            .filter(|b| !b.properties.contains_key("__members__"))
+            .cloned()
+            .collect();
+        if !buses.is_empty() {
+            // Early, so the regeneration below skips the bus nets as the final write does.
+            Stash {
+                buses: buses.clone(),
+                ..Default::default()
+            }
+            .store(&mut module.info)?;
         }
         module.directives = pm.directives.iter().map(directive_from_proto).collect();
         let mut nets = BTreeMap::new();
@@ -614,6 +665,7 @@ impl CircuitDocument {
             nets,
             order,
             sequence: if reordered { sequence } else { Vec::new() },
+            buses,
             ..Default::default()
         }
         .store(&mut module.info)?;

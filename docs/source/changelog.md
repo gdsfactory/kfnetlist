@@ -49,6 +49,10 @@
     unnamed port net uses the plain `ports: {o1: mmi,o1}` form.
   - A present but non-object `info["__morphnet__"]` raises `ValueError`
     (`info['__morphnet__'] must be an object`) instead of being dropped.
+  - `Circuit.buses` and `__`-prefixed properties the bridge does not own (on
+    instances, circuits and connections) round-trip through `info["__morphnet__"]`.
+    A bus is restored while a net still has its members; its member nets stay plain
+    nets in kfnetlist.
   - The key order inside `.gsch` entries is not preserved through the kfnetlist
     bridge: `write_gsch` output is JSON-equal, not text-equal.
 

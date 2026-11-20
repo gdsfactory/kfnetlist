@@ -579,3 +579,76 @@ fn a_non_object_morphnet_stash_is_an_error() {
     let err = doc.to_proto().unwrap_err();
     assert_eq!(err.to_string(), "info['__morphnet__'] must be an object");
 }
+
+#[test]
+fn buses_and_foreign_dunder_properties_survive_kfnetlist() {
+    let props = |pairs: &[(&str, &str)]| -> std::collections::BTreeMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    };
+    let reference = |instance: &str, terminal: &str| {
+        Some(proto::TerminalReference {
+            instance_name: instance.into(),
+            terminal_name: terminal.into(),
+        })
+    };
+    let bus = proto::Bus {
+        name: "data".into(),
+        width: 2,
+        domain: proto::SignalDomain::Electrical as i32,
+        connections: vec![proto::Connection {
+            name: "d0".into(),
+            source: reference("R1", "p"),
+            target: reference("R1", "q"),
+            ..Default::default()
+        }],
+        properties: props(&[("protocol", "spi"), ("__bus_x", "1")]),
+    };
+    let sub = proto::SubCircuit {
+        name: "R1".into(),
+        circuit_name: "r".into(),
+        properties: props(&[("__sub_x", "\"a\"")]),
+        ..Default::default()
+    };
+    let conn = proto::Connection {
+        name: "mid".into(),
+        source: Some(proto::TerminalReference {
+            terminal_name: "mid".into(),
+            ..Default::default()
+        }),
+        target: reference("R1", "n"),
+        properties: props(&[("__conn_x", "2")]),
+        ..Default::default()
+    };
+    let circuit = proto::Circuit {
+        name: "top".into(),
+        subcircuits: vec![sub],
+        connections: vec![conn],
+        buses: vec![bus],
+        properties: props(&[("__circuit_x", "3")]),
+        ..Default::default()
+    };
+    let netlist = proto::Netlist {
+        name: "doc".into(),
+        top_circuit: "top".into(),
+        circuits: vec![circuit],
+        ..Default::default()
+    };
+    let back = through_netlists(&netlist);
+    let (a, b) = (&netlist.circuits[0], &back.circuits[0]);
+    assert_eq!(b.buses, a.buses);
+    assert_eq!(b.subcircuits[0].properties["__sub_x"], "\"a\"");
+    assert_eq!(b.properties["__circuit_x"], "3");
+    assert_eq!(b.connections[0].properties["__conn_x"], "2");
+    assert_eq!(b.connections.len(), a.connections.len());
+    // The bus members stay a plain net of the kfnetlist side.
+    let nl = NetlistDocument::from_proto_netlist(&netlist)
+        .unwrap()
+        .to_netlists()
+        .unwrap();
+    assert_eq!(nl["top"].nets.len(), 2);
+    // A second trip is stable.
+    assert_eq!(through_netlists(&back), back);
+}
