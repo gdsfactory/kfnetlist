@@ -387,11 +387,14 @@ class ParameterValue(_ProtoModel):
     def prefixed_value(self) -> PrefixedValue | None: ...
     @property
     def model_ref(self) -> ModelReference | None: ...
+    @property
+    def expression(self) -> dict[str, Any] | None: ...
     def __init__(
         self,
         *,
         prefixed_value: PrefixedValue | None = ...,
         model_ref: ModelReference | None = ...,
+        expression: dict[str, Any] | None = ...,
     ) -> None: ...
 
 class Parameter(_ProtoModel):

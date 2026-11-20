@@ -1,6 +1,8 @@
 from kfnetlist.morphnet.morphnet_schema._base import ProtoModel
 from kfnetlist.morphnet.morphnet_schema._circuit import (
+    BinaryOp,
     Bus,
+    Call,
     Circuit,
     Connection,
     Directive,
@@ -8,9 +10,11 @@ from kfnetlist.morphnet.morphnet_schema._circuit import (
     ExternalLibrary,
     ExternalCircuit,
     ExternalCircuitKind,
+    Expression,
     ModelInterface,
     ModelReference,
     Netlist,
+    Operator,
     Parameter,
     ParameterValue,
     Port,
@@ -20,6 +24,8 @@ from kfnetlist.morphnet.morphnet_schema._circuit import (
     SignalDomain,
     SIPrefix,
     SubCircuit,
+    Ternary,
+    UnaryOp,
 )
 from kfnetlist.morphnet.morphnet_schema._simulation import (
     Analysis,
@@ -34,7 +40,9 @@ from kfnetlist.morphnet.morphnet_schema._simulation import (
 __all__ = [
     "Analysis",
     "AnalysisKind",
+    "BinaryOp",
     "Bus",
+    "Call",
     "Circuit",
     "Connection",
     "Directive",
@@ -42,11 +50,13 @@ __all__ = [
     "ExternalLibrary",
     "ExternalCircuit",
     "ExternalCircuitKind",
+    "Expression",
     "InitialCondition",
     "Measurement",
     "ModelInterface",
     "ModelReference",
     "Netlist",
+    "Operator",
     "OutputRequest",
     "OutputRequestKind",
     "Parameter",
@@ -60,6 +70,8 @@ __all__ = [
     "SignalDomain",
     "Simulation",
     "SubCircuit",
+    "Ternary",
+    "UnaryOp",
 ]
 
 # Names before the Netlist → Circuit → SubCircuit rename.

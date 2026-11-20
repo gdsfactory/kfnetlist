@@ -175,6 +175,7 @@ scalar_field!(
     Value,
     serde_json::Map<String, Value>,
     proto::Directive,
+    proto::Expression,
     kfnetlist_core::Directive,
     proto::Simulation,
     proto::ExternalLibrary
@@ -309,6 +310,14 @@ proto_schema_class!(ParameterValue, proto::ParameterValue, [], {
         match &self.0.value {
             Some(proto::parameter_value::Value::ModelRef(v)) => Some(ModelReference(v.clone())),
             _ => None,
+        }
+    }
+    /// The expression tree as a dict (`{"node": {"binary": {...}}}`).
+    #[getter]
+    fn expression(&self, py: Python<'_>) -> PyResult<PyObject> {
+        match &self.0.value {
+            Some(proto::parameter_value::Value::Expression(e)) => e.field(py),
+            _ => Ok(py.None()),
         }
     }
 });

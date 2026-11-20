@@ -66,6 +66,26 @@ class DirectiveKind(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
     DIRECTIVE_KIND_PARAM: _ClassVar[DirectiveKind]
     DIRECTIVE_KIND_DEFINE: _ClassVar[DirectiveKind]
     DIRECTIVE_KIND_TIMESCALE: _ClassVar[DirectiveKind]
+
+class Operator(int, metaclass=_enum_type_wrapper.EnumTypeWrapper):
+    __slots__ = ()
+    OPERATOR_UNSPECIFIED: _ClassVar[Operator]
+    OPERATOR_ADD: _ClassVar[Operator]
+    OPERATOR_SUB: _ClassVar[Operator]
+    OPERATOR_MUL: _ClassVar[Operator]
+    OPERATOR_DIV: _ClassVar[Operator]
+    OPERATOR_POW: _ClassVar[Operator]
+    OPERATOR_MOD: _ClassVar[Operator]
+    OPERATOR_NEG: _ClassVar[Operator]
+    OPERATOR_NOT: _ClassVar[Operator]
+    OPERATOR_EQ: _ClassVar[Operator]
+    OPERATOR_NE: _ClassVar[Operator]
+    OPERATOR_LT: _ClassVar[Operator]
+    OPERATOR_LE: _ClassVar[Operator]
+    OPERATOR_GT: _ClassVar[Operator]
+    OPERATOR_GE: _ClassVar[Operator]
+    OPERATOR_AND: _ClassVar[Operator]
+    OPERATOR_OR: _ClassVar[Operator]
 TERMINAL_DIRECTION_INOUT: TerminalDirection
 TERMINAL_DIRECTION_INPUT: TerminalDirection
 TERMINAL_DIRECTION_OUTPUT: TerminalDirection
@@ -110,6 +130,23 @@ DIRECTIVE_KIND_OPTION: DirectiveKind
 DIRECTIVE_KIND_PARAM: DirectiveKind
 DIRECTIVE_KIND_DEFINE: DirectiveKind
 DIRECTIVE_KIND_TIMESCALE: DirectiveKind
+OPERATOR_UNSPECIFIED: Operator
+OPERATOR_ADD: Operator
+OPERATOR_SUB: Operator
+OPERATOR_MUL: Operator
+OPERATOR_DIV: Operator
+OPERATOR_POW: Operator
+OPERATOR_MOD: Operator
+OPERATOR_NEG: Operator
+OPERATOR_NOT: Operator
+OPERATOR_EQ: Operator
+OPERATOR_NE: Operator
+OPERATOR_LT: Operator
+OPERATOR_LE: Operator
+OPERATOR_GT: Operator
+OPERATOR_GE: Operator
+OPERATOR_AND: Operator
+OPERATOR_OR: Operator
 
 class PrefixedValue(_message.Message):
     __slots__ = ("double_value", "prefix")
@@ -119,13 +156,69 @@ class PrefixedValue(_message.Message):
     prefix: SIPrefix
     def __init__(self, double_value: _Optional[float] = ..., prefix: _Optional[_Union[SIPrefix, str]] = ...) -> None: ...
 
+class UnaryOp(_message.Message):
+    __slots__ = ("op", "operand")
+    OP_FIELD_NUMBER: _ClassVar[int]
+    OPERAND_FIELD_NUMBER: _ClassVar[int]
+    op: Operator
+    operand: Expression
+    def __init__(self, op: _Optional[_Union[Operator, str]] = ..., operand: _Optional[_Union[Expression, _Mapping]] = ...) -> None: ...
+
+class BinaryOp(_message.Message):
+    __slots__ = ("op", "lhs", "rhs")
+    OP_FIELD_NUMBER: _ClassVar[int]
+    LHS_FIELD_NUMBER: _ClassVar[int]
+    RHS_FIELD_NUMBER: _ClassVar[int]
+    op: Operator
+    lhs: Expression
+    rhs: Expression
+    def __init__(self, op: _Optional[_Union[Operator, str]] = ..., lhs: _Optional[_Union[Expression, _Mapping]] = ..., rhs: _Optional[_Union[Expression, _Mapping]] = ...) -> None: ...
+
+class Call(_message.Message):
+    __slots__ = ("name", "args")
+    NAME_FIELD_NUMBER: _ClassVar[int]
+    ARGS_FIELD_NUMBER: _ClassVar[int]
+    name: str
+    args: _containers.RepeatedCompositeFieldContainer[Expression]
+    def __init__(self, name: _Optional[str] = ..., args: _Optional[_Iterable[_Union[Expression, _Mapping]]] = ...) -> None: ...
+
+class Ternary(_message.Message):
+    __slots__ = ("cond", "then", "otherwise")
+    COND_FIELD_NUMBER: _ClassVar[int]
+    THEN_FIELD_NUMBER: _ClassVar[int]
+    OTHERWISE_FIELD_NUMBER: _ClassVar[int]
+    cond: Expression
+    then: Expression
+    otherwise: Expression
+    def __init__(self, cond: _Optional[_Union[Expression, _Mapping]] = ..., then: _Optional[_Union[Expression, _Mapping]] = ..., otherwise: _Optional[_Union[Expression, _Mapping]] = ...) -> None: ...
+
+class Expression(_message.Message):
+    __slots__ = ("literal", "reference", "unary", "binary", "call", "ternary", "raw")
+    LITERAL_FIELD_NUMBER: _ClassVar[int]
+    REFERENCE_FIELD_NUMBER: _ClassVar[int]
+    UNARY_FIELD_NUMBER: _ClassVar[int]
+    BINARY_FIELD_NUMBER: _ClassVar[int]
+    CALL_FIELD_NUMBER: _ClassVar[int]
+    TERNARY_FIELD_NUMBER: _ClassVar[int]
+    RAW_FIELD_NUMBER: _ClassVar[int]
+    literal: PrefixedValue
+    reference: str
+    unary: UnaryOp
+    binary: BinaryOp
+    call: Call
+    ternary: Ternary
+    raw: str
+    def __init__(self, literal: _Optional[_Union[PrefixedValue, _Mapping]] = ..., reference: _Optional[str] = ..., unary: _Optional[_Union[UnaryOp, _Mapping]] = ..., binary: _Optional[_Union[BinaryOp, _Mapping]] = ..., call: _Optional[_Union[Call, _Mapping]] = ..., ternary: _Optional[_Union[Ternary, _Mapping]] = ..., raw: _Optional[str] = ...) -> None: ...
+
 class ParameterValue(_message.Message):
-    __slots__ = ("prefixed_value", "model_ref")
+    __slots__ = ("prefixed_value", "model_ref", "expression")
     PREFIXED_VALUE_FIELD_NUMBER: _ClassVar[int]
     MODEL_REF_FIELD_NUMBER: _ClassVar[int]
+    EXPRESSION_FIELD_NUMBER: _ClassVar[int]
     prefixed_value: PrefixedValue
     model_ref: ModelReference
-    def __init__(self, prefixed_value: _Optional[_Union[PrefixedValue, _Mapping]] = ..., model_ref: _Optional[_Union[ModelReference, _Mapping]] = ...) -> None: ...
+    expression: Expression
+    def __init__(self, prefixed_value: _Optional[_Union[PrefixedValue, _Mapping]] = ..., model_ref: _Optional[_Union[ModelReference, _Mapping]] = ..., expression: _Optional[_Union[Expression, _Mapping]] = ...) -> None: ...
 
 class Parameter(_message.Message):
     __slots__ = ("name", "default_value", "description", "properties")

@@ -3,7 +3,13 @@ from enum import IntEnum
 import pytest
 
 from kfnetlist.morphnet.morphnet_schema import (
+    BinaryOp,
     Bus,
+    Call,
+    Expression,
+    Operator,
+    Ternary,
+    UnaryOp,
     Netlist,
     Connection,
     ExternalCircuit,
@@ -122,6 +128,33 @@ class TestParameterValueOneof:
                 prefixed_value=prefixed_value,
                 model_ref=model_reference,
             )
+
+
+class TestExpression:
+    def test_rejects_two_nodes(self):
+        with pytest.raises(ValueError, match="oneof"):
+            Expression(reference="a", raw="b")
+
+    def test_rejects_expression_beside_a_number(self, prefixed_value):
+        with pytest.raises(ValueError, match="oneof"):
+            ParameterValue(prefixed_value=prefixed_value, expression=Expression(raw=""))
+
+    def test_tree_roundtrips_proto_binary(self, prefixed_value):
+        x = Expression(reference="x")
+        tree = Expression(
+            ternary=Ternary(
+                cond=Expression(binary=BinaryOp(op=Operator.GT, lhs=x, rhs=x)),
+                then=Expression(unary=UnaryOp(op=Operator.NEG, operand=x)),
+                otherwise=Expression(
+                    call=Call(
+                        name="max",
+                        args=[Expression(literal=prefixed_value), Expression(raw="")],
+                    )
+                ),
+            )
+        )
+        pv = ParameterValue(expression=tree)
+        assert ParameterValue.from_proto_bytes(pv.to_proto_bytes()) == pv
 
 
 # ======================================================================

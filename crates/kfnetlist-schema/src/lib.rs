@@ -42,19 +42,24 @@ struct ParameterValueWire {
     prefixed_value: Option<proto::PrefixedValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     model_ref: Option<proto::ModelReference>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expression: Option<proto::Expression>,
 }
 impl TryFrom<ParameterValueWire> for proto::ParameterValue {
     type Error = Error;
     fn try_from(w: ParameterValueWire) -> Result<Self> {
         use proto::parameter_value::Value;
-        let value = match (w.prefixed_value, w.model_ref) {
-            (Some(_), Some(_)) => {
-                return Err(Error("ParameterValue accepts only one value".into()))
-            }
-            (Some(p), None) => Some(Value::PrefixedValue(p)),
-            (None, Some(m)) => Some(Value::ModelRef(m)),
-            (None, None) => None,
-        };
+        let mut values = [
+            w.prefixed_value.map(Value::PrefixedValue),
+            w.model_ref.map(Value::ModelRef),
+            w.expression.map(Value::Expression),
+        ]
+        .into_iter()
+        .flatten();
+        let value = values.next();
+        if values.next().is_some() {
+            return Err(Error("ParameterValue accepts only one value".into()));
+        }
         Ok(Self { value })
     }
 }
@@ -68,6 +73,10 @@ impl From<proto::ParameterValue> for ParameterValueWire {
             },
             Some(Value::ModelRef(m)) => Self {
                 model_ref: Some(m),
+                ..Self::default()
+            },
+            Some(Value::Expression(e)) => Self {
+                expression: Some(e),
                 ..Self::default()
             },
             None => Self::default(),

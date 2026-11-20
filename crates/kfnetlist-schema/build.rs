@@ -8,6 +8,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .message_attribute("circuit.ParameterValue", "#[serde(try_from = \"super::ParameterValueWire\", into = \"super::ParameterValueWire\")] ")
         .message_attribute(".", "#[serde(default, deny_unknown_fields)]")
         .enum_attribute("circuit.ParameterValue.value", "#[serde(rename_all = \"snake_case\")]")
+        .enum_attribute("circuit.Expression.node", "#[serde(rename_all = \"snake_case\")]")
         .field_attribute("circuit.TerminalReference.terminal_name", "#[serde(alias = \"Terminal_name\")]")
         .field_attribute("circuit.Circuit.terminals", "#[serde(alias = \"terminal\")]")
         .compile_protos(&["proto/circuit.proto", "proto/simulation.proto"], &["proto"])?;

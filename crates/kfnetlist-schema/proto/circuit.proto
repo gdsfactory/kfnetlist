@@ -77,10 +77,67 @@ message PrefixedValue {
     SIPrefix prefix       = 2;
 }
 
+// Operators of an Expression: unary NEG/NOT, the rest binary.
+enum Operator {
+    OPERATOR_UNSPECIFIED = 0;
+    OPERATOR_ADD         = 1;
+    OPERATOR_SUB         = 2;
+    OPERATOR_MUL         = 3;
+    OPERATOR_DIV         = 4;
+    OPERATOR_POW         = 5;
+    OPERATOR_MOD         = 6;
+    OPERATOR_NEG         = 7;
+    OPERATOR_NOT         = 8;
+    OPERATOR_EQ          = 9;
+    OPERATOR_NE          = 10;
+    OPERATOR_LT          = 11;
+    OPERATOR_LE          = 12;
+    OPERATOR_GT          = 13;
+    OPERATOR_GE          = 14;
+    OPERATOR_AND         = 15;
+    OPERATOR_OR          = 16;
+}
+
+message UnaryOp {
+    Operator   op      = 1;
+    Expression operand = 2;
+}
+
+message BinaryOp {
+    Operator   op  = 1;
+    Expression lhs = 2;
+    Expression rhs = 3;
+}
+
+message Call {
+    string              name = 1;
+    repeated Expression args = 2;
+}
+
+message Ternary {
+    Expression cond      = 1;
+    Expression then      = 2;
+    Expression otherwise = 3;
+}
+
+// A parameter expression tree, dialect-neutral (writers add `{}`/`'…'` wrapping).
+message Expression {
+    oneof node {
+        PrefixedValue literal   = 1;
+        string        reference = 2;
+        UnaryOp       unary     = 3;
+        BinaryOp      binary    = 4;
+        Call          call      = 5;
+        Ternary       ternary   = 6;
+        string        raw       = 7;  // dialect text no grammar parsed (kept verbatim)
+    }
+}
+
 message ParameterValue {
     oneof value {
         PrefixedValue  prefixed_value = 1;
         ModelReference model_ref      = 2;
+        Expression     expression     = 3;
     }
 }
 
