@@ -42,14 +42,8 @@ SCALE |= {"n": 1e-9, "p": 1e-12, "f": 1e-15}
 
 
 def value(text: str, fold: bool) -> object:
-    """A number (any SI suffix or unit) as a float; anything else without spaces.
-
-    One outer ``{…}``/``'…'`` is dialect wrapping, not circuit content: our writers
-    wrap Xyce expressions in braces, nyancad does not.
-    """
+    """A number (any SI suffix or unit) as a float; anything else without spaces."""
     text = text.strip()
-    if len(text) >= 2 and (text[0], text[-1]) in (("{", "}"), ("'", "'")):
-        text = text[1:-1]
     m = NUMBER.match(text)
     if m:
         number = float(m[1]) * SCALE.get((m[2] or "").lower(), 1)
@@ -58,9 +52,18 @@ def value(text: str, fold: bool) -> object:
     return text.lower() if fold else text
 
 
+def unwrap(text: str) -> str:
+    """One outer ``{…}``/``'…'`` is dialect wrapping, not circuit content: our writers
+    wrap Xyce expressions in braces, nyancad does not."""
+    text = text.strip()
+    if len(text) >= 2 and (text[0], text[-1]) in (("{", "}"), ("'", "'")):
+        return text[1:-1]
+    return text
+
+
 def params(tail: str, fold: bool) -> tuple:
     pairs = re.findall(r"(\S+?)=(.*?)(?=\s+\S+=|$)", tail.strip())
-    out = {k.lower() if fold else k: value(v, fold) for k, v in pairs}
+    out = {k.lower() if fold else k: value(unwrap(v), fold) for k, v in pairs}
     return tuple(sorted(out.items()))
 
 
