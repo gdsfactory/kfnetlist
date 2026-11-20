@@ -142,9 +142,10 @@ fn same(a: &Value, b: &Value) -> bool {
     a == b || a.as_f64().is_some_and(|x| Some(x) == b.as_f64())
 }
 /// Restore stashed parameters still matching `settings` (an expression: its printed
-/// text); regenerate the rest, so an edited expression becomes `raw`. A stashed
-/// parameter missing from `settings` was removed, unless `keep_unset` (a kfnetlist
-/// `Netlist` has no circuit-level settings, so there absence means "not carried").
+/// text); an edited one keeps its properties but takes the setting's value, so an
+/// edited expression becomes `raw`. A stashed parameter missing from `settings` was
+/// removed, unless `keep_unset` (a kfnetlist `Netlist` has no circuit-level
+/// settings, so there absence means "not carried").
 fn merge_parameters(
     stashed: &[p::Parameter],
     mut fresh: Vec<p::Parameter>,
@@ -164,7 +165,8 @@ fn merge_parameters(
             }
             (Some(_), Some(_)) => {
                 if let Some(i) = fresh.iter().position(|f| f.name == s.name) {
-                    out.push(fresh.remove(i));
+                    let value = fresh.remove(i).default_value; // the rest stays (role, ...)
+                    out.push(p::Parameter { default_value: value, ..s.clone() });
                 }
             }
             (None, Some(_)) if !keep_unset => {} // setting removed

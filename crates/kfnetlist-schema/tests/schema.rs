@@ -352,6 +352,7 @@ fn morphnet_only_fields_survive_kfnetlist() {
                         "rhs": {"node": {"reference": "l"}}}
                 }}}))
                 .unwrap(),
+                properties: [("role".into(), "source".into())].into(),
                 ..Default::default()
             },
         ],
@@ -449,7 +450,7 @@ fn morphnet_only_fields_survive_kfnetlist() {
     // A second trip is stable.
     assert_eq!(through_netlists(&back), back);
 
-    // An edited expression setting comes back as raw text.
+    // An edited expression setting comes back as raw text, keeping its properties.
     let mut netlists = NetlistDocument::from_proto_netlist(&netlist)
         .unwrap()
         .to_netlists()
@@ -465,6 +466,7 @@ fn morphnet_only_fields_survive_kfnetlist() {
         serde_json::to_value(&w.default_value).unwrap(),
         json!({"expression": {"node": {"raw": "3*l"}}})
     );
+    assert_eq!(w.properties["role"], "source");
 }
 
 #[test]
