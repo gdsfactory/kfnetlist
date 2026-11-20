@@ -57,13 +57,15 @@ _SAVE_KW: "save"
 
 // ── Parameter assignment: name=value ───────────────────────────────────
 param_assign: IDENT "=" param_value
-?param_value: SI_NUMBER  -> pvalue_number
-            | IDENT      -> pvalue_ident
+?param_value: VALUE      -> pvalue_value
             | QSTRING    -> pvalue_string
 
 // ── Terminals ──────────────────────────────────────────────────────────
 _SEMI: ";"
-SI_NUMBER: /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?(?:meg|mil|[TtGgKkMmUuNnPpFfAa])?/
+// A number, a name or a bare expression (`w=2*l+1u`), ending at the next `name=`,
+// `;` or unmatched `)`: runs of non-space text (parentheses may hold spaces, two
+// levels deep) joined by operators, with spaces allowed only around an operator.
+VALUE: /(?:[^\s;()=\"']|\((?:[^()]|\([^()]*\))*\))+(?:[ \t]*[-+*\/%<>=!&|?:]+[ \t]*(?:[^\s;()=\"']|\((?:[^()]|\([^()]*\))*\))+)*/
 NET_NAME: /[A-Za-z0-9_.\[\]:!#]+/
 IDENT: /[A-Za-z_][A-Za-z0-9_.\[\]:!#]*/
 QSTRING: /\"[^\"]*\"/ | /'[^']*'/

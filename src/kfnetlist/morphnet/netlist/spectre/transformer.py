@@ -19,6 +19,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     PortDirection,
     Simulation,
 )
+from kfnetlist.morphnet.netlist.expression import parameter_value, value_text
 from kfnetlist.morphnet.netlist.net_utils import (
     NetMap,
     add_port_to_net,
@@ -34,8 +35,6 @@ from kfnetlist.morphnet.netlist.simulation_data import (
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PORT_TEMPLATES,
     DEVICE_PREFIX_TO_CIRCUIT,
-    format_si_value,
-    parse_parameter_number,
 )
 
 CIRCUIT_TO_PREFIX: dict[str, str] = {v: k for k, v in DEVICE_PREFIX_TO_CIRCUIT.items()}
@@ -53,13 +52,6 @@ SPECTRE_ANALYSIS_TYPES: set[str] = {
     "psp",
     "op",
 }
-
-
-def _param_value_to_str(pval: ParameterValue) -> str:
-    """Convert a ParameterValue to a plain string for directive storage."""
-    if pval.prefixed_value is not None:
-        return format_si_value(pval.prefixed_value)
-    return ""
 
 
 class InstanceData:
@@ -138,11 +130,8 @@ class SpectreTransformer(Transformer[Token, Netlist]):
     def net_ref(self, items: list[Token]) -> str:
         return str(items[0])
 
-    def pvalue_number(self, items: list[Token]) -> ParameterValue:
-        return parse_parameter_number(str(items[0]))
-
-    def pvalue_ident(self, items: list[Token]) -> ParameterValue:
-        return ParameterValue()
+    def pvalue_value(self, items: list[Token]) -> ParameterValue:
+        return parameter_value(str(items[0]))
 
     def pvalue_string(self, items: list[Token]) -> ParameterValue:
         return ParameterValue()
@@ -181,7 +170,7 @@ class SpectreTransformer(Transformer[Token, Netlist]):
         if cell_name in SPECTRE_ANALYSIS_TYPES and cell_name not in self.all_subckts:
             opts: dict[str, str] = {}
             for pname, pval in params.items():
-                opts[pname] = _param_value_to_str(pval)
+                opts[pname] = value_text(pval, "spectre")
             return AnalysisData(
                 kind=cell_name, name=inst_name, arguments=[], options=opts
             )
@@ -454,7 +443,7 @@ class SpectreTransformer(Transformer[Token, Netlist]):
                 directives.append(item.to_directive())
             elif isinstance(item, ParamData):
                 for pname, pval in item.params.items():
-                    val = _param_value_to_str(pval)
+                    val = value_text(pval, "spectre")
                     directives.append(
                         Directive(kind=DirectiveKind.PARAM, name=pname, value=val)
                     )

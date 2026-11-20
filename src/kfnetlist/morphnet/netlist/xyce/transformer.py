@@ -4,7 +4,6 @@ from typing import Any
 
 from lark import Token
 
-from kfnetlist.morphnet.morphnet_schema import ParameterValue
 from kfnetlist.morphnet.netlist.simulation_data import OutputRequestData
 from kfnetlist.morphnet.netlist.spice.transformer import SpiceTransformer
 
@@ -13,15 +12,14 @@ class XyceTransformer(SpiceTransformer):
     """Extend the SPICE transformer with Xyce-specific handling.
 
     Additions:
-    - {expression} blocks in parameter values and tokens.
+    - {expression} blocks in tokens.
     - PARAMS: keyword in .SUBCKT (consumed by grammar, no transformer change needed).
     """
 
+    dialect = "xyce"
+
     def token_expr(self, items: list[Token]) -> Token:
         return items[0]
-
-    def pvalue_expr(self, items: list[Token]) -> ParameterValue:
-        return ParameterValue()
 
     def params_kw(self, items: list[Any]) -> None:
         return None

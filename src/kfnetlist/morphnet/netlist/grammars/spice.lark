@@ -141,6 +141,7 @@ sim_token: SI_NUMBER  -> token_number
 // ── Parameter assignment: name=value ───────────────────────────────────
 param_assign: IDENT "=" param_value
 ?param_value: SI_NUMBER  -> pvalue_number
+            | BRACE_EXPR -> pvalue_expr
             | IDENT      -> pvalue_ident
             | QSTRING    -> pvalue_string
 
@@ -148,6 +149,7 @@ param_assign: IDENT "=" param_value
 SI_NUMBER: /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?(?:meg|mil|[TtGgKkMmUuNnPpFfAa])?/
 OUTPUT_VAR: /[A-Za-z_]\w*\([^)]*\)/
 IDENT: /[A-Za-z_][A-Za-z0-9_.\[\]:!#]*/
+BRACE_EXPR: /\{[^}]+\}/
 QSTRING: /\"[^\"]*\"/ | /'[^']*'/
 FILE_PATH: /\"[^\"]*\"/ | /'[^']*'/ | /[^\s\"']+/
 

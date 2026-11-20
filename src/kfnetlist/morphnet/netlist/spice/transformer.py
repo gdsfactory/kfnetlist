@@ -23,6 +23,11 @@ from kfnetlist.morphnet.morphnet_schema import (
     PrefixedValue,
     Simulation,
 )
+from kfnetlist.morphnet.netlist.expression import (
+    parameter_value,
+    parse_expression,
+    value_text,
+)
 from kfnetlist.morphnet.netlist.net_utils import (
     NetMap,
     add_port_to_net,
@@ -45,15 +50,6 @@ from kfnetlist.morphnet.netlist.value_utils import (
     parse_parameter_number,
     parse_si_number,
 )
-
-
-def _param_value_to_str(pval: ParameterValue) -> str:
-    """Convert a ParameterValue to a plain string for directive storage."""
-    if pval.prefixed_value is not None:
-        from kfnetlist.morphnet.netlist.value_utils import format_si_value
-
-        return format_si_value(pval.prefixed_value)
-    return ""
 
 
 class InstanceData:
@@ -172,6 +168,8 @@ class SpiceTransformer(Transformer[Token, Netlist]):
       so later subcircuits can resolve X-instance port names from earlier ones.
     """
 
+    dialect = "ngspice"  # spelling of expression text in directives
+
     def __init__(self) -> None:
         super().__init__()
         self.all_subckts: dict[str, Circuit] = {}
@@ -188,10 +186,16 @@ class SpiceTransformer(Transformer[Token, Netlist]):
         return parse_parameter_number(str(items[0]))
 
     def pvalue_ident(self, items: list[Token]) -> ParameterValue:
-        return ParameterValue()
+        return parameter_value(str(items[0]))
+
+    def pvalue_expr(self, items: list[Token]) -> ParameterValue:
+        """``{a*b}`` or ``'a*b'``; ``parse_expression`` strips the wrapping."""
+        return ParameterValue(expression=parse_expression(str(items[0])))
 
     def pvalue_string(self, items: list[Token]) -> ParameterValue:
-        return ParameterValue()
+        """``'…'`` is an expression; a ``"…"`` string value is not kept."""
+        text = str(items[0])
+        return self.pvalue_expr(items) if text[0] == "'" else ParameterValue()
 
     def param_assign(self, items: list[Any]) -> tuple[str, ParameterValue]:
         name = str(items[0])
@@ -326,7 +330,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
             if isinstance(item, tuple):
                 pname, pval = item
                 if isinstance(pval, ParameterValue):
-                    options[pname] = _param_value_to_str(pval)
+                    options[pname] = value_text(pval, self.dialect)
                 else:
                     options[pname] = str(pval)
         return OptionData(options=options)
@@ -345,7 +349,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
             if isinstance(item, tuple):
                 pname, pval = item
                 if isinstance(pval, ParameterValue):
-                    opts[pname] = _param_value_to_str(pval)
+                    opts[pname] = value_text(pval, self.dialect)
                 else:
                     opts[pname] = str(pval)
             elif isinstance(item, Token):
@@ -439,7 +443,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
             if isinstance(item, tuple):
                 pname, pval = item
                 if isinstance(pval, ParameterValue):
-                    opts.append(f"{pname}={_param_value_to_str(pval)}")
+                    opts.append(f"{pname}={value_text(pval, self.dialect)}")
                 else:
                     opts.append(f"{pname}={pval}")
         analysis_type = tokens[0] if tokens else ""
@@ -457,7 +461,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
         var_name = str(items[0])
         value = items[1]
         if isinstance(value, ParameterValue):
-            return (var_name, _param_value_to_str(value))
+            return (var_name, value_text(value, self.dialect))
         return (var_name, str(value))
 
     def ic_stmt(self, items: list[Any]) -> InitialConditionData:
@@ -813,7 +817,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
             top_circuit = circuits[-1].name
 
         for p in circuit_params:
-            val = _param_value_to_str(p.default_value) if p.default_value else ""
+            val = value_text(p.default_value, self.dialect) if p.default_value else ""
             directives.append(
                 Directive(kind=DirectiveKind.PARAM, name=p.name, value=val)
             )

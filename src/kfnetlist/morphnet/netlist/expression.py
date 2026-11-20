@@ -7,6 +7,7 @@
 
 from __future__ import annotations
 
+import re
 from collections.abc import Callable
 from functools import cache
 from importlib.resources import files as resource_files
@@ -19,6 +20,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Call,
     Expression,
     Operator,
+    ParameterValue,
     PrefixedValue,
     SIPrefix,
     Ternary,
@@ -26,11 +28,16 @@ from kfnetlist.morphnet.morphnet_schema import (
 )
 from kfnetlist.morphnet.netlist.value_utils import (
     format_si_value,
+    is_si_number,
+    parse_parameter_number,
     parse_si_number,
     to_float,
 )
 
-__all__ = ["format_expression", "parse_expression"]
+__all__ = ["format_expression", "parameter_value", "parse_expression", "value_text"]
+
+# A netlist identifier (the SPICE/Spectre IDENT token): a bare reference by name.
+IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_.\[\]:!#]*")
 
 # Dialect -> (open, close) around a compound expression.
 WRAP: dict[str, tuple[str, str]] = {
@@ -122,6 +129,25 @@ def parse_expression(text: str) -> Expression:
         return _Build().transform(_parser().parse(body))
     except (LarkError, ValueError, RecursionError):
         return Expression(raw=text)
+
+
+def parameter_value(text: str) -> ParameterValue:
+    """A number's ``prefixed_value``; an identifier's ``reference``; else the
+    expression tree of ``text`` (``raw`` when it does not parse)."""
+    if is_si_number(text):
+        return parse_parameter_number(text)
+    if IDENT_RE.fullmatch(text):
+        return ParameterValue(expression=Expression(reference=text))
+    return ParameterValue(expression=parse_expression(text))
+
+
+def value_text(value: ParameterValue, dialect: str) -> str:
+    """``value`` as the text of a ``k=v`` directive in ``dialect``; "" when empty."""
+    if value.prefixed_value is not None:
+        return format_si_value(value.prefixed_value)
+    if value.expression is not None:
+        return format_expression(value.expression, dialect, named=True)
+    return ""
 
 
 def _number(pv: PrefixedValue, dialect: str) -> str:
