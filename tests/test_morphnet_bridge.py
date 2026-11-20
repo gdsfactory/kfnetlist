@@ -311,6 +311,28 @@ def _bus_ir() -> morphnet.Netlist:
     )
 
 
+def _macro_ir() -> morphnet.Netlist:
+    """Netlist macros (document header) and a circuit's own (module stash)."""
+    from kfnetlist.morphnet.morphnet_schema import Circuit, Macro, SubCircuit
+
+    return morphnet.Netlist(
+        name="doc",
+        top_circuit="top",
+        circuits=[
+            Circuit(
+                name="cell",
+                macros=[Macro(name="local", language="spectre", body="r1 (a b) r")],
+            ),
+            Circuit(name="top", subcircuits=[SubCircuit(name="X1", circuit_name="cell")]),
+        ],
+        macros=[
+            Macro(name="rdiv", language="spice", body=".subckt rdiv a b\n.ends rdiv"),
+            Macro(name="va", language="verilog-ams", body="module va; endmodule",
+                  properties={"origin": "nyanlib"}),
+        ],
+    )  # fmt: skip
+
+
 def _lossless_cases():
     from kfnetlist.morphnet.netlist import parse_spectre_spice, parse_xyce
 
@@ -326,6 +348,7 @@ def _lossless_cases():
     ]
     cases += [
         pytest.param(_bus_ir, id="buses_and_foreign_properties"),
+        pytest.param(_macro_ir, id="macros"),
         pytest.param(lambda: parse_spice(_SPICE), id="spice"),
         pytest.param(lambda: parse_xyce(_XYCE), id="xyce"),
         pytest.param(lambda: parse_spectre_spice(_SPECTRE_SPICE), id="spectre_spice"),
@@ -354,6 +377,10 @@ def test_bridge_lossless(make):
     netlist = make()
     back = morphnet.from_netlists(morphnet.to_netlists(netlist))
     again = morphnet.from_netlists(morphnet.to_netlists(back))
+    assert back.macros == netlist.macros
+    assert {c.name: c.macros for c in back.circuits} == {
+        c.name: c.macros for c in netlist.circuits
+    }
     # Every writer handles every case: no writer is skipped.
     for name in _WRITERS:
         write = getattr(writers, name)

@@ -795,3 +795,59 @@ fn a_bus_sharing_a_circuit_connection_keeps_both() {
     assert_eq!(back.circuits[0].connections.len(), 1);
     assert_eq!(back.circuits[0].connections[0].name, "n1");
 }
+
+#[test]
+fn macros_ride_the_stash_and_merge_lead_first() {
+    let mac = |name: &str, body: &str| proto::Macro {
+        name: name.into(),
+        language: "spice".into(),
+        body: body.into(),
+        ..Default::default()
+    };
+    let netlist = |top: &str, macros: Vec<proto::Macro>| proto::Netlist {
+        name: "doc".into(),
+        top_circuit: top.into(),
+        circuits: vec![proto::Circuit {
+            name: top.into(),
+            macros: vec![mac("local", ".param a=1")],
+            ..Default::default()
+        }],
+        macros,
+        ..Default::default()
+    };
+    let source = netlist("top", vec![mac("rdiv", ".subckt rdiv a b\n.ends rdiv")]);
+    let back = through_netlists(&source);
+    assert_eq!(back.macros, source.macros);
+    assert_eq!(back.circuits[0].macros, source.circuits[0].macros);
+
+    // cells of two documents: the lead's macros, then the others' it lacks (by name)
+    let cells = |nl: &proto::Netlist| {
+        NetlistDocument::from_proto_netlist(nl)
+            .unwrap()
+            .to_netlists()
+            .unwrap()
+    };
+    let mut both = cells(&source);
+    let other = vec![mac("rdiv", "x"), mac("extra", "y")];
+    both.extend(cells(&netlist("other", other)));
+    let back = NetlistDocument::from_netlists(&both, Some("other".into()))
+        .to_proto_netlist()
+        .unwrap();
+    let bodies: Vec<_> = back
+        .macros
+        .iter()
+        .map(|m| (m.name.as_str(), m.body.as_str()))
+        .collect();
+    assert_eq!(bodies, [("rdiv", "x"), ("extra", "y")]);
+
+    // no macros: the stash JSON is what it was before macros existed
+    let mut plain = proto::Netlist {
+        properties: [("ground_net".into(), "GND".into())].into(),
+        ..netlist("top", Vec::new())
+    };
+    plain.circuits[0].macros.clear();
+    let doc = NetlistDocument::from_proto_netlist(&plain).unwrap();
+    let json = serde_json::to_string(&doc).unwrap();
+    assert!(json.contains("ground_net"), "{json}");
+    assert!(!json.contains("macros"), "{json}");
+}

@@ -105,6 +105,9 @@ struct Stash {
     /// restored only while a net still has the bus's members.
     #[serde(skip_serializing_if = "Vec::is_empty")]
     buses: Vec<p::Bus>,
+    /// `Circuit.macros` (`Netlist.macros` ride the document header in `netlist`).
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    macros: Vec<p::Macro>,
 }
 const STASH: &str = "__morphnet__";
 impl Stash {
@@ -525,6 +528,7 @@ impl CircuitDocument {
             connections,
             buses,
             properties,
+            macros: stash.macros,
             ..Default::default()
         })
     }
@@ -708,6 +712,7 @@ impl CircuitDocument {
             order,
             sequence: if reordered { sequence } else { Vec::new() },
             buses,
+            macros: pm.macros.clone(),
             ..Default::default()
         }
         .store(&mut module.info)?;
@@ -732,7 +737,7 @@ impl NetlistDocument {
     pub fn to_proto_netlist(&self) -> Result<p::Netlist> {
         let lead = self.lead();
         // Every module carries the document header: the lead's wins, the others add
-        // the external circuits it lacks (by name).
+        // the external circuits and macros it lacks (by name).
         let mut header: Option<p::Netlist> = None;
         for m in lead.into_iter().chain(self.modules.values()) {
             let Some(stashed) = Stash::take(&m.info)?.1.netlist else {
@@ -744,6 +749,11 @@ impl NetlistDocument {
                     for ext in stashed.ext_circuits {
                         if h.ext_circuits.iter().all(|e| e.name != ext.name) {
                             h.ext_circuits.push(ext);
+                        }
+                    }
+                    for mac in stashed.macros {
+                        if h.macros.iter().all(|m| m.name != mac.name) {
+                            h.macros.push(mac);
                         }
                     }
                 }
