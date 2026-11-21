@@ -12,6 +12,7 @@ Spectre names (see ``ARGS``); each dialect renders and reads them natively:
 from __future__ import annotations
 
 import re
+from collections.abc import Mapping
 
 from kfnetlist.morphnet.morphnet_schema import (
     Netlist,
@@ -34,6 +35,7 @@ __all__ = [
     "primitive",
     "spectre_params",
     "spice_text",
+    "stimulus_keys",
     "stimulus_of",
 ]
 
@@ -233,7 +235,7 @@ def spectre_params(stim: Stimulus, dialect: str) -> list[tuple[str, str]]:
 
 
 def from_spectre(
-    params: dict[str, ParameterValue | str], dialect: str = "spectre"
+    params: Mapping[str, ParameterValue | str], dialect: str = "spectre"
 ) -> Stimulus | None:
     """The stimulus in a Spectre source's params, None when they hold none."""
     stim = Stimulus(
@@ -260,6 +262,17 @@ def from_spectre(
     if stim == Stimulus():
         return None
     return stim
+
+
+def stimulus_keys(stim: Stimulus | None) -> set[str]:
+    """The Spectre/primitive params ``stim`` was read from (not device params)."""
+    if stim is None:
+        return set()
+    keys = {"dc", "mag", "phase", "type", "wave"}
+    if stim.waveform is not None:
+        kind = WaveformKind(stim.waveform.kind)
+        keys |= set(ARGS[kind][2]) | set(PRIMITIVE[kind][1].values())
+    return keys
 
 
 # ── Verilog-A/AMS primitives (LRM Annex E Table E.1) ───────────────────
@@ -291,7 +304,7 @@ def primitive(stim: Stimulus, current: bool) -> tuple[str, list[tuple[str, str]]
 
 
 def from_primitive(
-    master: str, params: dict[str, ParameterValue | str]
+    master: str, params: Mapping[str, ParameterValue | str]
 ) -> Stimulus | None:
     """The stimulus of a Table E.1 source primitive, None for any other master."""
     m = master.lower()

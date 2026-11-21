@@ -11,6 +11,8 @@ from kfnetlist.morphnet.morphnet_schema import (
     DirectiveKind,
     ExternalCircuit,
     Circuit,
+    Expression,
+    Stimulus,
     SubCircuit,
     OutputRequest,
     Parameter,
@@ -20,6 +22,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Simulation,
 )
 from kfnetlist.morphnet.netlist.expression import parameter_value, value_text
+from kfnetlist.morphnet.netlist.stimulus import attach, from_spectre, stimulus_keys
 from kfnetlist.morphnet.netlist.net_utils import (
     NetMap,
     add_port_to_net,
@@ -124,6 +127,7 @@ class SpectreTransformer(Transformer[Token, Netlist]):
     def __init__(self) -> None:
         super().__init__()
         self.all_subckts: dict[str, Circuit] = {}
+        self.stimuli: list[tuple[str, SubCircuit, Stimulus]] = []
 
     # ── Leaf transformers ───────────────────────────────────────────────
 
@@ -134,7 +138,8 @@ class SpectreTransformer(Transformer[Token, Netlist]):
         return parameter_value(str(items[0]))
 
     def pvalue_string(self, items: list[Token]) -> ParameterValue:
-        return ParameterValue()
+        """A quoted string (``type="pulse"``), kept as written."""
+        return ParameterValue(expression=Expression(raw=str(items[0])))
 
     def param_assign(self, items: list[Any]) -> tuple[str, ParameterValue]:
         name = str(items[0])
@@ -376,22 +381,29 @@ class SpectreTransformer(Transformer[Token, Netlist]):
                         properties={"spice_prefix": device_prefix},
                     )
 
+                given = dict(inst.params)
+                stim = None
+                if device_prefix in ("V", "I"):
+                    stim = from_spectre(given)
+                    for key in stimulus_keys(stim):
+                        given.pop(key, None)
                 params = [
                     Parameter(name=pname, default_value=pval)
-                    for pname, pval in inst.params.items()
+                    for pname, pval in given.items()
                 ]
                 props: dict[str, str] = {}
                 if inst.cell_name and inst.cell_name != module_name:
                     props["model_name"] = inst.cell_name
 
-                subcircuits.append(
-                    SubCircuit(
-                        name=inst.name,
-                        circuit_name=module_name,
-                        parameters=params,
-                        properties=props,
-                    )
+                ref = SubCircuit(
+                    name=inst.name,
+                    circuit_name=module_name,
+                    parameters=params,
+                    properties=props,
                 )
+                subcircuits.append(ref)
+                if stim is not None:
+                    self.stimuli.append((name, ref, stim))
 
         for mdata in model_defs.values():
             if mdata.name not in ext_circuits:
@@ -479,7 +491,9 @@ class SpectreTransformer(Transformer[Token, Netlist]):
                     properties={"model_type": mdata.type_name},
                 )
 
-        top_circuit = circuits[-1].name if circuits else ""
+        top_circuit = (
+            "__top__" if top_instances else (circuits[-1].name if circuits else "")
+        )
 
         simulation: Simulation | None = None
         if analyses or output_requests:
@@ -503,7 +517,7 @@ class SpectreTransformer(Transformer[Token, Netlist]):
                 ],
             )
 
-        return Netlist(
+        netlist = Netlist(
             name="",
             top_circuit=top_circuit,
             circuits=circuits,
@@ -511,3 +525,6 @@ class SpectreTransformer(Transformer[Token, Netlist]):
             directives=directives,
             simulation=simulation,
         )
+        for circuit_name, ref, stim in self.stimuli:
+            attach(netlist, circuit_name, ref, stim)
+        return netlist

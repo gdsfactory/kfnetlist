@@ -13,7 +13,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Simulation,
     Stimulus,
 )
-from kfnetlist.morphnet.netlist.spectre.parser import parse_spectre
+from kfnetlist.morphnet.netlist.spectre.parser import SpectreParser
 from kfnetlist.morphnet.netlist.spectre_spice.preprocess import preprocess_spectre_spice
 from kfnetlist.morphnet.netlist.spice.parser import parse_spice
 
@@ -26,8 +26,8 @@ class SpectreSpiceParser:
     """
 
     @classmethod
-    def parse(cls, text: str) -> Netlist:
-        sections = preprocess_spectre_spice(text)
+    def parse(cls, text: str, language: str = "spice") -> Netlist:
+        sections = preprocess_spectre_spice(text, language)
 
         all_circuits: list[Circuit] = []
         all_ext_circuits: dict[str, ExternalCircuit] = {}
@@ -45,7 +45,7 @@ class SpectreSpiceParser:
             if not section.text.strip():
                 continue
             if section.language == "spectre":
-                netlist = parse_spectre(section.text)
+                netlist = SpectreParser.parse(section.text)
             else:
                 netlist = parse_spice(section.text)
 

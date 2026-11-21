@@ -139,7 +139,8 @@ def net_map_to_connections(net_map: NetMap) -> list[Connection]:
     for net_name, port_refs in net_map.items():
         if len(port_refs) == 1:  # a one-pin net, unless a writer's open-pin node
             ref = port_refs[0]
-            if net_name != open_node(ref.instance_name, ref.port_name):
+            # by instance: a parser that does not know the master's pins reads `p1`
+            if not net_name.startswith(open_node(ref.instance_name, "")):
                 connections.append(
                     Connection(
                         name=net_name, source=ref, domain=domain_of(ref.port_name)

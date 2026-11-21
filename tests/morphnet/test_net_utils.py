@@ -53,6 +53,12 @@ class TestNetMapToConnections:
         }
         assert net_map_to_connections(net_map) == []
 
+    def test_an_open_pin_node_read_with_positional_pins_is_no_connection(self) -> None:
+        net_map: NetMap = {  # `XA coupling nc_A_S cell` with `cell` undefined
+            "nc_A_S": [PortReference(instance_name="A", port_name="p1")],
+        }
+        assert net_map_to_connections(net_map) == []
+
     def test_empty_net_map(self) -> None:
         assert net_map_to_connections({}) == []
 
