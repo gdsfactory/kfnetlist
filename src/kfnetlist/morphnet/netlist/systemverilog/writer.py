@@ -23,6 +23,7 @@ from kfnetlist.morphnet.netlist.hdl import (
 )
 from kfnetlist.morphnet.netlist.net_utils import BIT_RE, connections_to_instance_nets
 from kfnetlist.morphnet.netlist.expression import format_expression
+from kfnetlist.morphnet.netlist.stimulus import primitive, stimulus_of
 from kfnetlist.morphnet.netlist.expression import Resolve
 from kfnetlist.morphnet.netlist.value_utils import macro_lines, sim_params, to_float
 
@@ -77,8 +78,11 @@ MACRO_LANGUAGES = dict.fromkeys(("systemverilog", "verilog"))
 class SystemVerilogWriter:
     """Convert a Netlist model to structural SystemVerilog text."""
 
+    netlist: Netlist  # the one being written
+
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
+        self.netlist = netlist
         self.write_directives(netlist.directives, lines)
         lines.extend(macro_lines(netlist.macros, MACRO_LANGUAGES, "//"))
         lines.extend(
@@ -183,15 +187,15 @@ class SystemVerilogWriter:
     ) -> str:
         params = ""
         shown, resolve = sim_params(ref)
-        if shown:
-            params = (
-                " #("
-                + ", ".join(
-                    f".{sv_name(p.name)}({format_param_value(p, resolve)})"
-                    for p in shown
-                )
-                + ")"
-            )
+        parts = [f".{sv_name(p.name)}({format_param_value(p, resolve)})" for p in shown]
+        master = ref.circuit_name
+        stim = stimulus_of(self.netlist, ref)
+        if stim is not None:  # a Verilog-AMS LRM Annex E source primitive
+            current = ref.circuit_name == "isource"
+            master, stim_params = primitive(stim, current, "systemverilog")
+            parts += [f".{k}({v})" for k, v in stim_params]
+        if parts:
+            params = f" #({', '.join(parts)})"
 
         target = circuit_by_name.get(ref.circuit_name) or ext_by_name.get(
             ref.circuit_name
@@ -210,7 +214,7 @@ class SystemVerilogWriter:
             expr = connection_expr(f"{ref.name}.{name}", nets, buses or {}, sv_name)
             conns.append(f".{sv_name(name)}({expr})")
         conns = ", ".join(conns)
-        return f"  {sv_name(ref.circuit_name)}{params} {sv_name(ref.name)} ({conns});"
+        return f"  {sv_name(master)}{params} {sv_name(ref.name)} ({conns});"
 
 
 def write_systemverilog(netlist: Netlist) -> str:

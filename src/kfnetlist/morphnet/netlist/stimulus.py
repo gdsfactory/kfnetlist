@@ -15,6 +15,7 @@ import re
 from collections.abc import Mapping
 
 from kfnetlist.morphnet.morphnet_schema import (
+    Expression,
     Netlist,
     ParameterValue,
     Simulation,
@@ -23,7 +24,12 @@ from kfnetlist.morphnet.morphnet_schema import (
     Waveform,
     WaveformKind,
 )
-from kfnetlist.morphnet.netlist.expression import WRAP, parameter_value, value_text
+from kfnetlist.morphnet.netlist.expression import (
+    WRAP,
+    format_expression,
+    parameter_value,
+    value_text,
+)
 from kfnetlist.morphnet.netlist.value_utils import to_float
 
 __all__ = [
@@ -88,6 +94,9 @@ def attach(netlist: Netlist, circuit: str, ref: SubCircuit, stim: Stimulus) -> N
 
 
 def _text(value: ParameterValue, dialect: str) -> str:
+    if value.prefixed_value is not None and dialect == "systemverilog":
+        literal = Expression(literal=value.prefixed_value)  # no SI suffixes
+        return format_expression(literal, dialect)
     return value_text(value, dialect)
 
 
@@ -278,11 +287,13 @@ def stimulus_keys(stim: Stimulus | None) -> set[str]:
 # ── Verilog-A/AMS primitives (LRM Annex E Table E.1) ───────────────────
 
 
-def primitive(stim: Stimulus, current: bool) -> tuple[str, list[tuple[str, str]]]:
+def primitive(
+    stim: Stimulus, current: bool, dialect: str = "vams"
+) -> tuple[str, list[tuple[str, str]]]:
     """``(master, [(param, text)])`` of the Table E.1 primitive for ``stim``. A DC/AC
     source is a ``vsine`` with only ``dc``/``mag``/``phase`` (LRM E.2.2.3)."""
     params = [
-        (name, _text(value, "vams"))
+        (name, _text(value, dialect))
         for name, value in (
             ("dc", stim.dc),
             ("mag", stim.ac_magnitude),
@@ -295,11 +306,13 @@ def primitive(stim: Stimulus, current: bool) -> tuple[str, list[tuple[str, str]]
         PRIMITIVE.get(WaveformKind(w.kind), ("sine", {})) if w else ("sine", {})
     )
     if w is not None and w.kind == WaveformKind.PWL:
-        params.append(("wave", f"'{{{', '.join(_text(p, 'vams') for p in w.points)}}}"))
+        params.append(
+            ("wave", f"'{{{', '.join(_text(p, dialect) for p in w.points)}}}")
+        )
     elif w is not None:
         for name in ARGS[WaveformKind(w.kind)][2]:
             if name in w.args:
-                params.append((names.get(name, name), _text(w.args[name], "vams")))
+                params.append((names.get(name, name), _text(w.args[name], dialect)))
     return ("i" if current else "v") + shape, params
 
 

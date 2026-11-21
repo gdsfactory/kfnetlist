@@ -8,6 +8,7 @@ from typing import Any
 from lark import Token, Transformer
 
 from kfnetlist.morphnet.morphnet_schema import (
+    Stimulus,
     Circuit,
     Directive,
     Netlist,
@@ -41,6 +42,7 @@ from kfnetlist.morphnet.netlist.net_utils import (
     typed_connections,
 )
 from kfnetlist.morphnet.netlist.expression import parse_expression
+from kfnetlist.morphnet.netlist.stimulus import attach, from_primitive, stimulus_keys
 from kfnetlist.morphnet.netlist.value_utils import (
     is_si_number,
     parse_parameter_number,
@@ -212,6 +214,7 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
     ) -> None:
         super().__init__()
         self.blocks = blocks or []
+        self.stimuli: list[tuple[str, SubCircuit, Stimulus]] = []
         self.directives = directives or []
         self.disciplines = disciplines or {}
         self.pin_domains = pin_domains or {}
@@ -445,6 +448,8 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
             properties=properties,
             directives=self.directives,
         )
+        for circuit_name, ref, stim in self.stimuli:
+            attach(netlist, circuit_name, ref, stim)
         propagate_domains(netlist, self.disciplines, self.pin_domains)
         return netlist
 
@@ -544,6 +549,21 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
                         names, port, expr, buses, target_ranges
                     ):
                         add_port_to_net(net_map, find(net), name, pin)
+                stim = from_primitive(
+                    stmt.module,
+                    {p.name: p.default_value for p in params if p.default_value},
+                )
+                if stim is not None:  # a Verilog-AMS LRM Annex E source primitive
+                    keys = stimulus_keys(stim)
+                    master = "isource" if stmt.module[0].lower() == "i" else "vsource"
+                    rest = [p for p in params if p.name not in keys]
+                    for n in names:
+                        ref = SubCircuit(name=n, circuit_name=master, parameters=rest)
+                        subcircuits.append(ref)
+                        self.stimuli.append(
+                            (module.name, ref, stim.model_copy(deep=True))
+                        )
+                    continue
                 subcircuits += [
                     SubCircuit(name=n, circuit_name=stmt.module, parameters=params)
                     for n in names

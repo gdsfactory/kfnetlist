@@ -131,3 +131,24 @@ endmodule
     assert "  input [3:0] bus,\n" in written
     assert "  cell C1 (.a({b, bus[3:2]}), .y(y));" in written
     assert "  cell C2 (.a(bus), .y());" in written
+
+
+def test_a_stimulus_is_an_annex_e_primitive_that_reads_back():
+    from kfnetlist.morphnet.netlist import parse_spice, parse_systemverilog
+    from kfnetlist.morphnet.netlist.stimulus import stimulus_of
+    from kfnetlist.morphnet.netlist.value_utils import to_float
+
+    nl = parse_spice(
+        "* t\nV1 a 0 DC 0.9 PULSE(0 1.8 1n 10p 10p 1n 2n)\nR1 a 0 1k\n.end\n"
+    )
+    text = write_systemverilog(nl)
+    assert "vpulse #(.dc(0.9), .val0(0), .val1(1.8), .td(1e-9)" in text  # no SI suffix
+    back = parse_systemverilog(text)
+    (v1,) = (s for c in back.circuits for s in c.subcircuits if s.name == "V1")
+    assert v1.circuit_name == "vsource"
+
+    def numbers(stim):
+        return {k: to_float(v.prefixed_value) for k, v in stim.waveform.args.items()}
+
+    original = stimulus_of(nl, nl.circuits[0].subcircuits[0])
+    assert numbers(stimulus_of(back, v1)) == pytest.approx(numbers(original))
