@@ -20,6 +20,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Simulation,
 )
 from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
+from kfnetlist.morphnet.netlist.stimulus import spectre_params, stimulus_of
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PORT_TEMPLATES,
     DEVICE_PREFIX_TO_CIRCUIT,
@@ -41,6 +42,7 @@ class SpectreWriter:
     """Convert a Netlist model to Spectre netlist text."""
 
     ground: str = ""
+    netlist: Netlist  # the one being written
     vacask: bool = False
 
     def format_param_value(self, pval: ParameterValue) -> str:
@@ -60,6 +62,7 @@ class SpectreWriter:
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
         self.ground = netlist.properties.get("ground_net", "")
+        self.netlist = netlist
         self.vacask = netlist.properties.get("dialect") == "vacask"
         if self.vacask and self.ground:
             lines.append("ground 0")
@@ -218,6 +221,10 @@ class SpectreWriter:
                 name = value_name if param.name == "value" else param.name
                 param_strs.append(f"{name}={text}")
 
+        stim = stimulus_of(self.netlist, ref)
+        if stim is not None:
+            dialect = "vacask" if self.vacask else "spectre"
+            param_strs += [f"{k}={v}" for k, v in spectre_params(stim, dialect)]
         params_text = " " + " ".join(param_strs) if param_strs else ""
         name = ref.name.lower() if self.vacask else ref.name
         return f"{name} ({nets_str}) {cell_name}{params_text}"

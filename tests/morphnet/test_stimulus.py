@@ -125,7 +125,7 @@ def test_spice_text_is_what_nyancad_writes():
         "DC 0.9 PULSE(0 1.8 1n 10p 10p 1n 2n)"
     )
     assert spice_text(CASES["expression"], "ngspice") == (
-        "DC {vdd / 2} PULSE(0 vdd 0 0 0 w {2 * w})"
+        "DC {vdd / 2} PULSE(0 {vdd} 0 0 0 {w} {2 * w})"
     )
 
 

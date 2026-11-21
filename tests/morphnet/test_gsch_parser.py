@@ -62,9 +62,11 @@ def test_mosaic_props_become_si_values_or_expressions():
 
     nl = load("ihp_cmos_inverter")
     v2 = next(s for s in nl.circuits[0].subcircuits if s.name == "V2")
-    (value,) = v2.parameters  # a `tran` string is no waveform: nyancad drops it
-    assert value.default_value.expression.raw == "DC 0.9 AC 1"  # no expression
-    assert value.properties == {}
+    assert v2.parameters == []  # its value is a stimulus of the simulation
+    (stim,) = (s for s in nl.simulation.stimuli if s.name == "__top__/V2")
+    assert stim.dc.prefixed_value.double_value == 0.9
+    assert stim.ac_magnitude.prefixed_value.double_value == 1
+    assert stim.waveform is None  # a `tran` string is no waveform: nyancad drops it
     m1 = next(s for s in nl.circuits[0].subcircuits if s.name == "M1")
     by_name = {p.name: p for p in m1.parameters}
     assert by_name["width"].default_value.prefixed_value.double_value == 0.15

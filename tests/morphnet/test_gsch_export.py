@@ -16,8 +16,13 @@ from pathlib import Path
 import pytest
 
 from kfnetlist import morphnet
-from kfnetlist.morphnet.morphnet_schema import DirectiveKind, Expression, Netlist
-from kfnetlist.morphnet.netlist.expression import parse_expression
+from kfnetlist.morphnet.morphnet_schema import (
+    DirectiveKind,
+    Expression,
+    Netlist,
+    WaveformKind,
+)
+from kfnetlist.morphnet.netlist.expression import parameter_value, parse_expression
 from kfnetlist.morphnet.netlist.gsch.parser import parameter
 from kfnetlist.morphnet.netlist import (
     parse_gsch,
@@ -608,11 +613,10 @@ def test_an_edited_model_default_is_written_and_a_computed_param_is_an_error():
     assert [p.name for p in subs["X2"].parameters] == ["rload"]
     subs["X2"].parameters = [parameter("rload", "2k")]
     assert json.loads(write_gsch(nl))["top:X2"]["props"]["rload"] == "2k"
-    subs["V1"].parameters = [parameter("value", "DC 5")]
-    message = (
-        "V1: 'value' is derived from the device's props; edit 'dc', 'tran' instead"
-    )
-    with pytest.raises(ValueError, match=re.escape(message)):
+    subs["M3"].parameters = [
+        p if p.name != "w" else parameter("w", "9u") for p in subs["M3"].parameters
+    ]
+    with pytest.raises(ValueError, match="M3: 'w' is derived from"):
         write_gsch(nl)
 
 
@@ -782,3 +786,56 @@ def test_code_without_a_language_is_spice():
     nl = parse_gsch(library_doc("ra"), models=models)
     assert [m.language for m in nl.macros] == ["spice"]
     assert ".param ra=1" in lines(nl)
+
+
+def test_sources_are_stimuli_of_the_simulation():
+    nl = export("ihp_hier_top", "ngspice")
+    stimuli = {s.name: s for s in nl.simulation.stimuli}
+    assert set(stimuli) == {"__top__/V1", "__top__/V2", "__top__/I1"}
+    v1 = next(s for s in nl.circuits[-1].subcircuits if s.name == "V1")
+    assert v1.properties["stimulus"] == "__top__/V1"
+    assert v1.parameters == []
+    pulse = stimuli["__top__/V1"].waveform
+    assert pulse.kind == WaveformKind.PULSE
+    assert pulse.args["val1"] == parameter_value("1.8")
+    sine = stimuli["__top__/I1"]
+    assert sine.ac_magnitude == parameter_value("1")
+    assert sine.waveform.args["sinedc"] == parameter_value("1m")
+
+
+def test_the_simulator_does_not_change_a_stimulus():
+    ngspice = export("ihp_hier_top", "ngspice").simulation
+    assert ngspice == export("ihp_hier_top", "vacask").simulation
+
+
+def test_an_edited_stimulus_goes_back_to_its_props():
+    nl = export("ihp_hier_top", "ngspice")
+    v2 = next(s for s in nl.simulation.stimuli if s.name == "__top__/V2")
+    v2.dc = parameter_value("2.5")
+    assert json.loads(write_gsch(nl))["top:V2"]["props"] == {"dc": "2.5"}
+    assert "V2 vdd 0 DC 2.5" in lines(nl)
+    i1 = next(s for s in nl.simulation.stimuli if s.name == "__top__/I1")
+    i1.waveform.args["ampl"] = parameter_value("2m")
+    tran = json.loads(write_gsch(nl))["top:I1"]["props"]["tran"]
+    assert tran == {"type": "sin", "offset": "1m", "amplitude": "2m",
+                    "frequency": "1meg"}  # fmt: skip
+
+
+def test_a_source_in_a_child_schematic_is_named_after_its_circuit(tmp_path):
+    child = {
+        "c:V1": {"type": "vsource", "name": "V1", "nets": {"P": "p", "N": "GND"},
+                 "props": {"dc": "1"}},
+        "c:p": {"type": "port", "name": "p", "nets": {"P": "p"}},
+    }  # fmt: skip
+    top = {
+        "t:X": {"type": "ckt", "name": "X", "model": "cell.gsch", "nets": {"p": "n"}},
+        "t:R": {"type": "resistor", "name": "R", "nets": {"P": "n", "N": "GND"},
+                "props": {"resistance": "1k"}},
+    }  # fmt: skip
+    (tmp_path / "cell.gsch").write_text(json.dumps(child))
+    (tmp_path / "top.gsch").write_text(json.dumps(top))
+    nl = read_gsch(tmp_path / "top.gsch")
+    assert [s.name for s in nl.simulation.stimuli] == ["cell/V1"]
+    v1 = nl.circuits[0].subcircuits[0]
+    assert (nl.circuits[0].name, v1.properties["stimulus"]) == ("cell", "cell/V1")
+    assert "V1 p 0 DC 1" in write_spice(nl)

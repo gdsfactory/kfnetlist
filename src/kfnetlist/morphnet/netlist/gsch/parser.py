@@ -25,6 +25,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     ParameterValue,
     Port,
     SignalDomain,
+    Stimulus,
     SubCircuit,
 )
 from kfnetlist.morphnet.netlist.net_utils import (
@@ -44,6 +45,7 @@ from kfnetlist.morphnet.netlist.gsch.sim import (
     select_entry,
 )
 from kfnetlist.morphnet.netlist.expression import WORD_RE, parse_expression
+from kfnetlist.morphnet.netlist.stimulus import attach, stimulus_of
 from kfnetlist.morphnet.netlist.value_utils import is_si_number, parse_parameter_number
 
 # Instance stash: ``SubCircuit.properties["__info__"]`` = ``{"__gsch__": {"key", "entry"}}``.
@@ -428,6 +430,7 @@ def parse_gsch(
         )
 
     subcircuits = []
+    stimuli: list[tuple[SubCircuit, Stimulus]] = []
     for key, entry in comps.items():
         device = devices[key]
         info: dict[str, Any] = {STASH: {"key": key, "entry": entry}}
@@ -450,14 +453,15 @@ def parse_gsch(
             info[STASH]["pins"] = renamed
         if key in tied:
             info[STASH]["tied"] = tied[key]
-        subcircuits.append(
-            SubCircuit(
-                name=names[key],
-                circuit_name=master(key),
-                parameters=parameters(entry, device, info[STASH]),
-                properties={INFO: json.dumps(info), **props},
-            )
+        ref = SubCircuit(
+            name=names[key],
+            circuit_name=master(key),
+            parameters=parameters(entry, device, info[STASH]),
+            properties={INFO: json.dumps(info), **props},
         )
+        subcircuits.append(ref)
+        if device is not None and device.stimulus is not None:
+            stimuli.append((ref, device.stimulus))
 
     # ── the circuit: exposed port markers are its terminals
     prefixes = {k.split(":", 1)[0] for k in doc if ":" in k}
@@ -506,6 +510,8 @@ def parse_gsch(
         macros=macros,
         properties=properties,
     )
+    for ref, stim in stimuli:
+        attach(netlist, circuit_name, ref, stim)
     propagate_domains(netlist, pin_domains=pin_domains)
     return netlist
 
@@ -651,6 +657,15 @@ def read_gsch(
         directives += [d for d in netlist.directives if d not in directives]
         for m in netlist.macros:
             add_macro(macros, m)
+    sources = [  # named again after the children's circuit names
+        (netlist.circuits[0].name, ref, stim)
+        for netlist in netlists
+        for ref in netlist.circuits[0].subcircuits
+        if (stim := stimulus_of(netlist, ref)) is not None
+    ]
+    top.simulation = None
+    for circuit_name, ref, stim in sources:
+        attach(top, circuit_name, ref, stim)
     top.circuits = circuits
     top.ext_circuits = list(ext_circuits.values())
     top.directives = directives

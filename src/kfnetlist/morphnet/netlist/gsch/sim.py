@@ -14,7 +14,16 @@ from collections.abc import Mapping, Sequence
 from dataclasses import dataclass, field
 from typing import Any
 
-from kfnetlist.morphnet.morphnet_schema import Directive, DirectiveKind, Macro
+from kfnetlist.morphnet.morphnet_schema import (
+    Directive,
+    DirectiveKind,
+    Macro,
+    ParameterValue,
+    Stimulus,
+    Waveform,
+    WaveformKind,
+)
+from kfnetlist.morphnet.netlist.expression import parameter_value, value_text
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PORT_TEMPLATES,
     DEVICE_PREFIX_TO_CIRCUIT,
@@ -44,29 +53,34 @@ BUILTIN = {
 VALUE_PROP = {"R": "resistance", "C": "capacitance", "L": "inductance"}
 VACASK_MASTER = {"R": "sp_resistor", "C": "sp_capacitor", "L": "sp_inductor"}
 
-# tran variant -> (SPICE function, VACASK type, [(prop, VACASK name, InSpice default)])
-# in SPICE positional order; nyancad's _TRAN_PARAM_MAP names the props. Default
-# None: required (InSpice fails without it); OMIT: may be left off at the end.
+# tran variant -> [(prop, stimulus arg, InSpice default)] in SPICE positional order;
+# nyancad's _TRAN_PARAM_MAP names the props. Default None: required (InSpice fails
+# without it); OMIT: may be left off at the end.
 OMIT = ""
 TRAN = {
-    "sin": ("SIN", "sine", [
+    "sin": [
         ("offset", "sinedc", "0"), ("amplitude", "ampl", "1"),
         ("frequency", "freq", "50"), ("delay", "delay", "0"),
-        ("damping", "theta", "0")]),
-    "pulse": ("PULSE", "pulse", [
+        ("damping", "theta", "0")],
+    "pulse": [
         ("initial", "val0", None), ("pulsed", "val1", None),
         ("delay", "delay", "0"), ("rise", "rise", "0"), ("fall", "fall", "0"),
-        ("width", "width", None), ("period", "period", None)]),
-    "exp": ("EXP", "exp", [
+        ("width", "width", None), ("period", "period", None)],
+    "exp": [
         ("initial", "val0", None), ("pulsed", "val1", None),
         ("rise-delay", "delay", "0"), ("rise-tau", "tau1", OMIT),
-        ("fall-delay", "td2", OMIT), ("fall-tau", "tau2", OMIT)]),
-    "sffm": ("SFFM", "fm", [
+        ("fall-delay", "td2", OMIT), ("fall-tau", "tau2", OMIT)],
+    "sffm": [
         ("offset", "sinedc", None), ("amplitude", "ampl", None),
         ("carrier-freq", "freq", None), ("mod-index", "modindex", None),
-        ("signal-freq", "modfreq", None)]),
+        ("signal-freq", "modfreq", None)],
 }  # fmt: skip
-VACASK_DROP_ZERO = {"delay", "theta"}  # InSpice leaves these out when 0
+WAVEFORM_KIND = {
+    "sin": WaveformKind.SIN,
+    "pulse": WaveformKind.PULSE,
+    "exp": WaveformKind.EXP,
+    "sffm": WaveformKind.SFFM,
+}
 
 
 def check_sim(sim: str) -> str:
@@ -179,7 +193,7 @@ def waveform(
     """
     out: list[tuple[str, str]] = []
     gap = None
-    for prop, spectre, default in TRAN[variant][2]:
+    for prop, spectre, default in TRAN[variant]:
         value = given(tran.get(prop))
         if value is None and default is None:
             raise ValueError(f"{device}: tran {variant} needs {prop!r}")
@@ -192,44 +206,54 @@ def waveform(
     return out
 
 
-def source(device: str, props: Mapping[str, Any], sim: str) -> dict[str, Any]:
-    """Params of a V/I source: ``value`` text for SPICE, named params for VACASK."""
-    dc, ac, tran = props.get("dc"), props.get("ac"), props.get("tran")
+def source(device: str, props: Mapping[str, Any]) -> Stimulus:
+    """What drives a V/I source: its ``dc``/``ac`` props and ``tran`` waveform. Like
+    nyancad, a sine or pulse source always has a DC value (0) and a sine an AC one (1)."""
+    dc, ac, tran = given(props.get("dc")), given(props.get("ac")), props.get("tran")
     variant = tran.get("type") if isinstance(tran, dict) else None
     if not isinstance(tran, dict) or variant not in TRAN:
-        if sim == "vacask":
-            return {k: v for k, v in (("dc", dc), ("mag", ac)) if v is not None}
-        parts = [f"{k} {text(v)}" for k, v in (("DC", dc), ("AC", ac)) if v is not None]
-        return {"value": " ".join(parts)} if parts else {}
-    func, kind, _ = TRAN[variant]
-    values = waveform(device, variant, tran)
-    dc_text, ac_text = given(dc) or "0", given(ac)
-    if sim != "vacask":
-        args = " ".join(v for _, v in values)
-        head = {"sin": f"DC {dc_text} AC {ac_text or '1'} ", "pulse": f"DC {dc_text} "}
-        if variant == "pulse" and ac_text:
-            head["pulse"] += f"AC {ac_text} "
-        return {"value": f"{head.get(variant, '')}{func}({args})"}
-    out: dict[str, Any] = {}
-    if variant in ("sin", "pulse"):
-        out["dc"] = dc_text
-    if variant == "sin" or ac_text:
-        out["mag"] = ac_text or "1"
-    out["type"] = f'"{kind}"'
-    for name, raw in values:
-        value = number(raw)  # None for an expression: always written
-        if name in VACASK_DROP_ZERO and value == 0:
+        return Stimulus(dc=_value(dc), ac_magnitude=_value(ac))
+    args = {name: parameter_value(raw) for name, raw in waveform(device, variant, tran)}
+    return Stimulus(
+        dc=_value(dc or "0") if variant in ("sin", "pulse") else None,
+        ac_magnitude=_value(ac or "1") if variant == "sin" else _value(ac),
+        waveform=Waveform(kind=WAVEFORM_KIND[variant], args=args),
+    )
+
+
+def source_props(device: str, stim: Stimulus, props: Mapping[str, Any]) -> dict:
+    """``props`` with ``stim`` written back to ``dc``/``ac``/``tran``; unchanged while
+    ``stim`` is still what they describe. A value the props left to its default
+    (a sine's DC 0, a pulse's rise 0, ...) stays left out while it is the default."""
+    if stim.model_copy(update={"name": ""}) == source(device, props):
+        return dict(props)
+    out = {k: v for k, v in props.items() if k not in ("dc", "ac", "tran")}
+    tran_prop = props.get("tran")
+    old: Mapping[str, Any] = tran_prop if isinstance(tran_prop, dict) else {}
+    implied = {"dc": "0", "ac": "1"}
+    for prop, value in (("dc", stim.dc), ("ac", stim.ac_magnitude)):
+        if value is None or (prop not in props and value == _value(implied[prop])):
             continue
-        if name == "rise" and value is not None and value <= 0:  # VACASK: rise > 0
-            continue
-        out[name] = raw
-    if variant == "exp" and "td2" in out:  # VACASK: td2 counts from the delay
-        td2, delay = number(out["td2"]), number(out.get("delay", "0"))
-        if td2 is not None and delay is not None:
-            out["td2"] = f"{td2 - delay:g}"
-        elif "delay" in out:  # ponytail: an expression stays symbolic
-            out["td2"] = f"({out['td2']})-({out['delay']})"
+        out[prop] = value_text(value, "gsch")
+    w = stim.waveform
+    if w is not None:
+        variant = next((v for v, k in WAVEFORM_KIND.items() if k == w.kind), None)
+        if variant is None:
+            raise ValueError(f"{device}: a .gsch source has no {w.kind.name} waveform")
+        tran: dict[str, Any] = {"type": variant}
+        for prop, arg, default in TRAN[variant]:
+            value = w.args.get(arg)
+            if value is None or (
+                prop not in old and default and value == _value(default)
+            ):
+                continue
+            tran[prop] = value_text(value, "gsch")
+        out["tran"] = tran
     return out
+
+
+def _value(raw: str | None) -> ParameterValue | None:
+    return None if raw is None else parameter_value(raw)
 
 
 @dataclass
@@ -248,6 +272,7 @@ class Element:
     exprs: dict[str, str] = field(default_factory=dict)
     # model prop defaults the entry's props do not set
     defaults: dict[str, Any] = field(default_factory=dict)
+    stimulus: Stimulus | None = None  # a V/I source's
 
     def pin(self, name: str) -> str:
         return self.rename.get(name.lower(), name)
@@ -338,7 +363,9 @@ def _element(
         params = {} if value is None else {"value": value}
         return primitive(letter, ["P", "N"], params)
     if letter in ("V", "I"):
-        return primitive(letter, ["P", "N"], source(label, props, sim))
+        device = primitive(letter, ["P", "N"], {})
+        device.stimulus = source(label, props)
+        return device
     if letter:
         model = str(props.pop("model", ""))
         pins = {"D": ["P", "N"], "M": ["D", "G", "S", "B"], "Q": ["C", "B", "E"]}

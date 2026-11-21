@@ -30,9 +30,10 @@ from kfnetlist.morphnet.netlist.gsch.parser import (
     terminal_ref,
     terminal_refs,
 )
-from kfnetlist.morphnet.netlist.gsch.sim import GROUND
+from kfnetlist.morphnet.netlist.gsch.sim import GROUND, source_props
 from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
 from kfnetlist.morphnet.netlist.expression import WORD_RE, format_expression
+from kfnetlist.morphnet.netlist.stimulus import stimulus_of
 from kfnetlist.morphnet.netlist.value_utils import format_si_value
 
 # Mosaic device symbol types (frontend/mosaic common.cljc `device-types`). Any other
@@ -343,6 +344,9 @@ def write_gsch(netlist: Netlist) -> str:
             )
             p = p.model_copy(update={"name": prop})
             entry["props"][prop] = prop_value(p, stashed_props)
+        stim = stimulus_of(netlist, sub) if simulated else None
+        if stim is not None:
+            entry["props"] = source_props(sub.name, stim, entry["props"])
         if stash and "props" not in stash["entry"] and not entry["props"]:
             del entry["props"]
         # ponytail: a param removed from a simulated instance keeps its prop; drop

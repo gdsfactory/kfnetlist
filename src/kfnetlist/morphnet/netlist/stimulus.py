@@ -22,7 +22,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Waveform,
     WaveformKind,
 )
-from kfnetlist.morphnet.netlist.expression import parameter_value, value_text
+from kfnetlist.morphnet.netlist.expression import WRAP, parameter_value, value_text
 from kfnetlist.morphnet.netlist.value_utils import to_float
 
 __all__ = [
@@ -89,6 +89,15 @@ def _text(value: ParameterValue, dialect: str) -> str:
     return value_text(value, dialect)
 
 
+def _spice(value: ParameterValue, dialect: str) -> str:
+    """A positional SPICE value: a param name is wrapped too (``PULSE(0 {vdd})``)."""
+    text = value_text(value, dialect)
+    if value.expression is not None and value.expression.reference is not None:
+        opening, closing = WRAP[dialect]
+        return f"{opening}{text}{closing}"
+    return text
+
+
 def _number(value: ParameterValue | None) -> float | None:
     if value is None or value.prefixed_value is None:
         return None
@@ -106,21 +115,21 @@ def spice_text(stim: Stimulus, dialect: str) -> str:
     """``DC d AC m p FUNC(args)``: the positional value of a SPICE V/I line."""
     parts: list[str] = []
     if stim.dc is not None:
-        parts += ["DC", _text(stim.dc, dialect)]
+        parts += ["DC", _spice(stim.dc, dialect)]
     if stim.ac_magnitude is not None or stim.ac_phase is not None:
         mag = stim.ac_magnitude or parameter_value("1")
-        parts += ["AC", _text(mag, dialect)]
+        parts += ["AC", _spice(mag, dialect)]
         if stim.ac_phase is not None:
-            parts.append(_text(stim.ac_phase, dialect))
+            parts.append(_spice(stim.ac_phase, dialect))
     if stim.waveform is not None:
         w = stim.waveform
         func, _, names = ARGS[WaveformKind(w.kind)]
         if w.kind == WaveformKind.PWL:
-            args = [_text(p, dialect) for p in w.points]
+            args = [_spice(p, dialect) for p in w.points]
         else:
             last = max((i for i, n in enumerate(names) if n in w.args), default=-1)
             args = [
-                _text(w.args[n], dialect) if n in w.args else GAP
+                _spice(w.args[n], dialect) if n in w.args else GAP
                 for n in names[: last + 1]
             ]
         parts.append(f"{func}({' '.join(args)})")

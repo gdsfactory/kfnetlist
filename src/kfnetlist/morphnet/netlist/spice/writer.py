@@ -20,6 +20,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Simulation,
 )
 from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
+from kfnetlist.morphnet.netlist.stimulus import spice_text, stimulus_of
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PORT_TEMPLATES,
     DEVICE_PREFIX_TO_CIRCUIT,
@@ -42,6 +43,7 @@ class SpiceWriter:
     """
 
     ground: str = ""
+    netlist: Netlist  # the one being written
     # Keyword placed before subckt header / X-call params (Xyce: "PARAMS:")
     params_kw: str = ""
     dialect: str = "ngspice"  # expression wrapping (see format_expression)
@@ -64,6 +66,7 @@ class SpiceWriter:
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
         self.ground = netlist.properties.get("ground_net", "")
+        self.netlist = netlist
 
         # Title line
         title = netlist.name or "untitled"
@@ -232,6 +235,9 @@ class SpiceWriter:
                 else:
                     other_params.append(f"{param.name}={text}")
 
+            stim = stimulus_of(self.netlist, ref)
+            if stim is not None:
+                value_str = spice_text(stim, self.dialect)
             parts = [out_name, nets_str]
             if model_name:
                 parts.append(model_name)
