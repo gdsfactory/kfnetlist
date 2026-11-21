@@ -30,7 +30,7 @@ from kfnetlist.morphnet.netlist.expression import (
     parameter_value,
     value_text,
 )
-from kfnetlist.morphnet.netlist.value_utils import to_float
+from kfnetlist.morphnet.netlist.value_utils import parse_verilog_number, to_float
 
 __all__ = [
     "ARGS",
@@ -40,6 +40,7 @@ __all__ = [
     "parse_spice",
     "primitive",
     "spectre_params",
+    "spectre_keys",
     "spice_text",
     "stimulus_keys",
     "stimulus_of",
@@ -69,6 +70,11 @@ PRIMITIVE: dict[WaveformKind, tuple[str, dict[str, str]]] = {
                                  "modfreq": "fmmodfreq"}),
     WaveformKind.PWL: ("pwl", {}),
 }  # fmt: skip
+# Cadence Spectre's own names for some args: sine `damp`, exp rise delay `td1`
+SPECTRE_ALIASES: dict[WaveformKind, dict[str, str]] = {
+    WaveformKind.SIN: {"damp": "theta"},
+    WaveformKind.EXP: {"td1": "delay"},
+}
 VACASK_DROP_ZERO = {"delay", "theta"}  # InSpice leaves these out when 0
 FUNC_RE = re.compile(r"([A-Za-z]+)\((.*)\)$", re.S)
 
@@ -117,6 +123,13 @@ def _number(value: ParameterValue | None) -> float | None:
 
 def _value(raw: ParameterValue | str) -> ParameterValue:
     return raw if isinstance(raw, ParameterValue) else parameter_value(str(raw))
+
+
+def _verilog(raw: ParameterValue | str) -> ParameterValue:
+    """A Verilog-A value: ``1M`` is mega there."""
+    if isinstance(raw, ParameterValue):
+        return raw
+    return parse_verilog_number(str(raw)) or parameter_value(str(raw))
 
 
 # ── SPICE ──────────────────────────────────────────────────────────────
@@ -192,8 +205,10 @@ def parse_spice(text: str) -> Stimulus:
             if nxt and not FUNC_RE.match(nxt) and nxt.upper() not in ("DC", "AC"):
                 stim.ac_phase = parameter_value(nxt)
                 i += 1
-        elif stim.dc is None and i == 0:
+        elif stim.dc is None and i == 0 and not func:
             stim.dc = parameter_value(tok)  # `V1 a 0 1.8`: the DC value
+        else:
+            raise ValueError(f"unsupported source value {tok!r} in {text!r}")
         i += 1
     return stim
 
@@ -262,7 +277,11 @@ def from_spectre(
             points = [parameter_value(a) for a in _args(text)]
             stim.waveform = Waveform(kind=kind, points=points)
         elif kind is not None:
-            args = {n: _value(params[n]) for n in ARGS[kind][2] if n in params}
+            aliases = SPECTRE_ALIASES.get(kind, {})
+            args = {
+                ours: _value(params[k]) for k, ours in aliases.items() if k in params
+            }
+            args |= {n: _value(params[n]) for n in ARGS[kind][2] if n in params}
             if dialect == "vacask" and "td2" in args and "delay" in args:
                 td2, delay = _number(args["td2"]), _number(args["delay"])
                 if td2 is not None and delay is not None:
@@ -271,6 +290,18 @@ def from_spectre(
     if stim == Stimulus():
         return None
     return stim
+
+
+def spectre_keys(stim: Stimulus | None, params: Mapping[str, object]) -> set[str]:
+    """The params of a Spectre source ``from_spectre`` read into ``stim``; an
+    unknown ``type`` (``prbs``) and its params stay device params."""
+    if stim is None:
+        return set()
+    keys = {"dc", "mag", "phase"}
+    if stim.waveform is not None:
+        kind = WaveformKind(stim.waveform.kind)
+        keys |= {"type", "wave", *ARGS[kind][2], *SPECTRE_ALIASES.get(kind, {})}
+    return keys & set(params)
 
 
 def stimulus_keys(stim: Stimulus | None) -> set[str]:
@@ -324,9 +355,9 @@ def from_primitive(
     if len(m) < 2 or m[0] not in "vi" or m[1:] not in ("pulse", "sine", "exp", "pwl"):
         return None
     stim = Stimulus(
-        dc=_value(params["dc"]) if "dc" in params else None,
-        ac_magnitude=_value(params["mag"]) if "mag" in params else None,
-        ac_phase=_value(params["phase"]) if "phase" in params else None,
+        dc=_verilog(params["dc"]) if "dc" in params else None,
+        ac_magnitude=_verilog(params["mag"]) if "mag" in params else None,
+        ac_phase=_verilog(params["phase"]) if "phase" in params else None,
     )
     shape = m[1:]
     if shape == "pwl":
@@ -334,7 +365,7 @@ def from_primitive(
         text = _text(wave, "vams") if isinstance(wave, ParameterValue) else wave
         text = text.strip().removeprefix("'").removeprefix("{").removesuffix("}")
         if text:
-            points = [parameter_value(a) for a in _args(text)]
+            points = [_verilog(a) for a in _args(text)]
             stim.waveform = Waveform(kind=WaveformKind.PWL, points=points)
         return stim
     if shape == "sine" and any(k.startswith("fmmod") for k in params):
@@ -345,7 +376,7 @@ def from_primitive(
         kind = {"pulse": WaveformKind.PULSE, "exp": WaveformKind.EXP}[shape]
     names = {theirs: ours for ours, theirs in PRIMITIVE[kind][1].items()}
     args = {
-        names.get(k, k): _value(v)
+        names.get(k, k): _verilog(v)
         for k, v in params.items()
         if names.get(k, k) in ARGS[kind][2]
     }

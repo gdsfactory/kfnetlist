@@ -52,6 +52,7 @@ from kfnetlist.morphnet.netlist.stimulus import attach, from_primitive, stimulus
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PREFIX_TO_CIRCUIT,
     parse_parameter_number,
+    parse_verilog_number,
 )
 
 PRIMITIVES = set(DEVICE_PREFIX_TO_CIRCUIT.values())
@@ -221,7 +222,8 @@ class VamsTransformer(Transformer[Token, Netlist]):
     # ── Leaf transformers ───────────────────────────────────────────────
 
     def pvalue_number(self, items: list[Token]) -> ParameterValue:
-        return parse_parameter_number(str(items[0]))
+        text = str(items[0])
+        return parse_verilog_number(text) or parse_parameter_number(text)
 
     def pvalue_ident(self, items: list[Token]) -> ParameterValue:
         return parameter_value(str(items[0]))
@@ -382,7 +384,8 @@ class VamsTransformer(Transformer[Token, Netlist]):
 
     def named_override(self, items: list[Any]) -> tuple[str, ParameterValue]:
         text = str(items[1])[1:-1].strip()  # `(0.13 * 1e-6)`
-        return str(items[0]), parameter_value(text) if text else ParameterValue()
+        value = parse_verilog_number(text) or (parameter_value(text) if text else None)
+        return str(items[0]), value or ParameterValue()
 
     def positional_override(self, items: list[Any]) -> ParameterValue:
         v = items[0]

@@ -344,7 +344,7 @@ def write_gsch(netlist: Netlist) -> str:
             )
             p = p.model_copy(update={"name": prop})
             entry["props"][prop] = prop_value(p, stashed_props)
-        stim = stimulus_of(netlist, sub) if simulated else None
+        stim = stimulus_of(netlist, sub)  # also for a source from another format
         if stim is not None:
             entry["props"] = source_props(sub.name, stim, entry["props"])
         if stash and "props" not in stash["entry"] and not entry["props"]:

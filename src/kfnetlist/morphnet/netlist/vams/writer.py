@@ -27,7 +27,7 @@ from kfnetlist.morphnet.netlist.systemverilog.writer import sv_name
 from kfnetlist.morphnet.netlist.expression import Resolve, format_expression
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PREFIX_TO_CIRCUIT,
-    format_si_value,
+    format_verilog_value,
     macro_lines,
     sim_params,
 )
@@ -289,7 +289,7 @@ class VamsWriter:
         if not isinstance(pval, ParameterValue):
             return str(pval)
         if pval.prefixed_value is not None:
-            return format_si_value(pval.prefixed_value)
+            return format_verilog_value(pval.prefixed_value)
         if pval.expression is not None:
             return format_expression(pval.expression, "vams", resolve) or "0"
         return "0"

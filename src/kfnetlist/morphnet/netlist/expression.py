@@ -28,6 +28,7 @@ from kfnetlist.morphnet.morphnet_schema import (
 )
 from kfnetlist.morphnet.netlist.value_utils import (
     format_si_value,
+    format_verilog_value,
     is_si_number,
     parse_parameter_number,
     parse_si_number,
@@ -145,7 +146,11 @@ def parameter_value(text: str) -> ParameterValue:
 def value_text(value: ParameterValue, dialect: str) -> str:
     """``value`` as the text of a ``k=v`` directive in ``dialect``; "" when empty."""
     if value.prefixed_value is not None:
-        return format_si_value(value.prefixed_value)
+        return (
+            _number(value.prefixed_value, dialect)
+            if dialect == "vams"
+            else (format_si_value(value.prefixed_value))
+        )
     if value.expression is not None:
         return format_expression(value.expression, dialect, named=True)
     return ""
@@ -153,6 +158,8 @@ def value_text(value: ParameterValue, dialect: str) -> str:
 
 def _number(pv: PrefixedValue, dialect: str) -> str:
     """nyancad's spelling: SI suffix kept, else the shortest repr (``1e-6``, ``2``)."""
+    if pv.prefix != SIPrefix.UNSPECIFIED and dialect == "vams":
+        return format_verilog_value(pv)  # `M`, not `meg`
     if pv.prefix != SIPrefix.UNSPECIFIED and dialect != "systemverilog":
         return format_si_value(pv)  # SystemVerilog has no SI suffixes
     value = to_float(pv)

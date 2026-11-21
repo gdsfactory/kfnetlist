@@ -178,6 +178,34 @@ def parse_si_number(token: str) -> PrefixedValue:
     return PrefixedValue(double_value=value, prefix=prefix)
 
 
+# Verilog-A scale factors (LRM 2.6.2): case matters, `M` is mega and `m` milli.
+VERILOG_SCALE: dict[str, SIPrefix] = {
+    "T": SIPrefix.TERA, "G": SIPrefix.GIGA, "M": SIPrefix.MEGA, "K": SIPrefix.KILO,
+    "k": SIPrefix.KILO, "m": SIPrefix.MILLI, "u": SIPrefix.MICRO, "n": SIPrefix.NANO,
+    "p": SIPrefix.PICO, "f": SIPrefix.FEMTO, "a": SIPrefix.ATTO,
+}  # fmt: skip
+VERILOG_NUMBER_RE = re.compile(
+    r"([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)([TGMKkmunpfa])?"
+)
+
+
+def parse_verilog_number(token: str) -> ParameterValue | None:
+    """A Verilog-A number (``1M`` = 1e6, ``1m`` = 1e-3); None for anything else."""
+    m = VERILOG_NUMBER_RE.fullmatch(token)
+    if m is None:
+        return None
+    prefix = VERILOG_SCALE[m[2]] if m[2] else SIPrefix.UNSPECIFIED
+    return ParameterValue(
+        prefixed_value=PrefixedValue(double_value=float(m[1]), prefix=prefix)
+    )
+
+
+def format_verilog_value(pv: PrefixedValue) -> str:
+    """``pv`` with a Verilog-A scale factor: mega is ``M``, not SPICE's ``meg``."""
+    text = format_si_value(pv)
+    return f"{text[:-3]}M" if text.endswith("meg") else text
+
+
 def parse_parameter_number(token: str) -> ParameterValue:
     """Parse a numeric token into a ParameterValue with a PrefixedValue."""
     return ParameterValue(prefixed_value=parse_si_number(token))

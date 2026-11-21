@@ -278,10 +278,13 @@ class SpiceTransformer(Transformer[Token, Netlist]):
                     value = parse_parameter_number(tok)
                 elif tok[:1] in ("{", "'"):
                     value = ParameterValue(expression=parse_expression(tok))
-                elif (
-                    device_prefix in ("R", "C", "L") and tok.lower() not in self.models
+                elif (  # `R1 a b rload`: a param; `R1 a b 1k rpoly`: a model
+                    device_prefix in ("R", "C", "L")
+                    and tok.lower() not in self.models
+                    and len(remaining) == 1
+                    and not params
                 ):
-                    value = parameter_value(tok)  # `R1 a b rload`: a param
+                    value = parameter_value(tok)
                 else:
                     model_name = tok
 

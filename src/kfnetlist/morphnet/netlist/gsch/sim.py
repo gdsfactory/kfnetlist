@@ -225,6 +225,8 @@ def source_props(device: str, stim: Stimulus, props: Mapping[str, Any]) -> dict:
     """``props`` with ``stim`` written back to ``dc``/``ac``/``tran``; unchanged while
     ``stim`` is still what they describe. A value the props left to its default
     (a sine's DC 0, a pulse's rise 0, ...) stays left out while it is the default."""
+    if stim.ac_phase is not None:
+        raise ValueError(f"{device}: a .gsch source has no AC phase")
     if stim.model_copy(update={"name": ""}) == source(device, props):
         return dict(props)
     out = {k: v for k, v in props.items() if k not in ("dc", "ac", "tran")}

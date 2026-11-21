@@ -22,7 +22,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     Simulation,
 )
 from kfnetlist.morphnet.netlist.expression import parameter_value, value_text
-from kfnetlist.morphnet.netlist.stimulus import attach, from_spectre, stimulus_keys
+from kfnetlist.morphnet.netlist.stimulus import attach, from_spectre, spectre_keys
 from kfnetlist.morphnet.netlist.net_utils import (
     NetMap,
     add_port_to_net,
@@ -385,7 +385,7 @@ class SpectreTransformer(Transformer[Token, Netlist]):
                 stim = None
                 if device_prefix in ("V", "I"):
                     stim = from_spectre(given)
-                    for key in stimulus_keys(stim):
+                    for key in spectre_keys(stim, given):
                         given.pop(key, None)
                 params = [
                     Parameter(name=pname, default_value=pval)
