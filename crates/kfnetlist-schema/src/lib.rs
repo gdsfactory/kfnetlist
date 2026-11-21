@@ -8,6 +8,7 @@
 mod convert;
 mod document;
 mod expression;
+pub mod paths;
 pub use document::{ArraySpec, CircuitDocument, NetlistDocument, SubCircuitDocument};
 
 #[deprecated(note = "renamed to NetlistDocument")]

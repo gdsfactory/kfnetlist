@@ -1,7 +1,21 @@
 # Changelog
 
-## Unreleased
+## 0.5.0
 
+- **PWL sources in every grammar** — a PWL waveform has inline `points` or a
+  `file` (`Waveform.file`, proto field 4; a `pathlib.Path` in Python, stored
+  POSIX). Native forms: SPICE `PWL(...)` / Xyce `PWL FILE "w.txt"` (also written
+  for ngspice and HSPICE), Spectre `type=pwl wave=[...]` / `file="w.txt"`
+  (Cadence `vpwlf`/`ipwlf`), Verilog-A and SystemVerilog `vpwl #(.wave('{...}))` /
+  `(* pwl_file = "w.txt" *) vpwl ...`. Every SPICE grammar reads source functions
+  with a space before `(` (`PULSE (0 1 ...)`); SystemVerilog reads `'{...}`
+  assignment patterns.
+- **OS-agnostic file paths** — `kfnetlist.morphnet.netlist.paths`
+  (`posix_file`, `resolve_file`, `is_absolute`) and Rust
+  `kfnetlist_schema::paths` give the same answers on every OS: `\` or `/`
+  separators, `/x`, `C:\x`, `C:x` and `\\server\share` absolute everywhere, `.`/`..`
+  resolved lexically and never above a root, a relative path joined to an optional base. One shared case
+  table (`tests/data/path_cases.json`) tests both.
 - **Simulation stimuli** — `simulation.proto` gains `Stimulus` (dc, AC magnitude
   and phase, `Waveform` of kind PULSE/SIN/EXP/SFFM/PWL) in `Simulation.stimuli`;
   each V/I source points to its stimulus in `properties["stimulus"]`. Shared value

@@ -22,7 +22,7 @@ from kfnetlist.morphnet.netlist.hdl import (
     port_pins,
 )
 from kfnetlist.morphnet.netlist.net_utils import BIT_RE, connections_to_instance_nets
-from kfnetlist.morphnet.netlist.stimulus import primitive, stimulus_of
+from kfnetlist.morphnet.netlist.stimulus import primitive, primitive_file, stimulus_of
 from kfnetlist.morphnet.netlist.systemverilog.writer import sv_name
 from kfnetlist.morphnet.netlist.expression import Resolve, format_expression
 from kfnetlist.morphnet.netlist.value_utils import (
@@ -279,7 +279,11 @@ class VamsWriter:
             port_parts.append(f".{pn}({expr})")
         ports_str = ", ".join(port_parts)
 
-        return f"  {sv_name(master)}{params_str} {sv_name(ref.name)} ({ports_str});"
+        file = primitive_file(stim) if stim is not None else None
+        attr = f"(* pwl_file = {verilog_string(file)} *) " if file else ""
+        return (
+            f"  {attr}{sv_name(master)}{params_str} {sv_name(ref.name)} ({ports_str});"
+        )
 
     def format_param_value(self, pval: object, resolve: Resolve | None = None) -> str:
         from kfnetlist.morphnet.morphnet_schema import ParameterValue

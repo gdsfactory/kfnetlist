@@ -30,6 +30,7 @@ from kfnetlist.morphnet.netlist.expression import (
     parameter_value,
     value_text,
 )
+from kfnetlist.morphnet.netlist.paths import posix_file
 from kfnetlist.morphnet.netlist.value_utils import parse_verilog_number, to_float
 
 __all__ = [
@@ -39,6 +40,7 @@ __all__ = [
     "from_spectre",
     "parse_spice",
     "primitive",
+    "primitive_file",
     "spectre_params",
     "spectre_keys",
     "spice_text",
@@ -77,6 +79,7 @@ SPECTRE_ALIASES: dict[WaveformKind, dict[str, str]] = {
 }
 VACASK_DROP_ZERO = {"delay", "theta"}  # InSpice leaves these out when 0
 FUNC_RE = re.compile(r"([A-Za-z]+)\((.*)\)$", re.S)
+SPACED_FUNC_RE = re.compile(r"\b(PULSE|SIN|EXP|SFFM|PWL)\s+\(", re.I)  # `PULSE (0 1)`
 
 
 def stimulus_of(netlist: Netlist, ref: SubCircuit) -> Stimulus | None:
@@ -125,6 +128,15 @@ def _value(raw: ParameterValue | str) -> ParameterValue:
     return raw if isinstance(raw, ParameterValue) else parameter_value(str(raw))
 
 
+def _plain(raw: ParameterValue | str) -> str:
+    """The text of a param as written (a quoted string or `[...]` stays raw)."""
+    if isinstance(raw, ParameterValue):
+        if raw.expression is not None and raw.expression.raw is not None:
+            return raw.expression.raw
+        return _text(raw, "spectre")
+    return str(raw)
+
+
 def _verilog(raw: ParameterValue | str) -> ParameterValue:
     """A Verilog-A value: ``1M`` is mega there."""
     if isinstance(raw, ParameterValue):
@@ -148,6 +160,9 @@ def spice_text(stim: Stimulus, dialect: str) -> str:
     if stim.waveform is not None:
         w = stim.waveform
         func, _, names = ARGS[WaveformKind(w.kind)]
+        if w.kind == WaveformKind.PWL and w.file is not None:
+            parts.append(f'PWL FILE "{posix_file(w.file)}"')
+            return " ".join(parts)
         if w.kind == WaveformKind.PWL:
             args = [_spice(p, dialect) for p in w.points]
         else:
@@ -162,10 +177,10 @@ def spice_text(stim: Stimulus, dialect: str) -> str:
 
 def _args(text: str) -> list[str]:
     """Args of ``FUNC(...)``: split on spaces/commas outside braces and quotes."""
-    out, depth, quote, cur = [], 0, False, ""
+    out, depth, quote, cur = [], 0, "", ""
     for ch in text:
-        if ch == "'" and depth == 0:
-            quote = not quote
+        if ch in "'\"" and depth == 0 and quote in ("", ch):
+            quote = "" if quote else ch
         elif not quote and ch in "{(":
             depth += 1
         elif not quote and ch in "})":
@@ -182,11 +197,20 @@ def _args(text: str) -> list[str]:
 def parse_spice(text: str) -> Stimulus:
     """The stimulus of a SPICE V/I value (the tokens after the nodes)."""
     stim = Stimulus()
-    tokens = _args(text)
+    tokens = _args(SPACED_FUNC_RE.sub(lambda m: f"{m[1]}(", text))
     i = 0
     while i < len(tokens):
         tok, upper = tokens[i], tokens[i].upper()
         func = FUNC_RE.match(tok)
+        rest = [t.upper() for t in tokens[i + 1 : i + 2]]
+        if upper == "PWL" and rest and rest[0].startswith("FILE"):
+            # `PWL FILE "w.txt"` (Xyce) or `PWL FILE=w.txt`
+            path, _, inline = tokens[i + 1].partition("=")
+            path = inline or (tokens[i + 2] if i + 2 < len(tokens) else "")
+            file = path.strip().strip("\"'")
+            stim.waveform = Waveform(kind=WaveformKind.PWL, file=file)
+            i += 2 if inline else 3
+            continue
         if func and func[1].upper() in BY_FUNCTION:
             kind = BY_FUNCTION[func[1].upper()]
             values = [parameter_value(a) for a in _args(func[2])]
@@ -235,6 +259,9 @@ def spectre_params(stim: Stimulus, dialect: str) -> list[tuple[str, str]]:
     kind = WaveformKind(w.kind)
     typ = ARGS[kind][1]
     out.append(("type", f'"{typ}"' if vacask else typ))
+    if kind == WaveformKind.PWL and w.file is not None:
+        out.append(("file", f'"{posix_file(w.file)}"'))
+        return out
     if kind == WaveformKind.PWL:
         out.append(("wave", f"[{' '.join(_text(p, dialect) for p in w.points)}]"))
         return out
@@ -271,8 +298,11 @@ def from_spectre(
     if raw is not None:
         typ = raw if isinstance(raw, str) else _text(raw, "spectre")
         kind = BY_TYPE.get(typ.strip().strip("\"'").lower())
-        if kind == WaveformKind.PWL:
-            text = str(params.get("wave", "")).strip()
+        if kind == WaveformKind.PWL and "file" in params:
+            file = _plain(params["file"]).strip("\"'")
+            stim.waveform = Waveform(kind=kind, file=file)
+        elif kind == WaveformKind.PWL:
+            text = _plain(params.get("wave", "")).strip()
             text = text.removeprefix("[").removesuffix("]")
             points = [parameter_value(a) for a in _args(text)]
             stim.waveform = Waveform(kind=kind, points=points)
@@ -300,7 +330,7 @@ def spectre_keys(stim: Stimulus | None, params: Mapping[str, object]) -> set[str
     keys = {"dc", "mag", "phase"}
     if stim.waveform is not None:
         kind = WaveformKind(stim.waveform.kind)
-        keys |= {"type", "wave", *ARGS[kind][2], *SPECTRE_ALIASES.get(kind, {})}
+        keys |= {"type", "wave", "file", *ARGS[kind][2], *SPECTRE_ALIASES.get(kind, {})}
     return keys & set(params)
 
 
@@ -336,7 +366,9 @@ def primitive(
     shape, names = (
         PRIMITIVE.get(WaveformKind(w.kind), ("sine", {})) if w else ("sine", {})
     )
-    if w is not None and w.kind == WaveformKind.PWL:
+    if w is not None and w.kind == WaveformKind.PWL and w.file is not None:
+        pass  # the file rides in a `(* pwl_file *)` attribute (see primitive_file)
+    elif w is not None and w.kind == WaveformKind.PWL:
         params.append(
             ("wave", f"'{{{', '.join(_text(p, dialect) for p in w.points)}}}")
         )
@@ -347,8 +379,17 @@ def primitive(
     return ("i" if current else "v") + shape, params
 
 
+def primitive_file(stim: Stimulus) -> str | None:
+    """The PWL file of ``stim`` (POSIX), which Verilog-A says in a ``pwl_file``
+    attribute: Annex E's ``vpwl`` takes only an inline ``wave``."""
+    w = stim.waveform
+    if w is None or w.kind != WaveformKind.PWL or w.file is None:
+        return None
+    return posix_file(w.file)
+
+
 def from_primitive(
-    master: str, params: Mapping[str, ParameterValue | str]
+    master: str, params: Mapping[str, ParameterValue | str], file: str | None = None
 ) -> Stimulus | None:
     """The stimulus of a Table E.1 source primitive, None for any other master."""
     m = master.lower()
@@ -360,6 +401,9 @@ def from_primitive(
         ac_phase=_verilog(params["phase"]) if "phase" in params else None,
     )
     shape = m[1:]
+    if shape == "pwl" and file:
+        stim.waveform = Waveform(kind=WaveformKind.PWL, file=file)
+        return stim
     if shape == "pwl":
         wave = params.get("wave", "")
         text = _text(wave, "vams") if isinstance(wave, ParameterValue) else wave

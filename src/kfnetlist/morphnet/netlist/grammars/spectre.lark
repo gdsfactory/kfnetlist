@@ -58,6 +58,7 @@ _SAVE_KW: "save"
 // ── Parameter assignment: name=value ───────────────────────────────────
 param_assign: IDENT "=" param_value
 ?param_value: VALUE      -> pvalue_value
+            | LIST       -> pvalue_value   // `wave=[0 0 1n 1.8]`
             | QSTRING    -> pvalue_string
 
 // ── Terminals ──────────────────────────────────────────────────────────
@@ -69,6 +70,7 @@ VALUE: /(?:[^\s;()=\"']|\((?:[^()]|\([^()]*\))*\))+(?:[ \t]*[-+*\/%<>=!&|?:]+[ \
 NET_NAME: /[A-Za-z0-9_.\[\]:!#]+/
 IDENT: /[A-Za-z_][A-Za-z0-9_.\[\]:!#]*/
 QSTRING: /\"[^\"]*\"/ | /'[^']*'/
+LIST.2: /\[[^\]\n;]*\]/  // one line: a list cut by a newline fails loudly
 FILE_PATH: /\"[^\"]*\"/ | /'[^']*'/ | /[^\s\"';()]+/
 
 %ignore /[ \t\r\n]+/

@@ -94,6 +94,7 @@ placeholder: _PLACEHOLDER NUMBER _SEMI
      | QSTRING               -> string
      | net_ref
      | "(" expr ")"          -> paren
+     | "'{" expr ("," expr)* "}"            -> assign_pattern  // `.wave('{0, 0, 1n, 1})`
      | "{" expr ("," expr)* "}"             -> concat
      | "{" expr "{" expr ("," expr)* "}" "}" -> replicate
 

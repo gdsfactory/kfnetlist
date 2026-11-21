@@ -71,11 +71,13 @@ message InitialCondition {
 // A transient waveform. `args` uses SPICE semantics with Spectre names:
 // pulse val0 val1 delay rise fall width period; sin sinedc ampl freq delay theta;
 // exp val0 val1 delay tau1 td2 tau2 (td2 from time 0); sffm sinedc ampl freq
-// modindex modfreq. PWL keeps its time/value pairs in `points` (t0 v0 t1 v1 ...).
+// modindex modfreq. PWL keeps its time/value pairs in `points` (t0 v0 t1 v1 ...)
+// or reads them from `file`, a POSIX path (see kfnetlist_schema::paths).
 message Waveform {
     WaveformKind                kind   = 1;
     map<string, ParameterValue> args   = 2;
     repeated ParameterValue     points = 3;
+    string                      file   = 4;
 }
 
 // What drives one V/I source; the source element names it in

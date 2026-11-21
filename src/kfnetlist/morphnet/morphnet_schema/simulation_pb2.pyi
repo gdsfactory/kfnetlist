@@ -116,7 +116,7 @@ class InitialCondition(_message.Message):
     def __init__(self, conditions: _Optional[_Mapping[str, str]] = ...) -> None: ...
 
 class Waveform(_message.Message):
-    __slots__ = ("kind", "args", "points")
+    __slots__ = ("kind", "args", "points", "file")
     class ArgsEntry(_message.Message):
         __slots__ = ("key", "value")
         KEY_FIELD_NUMBER: _ClassVar[int]
@@ -127,10 +127,12 @@ class Waveform(_message.Message):
     KIND_FIELD_NUMBER: _ClassVar[int]
     ARGS_FIELD_NUMBER: _ClassVar[int]
     POINTS_FIELD_NUMBER: _ClassVar[int]
+    FILE_FIELD_NUMBER: _ClassVar[int]
     kind: WaveformKind
     args: _containers.MessageMap[str, _value_pb2.ParameterValue]
     points: _containers.RepeatedCompositeFieldContainer[_value_pb2.ParameterValue]
-    def __init__(self, kind: _Optional[_Union[WaveformKind, str]] = ..., args: _Optional[_Mapping[str, _value_pb2.ParameterValue]] = ..., points: _Optional[_Iterable[_Union[_value_pb2.ParameterValue, _Mapping]]] = ...) -> None: ...
+    file: str
+    def __init__(self, kind: _Optional[_Union[WaveformKind, str]] = ..., args: _Optional[_Mapping[str, _value_pb2.ParameterValue]] = ..., points: _Optional[_Iterable[_Union[_value_pb2.ParameterValue, _Mapping]]] = ..., file: _Optional[str] = ...) -> None: ...
 
 class Stimulus(_message.Message):
     __slots__ = ("name", "dc", "ac_magnitude", "ac_phase", "waveform")

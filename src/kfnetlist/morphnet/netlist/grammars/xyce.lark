@@ -47,7 +47,9 @@ instance_stmt: IDENT token+ param_assign*
 
 token: SI_NUMBER   -> token_number
      | BRACE_EXPR  -> token_expr
+     | PWL_FILE    -> token_func
      | FUNC_CALL   -> token_func
+     | QSTRING     -> token_expr   // `PWL FILE "w.txt"`
      | IDENT       -> token_ident
 
 // ── .model ─────────────────────────────────────────────────────────────
@@ -152,7 +154,8 @@ param_assign: IDENT "=" param_value
 SI_NUMBER: /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?(?:meg|mil|[TtGgKkMmUuNnPpFfAa])?/
 BRACE_EXPR: /\{[^}]+\}/
 OUTPUT_VAR: /[A-Za-z_]\w*\([^)]*\)/
-FUNC_CALL: /[A-Za-z_]\w*\((?:[^()]|\([^()]*\))*\)/  // a source waveform: PULSE(0 1 {a*(b)})
+PWL_FILE.2: /PWL[ \t]+FILE[ \t]*=?[ \t]*("[^"]*"|'[^']*'|[^\s]+)/i  // `PWL FILE "w"`, LTspice `PWL file=w`
+FUNC_CALL: /[A-Za-z_]\w*[ \t]*\((?:[^()]|\([^()]*\))*\)/  // a source waveform: PULSE(0 1 {a*(b)}), PULSE (0 1)
 IDENT: /[A-Za-z_][A-Za-z0-9_.\[\]:!#]*/
 QSTRING: /\"[^\"]*\"/ | /'[^']*'/
 FILE_PATH: /\"[^\"]*\"/ | /'[^']*'/ | /[^\s\"']+/
