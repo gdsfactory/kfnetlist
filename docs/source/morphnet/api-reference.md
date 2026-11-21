@@ -545,6 +545,7 @@ source reading a parameter (`DC {vdd/2}`) keeps its expression.
 | `Waveform.kind` | `WaveformKind` | `PULSE`, `SIN`, `EXP`, `SFFM`, `PWL` |
 | `Waveform.args` | `dict[str, ParameterValue]` | SPICE semantics, Spectre names: pulse `val0 val1 delay rise fall width period`; sin `sinedc ampl freq delay theta`; exp `val0 val1 delay tau1 td2 tau2` (`td2` from time 0); sffm `sinedc ampl freq modindex modfreq` |
 | `Waveform.points` | `list[ParameterValue]` | PWL `t0 v0 t1 v1 ...` |
+| `Waveform.file` | `Path \| None` | PWL from a file instead of `points` (stored POSIX; see **File paths**) |
 
 Every parser reads its language's own source syntax into a stimulus, and every
 writer writes it back:
@@ -555,6 +556,29 @@ writer writes it back:
 | Spectre | `V1 (a 0) vsource dc=0.9 mag=1 type=pulse val0=0 ...` |
 | VACASK | the Spectre form with InSpice's spelling: quoted `type`, no zero `delay`/`theta`, no `rise <= 0`, `td2` from the delay |
 | Verilog-A/AMS, SystemVerilog | Verilog-AMS LRM Annex E Table E.1 primitives: `vpulse #(.dc(0.9), .val0(0), .td(1n))`; `vsine`/`vexp`/`vpwl` (`i*` for current); a DC/AC source is `vsine #(.dc(..))` (LRM E.2.2.3). Names map `delay`→`td`, `sinedc`→`offset`, `theta`→`damp`, exp `delay tau1 td2 tau2`→`td0 tau0 td1 tau1`, sffm → `vsine` `fmmodindex fmmodfreq`, PWL → `wave` `'{t0, v0, ...}`. SystemVerilog numbers have no SI suffix. |
+
+PWL, inline and from a file (Cadence `vpwlf`/`ipwlf`):
+
+| Language | Inline | From a file |
+|---|---|---|
+| ngspice, HSPICE, Xyce, Spectre-SPICE | `PWL(0 0 1n 1.8)` | `PWL FILE "w.txt"` (native in Xyce) |
+| Spectre, VACASK | `type=pwl wave=[0 0 1n 1.8]` | `type=pwl file="w.txt"` |
+| Verilog-A, SystemVerilog | `vpwl #(.wave('{0, 0, 1n, 1.8}))` | `(* pwl_file = "w.txt" *) vpwl V1 (...)` |
+
+Every SPICE grammar reads a source function with a space before `(`
+(`PULSE (0 1 ...)`).
+
+#### File paths
+
+`kfnetlist.morphnet.netlist.paths` and the Rust `kfnetlist_schema::paths` give the
+same answers on every OS (one shared case table tests both):
+
+- `posix_file(path)`: the stored form, POSIX separators, `.`/`..` resolved
+  (`data\w.txt` → `data/w.txt`).
+- `is_absolute(path)`: `/x`, `C:/x`, `C:\x`, `\\server\share\x` on every host.
+- `resolve_file(path, base=None)`: `path` joined to `base` when relative, in the
+  stored form; a `pathlib.Path` in Python, a `String` in Rust. Lexical only: no
+  filesystem access, no symlinks.
 
 Verilog-A has no analysis, option, temperature or save statements; those
 `Simulation` fields are not written to it. Its native forms that are read and
