@@ -2,6 +2,34 @@
 
 ## Unreleased
 
+- **Simulation stimuli** — `simulation.proto` gains `Stimulus` (dc, AC magnitude
+  and phase, `Waveform` of kind PULSE/SIN/EXP/SFFM/PWL) in `Simulation.stimuli`;
+  each V/I source points to its stimulus in `properties["stimulus"]`. Shared value
+  types (`PrefixedValue`, `Expression`, `ParameterValue`, ...) move to
+  `value.proto` (no Rust path or Python name changes). Every parser reads its
+  language's own source syntax, every writer writes it: SPICE `DC/AC/PULSE(...)`,
+  Spectre `vsource type=pulse ...`, Verilog-A/SystemVerilog LRM Annex E primitives
+  (`vpulse`, `vsine`, ...). See the
+  [API reference](morphnet/api-reference.md#stimulus-and-waveform).
+  - A source's `value` parameter is gone: SPICE `DC 0.9 AC 1` used to read back as
+    `value=1`; `.gsch` sources have no params.
+  - SPICE parsers read `PULSE(...)`-style waveforms, `{...}`/`'...'` element
+    values, and a bare R/C/L value as a parameter reference unless a `.model` of
+    that name is in the deck (`R1 a b rload`).
+  - Spectre reads `simulator lang=spice` sections and keeps quoted strings.
+  - Verilog-A reads expressions in `#(...)`, `module m;`/`module m ();`,
+    attributes, net initializers (nodesets), paramsets of primitives; writes a
+    `.model` device by its model name with a `paramset`, `ground` from the
+    netlist's ground net, and SPICE libraries and foreign inline code as module
+    attributes (no warning, nothing dropped). Identifiers and quoted strings are
+    kept instead of read as empty values.
+  - One-pin nets survive every parser; an unconnected pin is written on its own
+    node `nc_<instance>_<pin>` instead of `?`.
+  - Every SPICE-family and Spectre parser takes a deck's own elements as the top
+    circuit (`__top__`), not the last subcircuit.
+  - `tests/morphnet/test_gsch_conversions.py` converts every `.gsch` fixture to
+    ngspice, HSPICE, Xyce, Spectre, Spectre-SPICE and Verilog-A and reads it back;
+    a conversion passes only when no field is missing.
 - **gsch** — `parse_gsch()`, `read_gsch()` and `write_gsch()` in
   `kfnetlist.morphnet.netlist` read and write gdsfactory+ `.gsch` schematics
   (Mosaic and Livewire JSON).
@@ -15,11 +43,10 @@
   - Positions, wires, polylines and port markers survive `write_gsch`.
   - Source props (`role="source"`) are editable: an edit reaches the `.gsch` props
     and the SPICE output. An edit to a derived or computed parameter (a model
-    `params` expression, a source's value or waveform, a model param named like
+    `params` expression, a model param named like
     the prop it reads, or an expression reading such a prop) raises `ValueError` from `write_gsch`, naming the props to
     edit. Model prop defaults are written once edited.
-  - Limits: a file written from a non-gsch source has no Mosaic wires; unnamed
-    single-pin nets are written as `?`. See the
+  - Limits: a file written from a non-gsch source has no Mosaic wires. See the
     [API reference](morphnet/api-reference.md#gsch).
   - Inline nyanlib `code` blocks become `Netlist.macros` (see **Macros**).
 - **Expressions** — `ParameterValue` gains an `expression` variant, an

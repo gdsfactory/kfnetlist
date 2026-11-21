@@ -853,5 +853,8 @@ def test_a_source_in_a_child_schematic_is_named_after_its_circuit(tmp_path):
 @pytest.mark.parametrize("write", [write_spice, write_xyce, write_spectre])
 def test_an_open_pin_is_its_own_named_node(write):
     text = write(export("ihp_subckt_parent_nets", "ngspice"))
-    assert "nc_A_S" in text and "nc_B_D" in text
+    a, b = (
+        ("nc_XA_S", "nc_XB_D") if write is not write_spectre else ("nc_A_S", "nc_B_D")
+    )
+    assert a in text and b in text  # named after the instance as written
     assert "?" not in text

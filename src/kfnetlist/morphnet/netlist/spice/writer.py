@@ -223,7 +223,7 @@ class SpiceWriter:
                 else DEVICE_PORT_TEMPLATES[prefix]
             )
             nets = [
-                inst_nets.get((inst_name, pn)) or open_node(inst_name, pn)
+                inst_nets.get((inst_name, pn)) or open_node(out_name, pn)
                 for pn in port_order
             ]
             nets_str = " ".join(nets)
@@ -254,6 +254,7 @@ class SpiceWriter:
 
         # Subcircuit instance: X1 net1 net2 ... subckt_name param=val
         inst_name = ref.name
+        out_name = self.out_name(ref, ext_by_name, circuit_by_name)
         subckt_name = ref.circuit_name
 
         ref_circuit = circuit_by_name.get(subckt_name)
@@ -265,7 +266,7 @@ class SpiceWriter:
             port_order = self.infer_port_order(ref, inst_nets)
 
         nets = [
-            inst_nets.get((inst_name, pn)) or open_node(inst_name, pn)
+            inst_nets.get((inst_name, pn)) or open_node(out_name, pn)
             for pn in port_order
         ]
         nets_str = " ".join(nets)
@@ -275,7 +276,6 @@ class SpiceWriter:
             for p in params
             if (text := self.param_text(p, resolve=resolve)) is not None
         ]
-        out_name = self.out_name(ref, ext_by_name, circuit_by_name)
         parts = [out_name, nets_str, subckt_name]
         if params_parts and self.params_kw and out_name[:1].upper() == "X":
             parts.append(self.params_kw)

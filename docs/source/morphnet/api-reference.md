@@ -185,7 +185,7 @@ Remaining differences from nyancad's output:
 - Source edge cases: values use the morphnet SI syntax, and a missing required
   pulse or exponential field raises `ValueError`.
 - Unknown `spice-type` letters are called like subcircuits (`X`).
-- Fixtures where nyancad crashes still netlist, with `?` for open pins.
+- Fixtures where nyancad crashes still netlist, with `nc_<instance>_<pin>` nodes for open pins.
 
 #### Parameters and write-back
 
@@ -198,13 +198,15 @@ Remaining differences from nyancad's output:
   where a derived parameter refers to it.
 - **Derived**: a model `params` entry, an `Expression` over the source props
   (`w = width * 1e-6`). Not written to `props`.
-- **Computed**: a value the simulation code works out from the props (a source's
-  `value` or waveform, `$mfactor`), and a model param named like the prop it reads
+- **Computed**: a value the simulation code works out from the props (`$mfactor`), and a model param named like the prop it reads
   (`w = w * 2`), which is one param holding the substituted value. Any other
   model param that reads that prop (`ad = w * 0.5`) holds its substituted value
   too, since `w` then names the device param.
 - **Defaults**: model prop defaults the entry does not set. They are written back
   only once edited.
+
+A V/I source has no parameters: its `dc`, `ac` and `tran` props become a
+`Stimulus` (above). `write_gsch` writes an edited stimulus back to those props.
 
 An edit to a derived or computed param makes `write_gsch` raise `ValueError`
 naming the props to edit, for example `M1: 'w' is derived from model expression
@@ -225,8 +227,10 @@ naming the props to edit, for example `M1: 'w' is derived from model expression
   across the hierarchy. A writer that cannot take the block's language (VACASK, SPICE
   writers for a `spectre` block, ...) writes a `skipped macro <name> (<language>)`
   comment and warns.
-- An unnamed single-pin net (for example a lone Livewire pin) is written as `?`.
-  A named Mosaic label keeps its own node.
+- An unconnected pin is written on its own node, `nc_<instance>_<pin>` (the
+  instance as written, `XA` for SPICE); parsers drop a one-pin net named
+  `nc_<instance>_...` on that instance, so it reads back unconnected. A one-pin
+  net with any other name is kept.
 
 ---
 
@@ -523,7 +527,48 @@ cells' macros the same way. `write_gsch` does not write macros back. A netlist's
 | `initial_conditions` | `initial_conditions` | `InitialCondition \| None` | Initial conditions |
 | `node_sets` | `node_sets` | `InitialCondition \| None` | Node sets |
 | `temperatures` | `temperatures` | `list[float]` | Temperature list |
+| `stimuli` | `stimuli` | `list[Stimulus]` | What drives each V/I source |
 | `options` | `options` | `dict[str, str]` | Simulation options |
+
+#### `Stimulus` and `Waveform`
+
+A V/I source element names its stimulus in `properties["stimulus"]`
+(`"<circuit>/<instance>"`); `stimulus_of(netlist, ref)` in
+`kfnetlist.morphnet.netlist.stimulus` finds it. Values are `ParameterValue`s, so a
+source reading a parameter (`DC {vdd/2}`) keeps its expression.
+
+| Field | Type | Description |
+|---|---|---|
+| `Stimulus.name` | `str` | `"<circuit>/<instance>"` |
+| `Stimulus.dc` / `ac_magnitude` / `ac_phase` | `ParameterValue \| None` | DC value, AC magnitude and phase |
+| `Stimulus.waveform` | `Waveform \| None` | Transient shape |
+| `Waveform.kind` | `WaveformKind` | `PULSE`, `SIN`, `EXP`, `SFFM`, `PWL` |
+| `Waveform.args` | `dict[str, ParameterValue]` | SPICE semantics, Spectre names: pulse `val0 val1 delay rise fall width period`; sin `sinedc ampl freq delay theta`; exp `val0 val1 delay tau1 td2 tau2` (`td2` from time 0); sffm `sinedc ampl freq modindex modfreq` |
+| `Waveform.points` | `list[ParameterValue]` | PWL `t0 v0 t1 v1 ...` |
+
+Every parser reads its language's own source syntax into a stimulus, and every
+writer writes it back:
+
+| Language | Native form |
+|---|---|
+| ngspice, HSPICE, Xyce, Spectre-SPICE | `V1 a 0 DC 0.9 AC 1 0 PULSE(0 1.8 1n 10p 10p 1n 2n)` (a lone value is the DC value; a param name is braced, `{vdd}`) |
+| Spectre | `V1 (a 0) vsource dc=0.9 mag=1 type=pulse val0=0 ...` |
+| VACASK | the Spectre form with InSpice's spelling: quoted `type`, no zero `delay`/`theta`, no `rise <= 0`, `td2` from the delay |
+| Verilog-A/AMS, SystemVerilog | Verilog-AMS LRM Annex E Table E.1 primitives: `vpulse #(.dc(0.9), .val0(0), .td(1n))`; `vsine`/`vexp`/`vpwl` (`i*` for current); a DC/AC source is `vsine #(.dc(..))` (LRM E.2.2.3). Names map `delay`→`td`, `sinedc`→`offset`, `theta`→`damp`, exp `delay tau1 td2 tau2`→`td0 tau0 td1 tau1`, sffm → `vsine` `fmmodindex fmmodfreq`, PWL → `wave` `'{t0, v0, ...}`. SystemVerilog numbers have no SI suffix. |
+
+Verilog-A has no analysis, option, temperature or save statements; those
+`Simulation` fields are not written to it. Its native forms that are read and
+written:
+
+- **Nodesets**: a top-module net initializer `electrical b = 5.0;` (LRM §3.6.3.2)
+  is `node_sets.conditions["V(b)"]`.
+- **Device models**: a `.model` device is called by its model name, with an empty
+  `paramset <model> <primitive>; endparamset` (LRM §7.5) so a reader knows its kind
+  and pins.
+- **What it cannot say** rides in attributes (IEEE 1364 §3.8) of the module:
+  `(* spice_lib = "path section\n..." *)` for SPICE libraries and
+  `(* spice_code = "<json>" *)` / `(* spice_module_code = "<json>" *)` for inline
+  code in another language, on the top module and on each module.
 
 #### `Analysis`
 
