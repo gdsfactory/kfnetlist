@@ -15,7 +15,8 @@ from kfnetlist.morphnet.netlist.vams.preprocess import (
 ATTRIBUTE_RE: re.Pattern[str] = re.compile(r"\(\*(?!\s*\)).*?\*\)", re.DOTALL)
 # `(* pwl_file = "w.txt" *) vpwl [#(] ...`: a PWL source's file (see stimulus.py)
 PWL_FILE_RE: re.Pattern[str] = re.compile(
-    r'\(\*\s*pwl_file\s*=\s*("(?:[^"\\]|\\.)*")\s*\*\)\s*(\\?\S+)\s*(#\s*\()?'
+    r'\(\*\s*pwl_file\s*=\s*("(?:[^"\\]|\\.)*")[^*]*\*\)\s*'
+    r"(\\\S+\s|[A-Za-z_$][\w$]*)\s*(#\s*\()?"
 )
 
 

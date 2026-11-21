@@ -553,11 +553,15 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
                     ):
                         add_port_to_net(net_map, find(net), name, pin)
                 given = {p.name: p.default_value for p in params if p.default_value}
-                file_value = given.pop("pwl_file", None)  # see preprocess PWL_FILE_RE
                 file = None
-                if file_value is not None and file_value.expression is not None:
-                    file = (file_value.expression.raw or "").strip('"')
-                params = [p for p in params if p.name != "pwl_file"]
+                if stmt.module.lower() in (
+                    "vpwl",
+                    "ipwl",
+                ):  # see preprocess PWL_FILE_RE
+                    file_value = given.pop("pwl_file", None)
+                    if file_value is not None and file_value.expression is not None:
+                        file = (file_value.expression.raw or "").strip('"')
+                    params = [p for p in params if p.name != "pwl_file"]
                 stim = from_primitive(stmt.module, given, file=file)
                 if stim is not None:  # a Verilog-AMS LRM Annex E source primitive
                     keys = stimulus_keys(stim)

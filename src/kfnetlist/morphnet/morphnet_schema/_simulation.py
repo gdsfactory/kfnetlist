@@ -128,6 +128,8 @@ class Waveform(ProtoModel):
     def _points_or_file(self) -> Waveform:
         if self.points and self.file is not None:
             raise ValueError("a PWL waveform has points or a file, not both")
+        if self.file is not None and self.kind != WaveformKind.PWL:
+            raise ValueError(f"a file belongs to a PWL waveform, not {self.kind.name}")
         return self
 
 

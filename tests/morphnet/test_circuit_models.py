@@ -570,3 +570,10 @@ def test_a_pwl_file_is_a_path_stored_posix():
             file="w.txt",
             points=[ParameterValue(prefixed_value=PrefixedValue(double_value=0))],
         )
+
+
+def test_a_file_belongs_to_a_pwl_waveform_only():
+    from kfnetlist.morphnet.morphnet_schema import Waveform, WaveformKind
+
+    with pytest.raises(ValueError, match="PWL"):
+        Waveform(kind=WaveformKind.PULSE, file="w.txt")

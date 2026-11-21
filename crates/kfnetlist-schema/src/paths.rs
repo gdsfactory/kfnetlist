@@ -57,7 +57,10 @@ pub fn is_absolute(path: &str) -> bool {
 /// `path` joined to `base` when relative, in the stored form.
 pub fn resolve_file(path: &str, base: Option<&str>) -> String {
     match base {
-        Some(base) if !is_absolute(path) => posix_file(&format!("{base}/{path}")),
+        // an empty base (`Path::new("deck.sp").parent()`) is no base
+        Some(base) if !base.is_empty() && !is_absolute(path) => {
+            posix_file(&format!("{base}/{path}"))
+        }
         _ => posix_file(path),
     }
 }

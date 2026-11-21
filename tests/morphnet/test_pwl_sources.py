@@ -124,3 +124,32 @@ def test_verilog_a_reads_a_pwl_file_attribute():
     )
     (v1,) = nl.circuits[0].subcircuits
     assert stimulus_of(nl, v1).waveform.file == Path("data/w.txt")
+
+
+@pytest.mark.parametrize(
+    "parse", [parse_spice, parse_hspice, parse_xyce, parse_spectre_spice]
+)
+def test_spice_reads_an_ltspice_pwl_file_assignment(parse):
+    nl = parse('* t\nV1 a 0 PWL file=w.txt\nV2 b 0 PWL FILE="data/w.txt"\n.end\n')
+    v1, v2 = nl.circuits[0].subcircuits
+    assert stimulus_of(nl, v1).waveform.file == Path("w.txt")
+    assert stimulus_of(nl, v2).waveform.file == Path("data/w.txt")
+    assert v1.parameters == [] and v2.parameters == []
+    assert stimulus_of(nl, v1).dc is None
+
+
+def test_systemverilog_pwl_file_attribute_forms():
+    nl = parse_systemverilog(
+        "module t (inout a, inout b);\n"
+        '  (* pwl_file = "w.txt", keep *) vpwl#(.dc(0)) V1 (.p(a), .n(b));\n'
+        '  foo #(.pwl_file("x.txt")) U1 (.p(a), .n(b));\n'
+        "endmodule\n"
+    )
+    v1, u1 = nl.circuits[0].subcircuits
+    assert stimulus_of(nl, v1).waveform.file == Path("w.txt")
+    assert [p.name for p in u1.parameters] == ["pwl_file"]  # not a source: kept
+
+
+def test_a_spectre_wave_list_does_not_run_across_lines():
+    with pytest.raises(Exception):
+        parse_spectre("V1 (a 0) vsource type=pwl wave=[0 0\n 1n 1]\n")

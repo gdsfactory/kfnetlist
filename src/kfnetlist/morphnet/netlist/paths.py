@@ -57,6 +57,6 @@ def is_absolute(path: str | PurePath) -> bool:
 def resolve_file(path: str | PurePath, base: str | PurePath | None = None) -> Path:
     """``path`` joined to ``base`` when relative, in the stored form, as a ``Path``."""
     text = _text(path)
-    if base is not None and not is_absolute(text):
+    if base is not None and _text(base) and not is_absolute(text):  # "": no base
         text = f"{_text(base)}/{text}"
     return Path(posix_file(text))
