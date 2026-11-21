@@ -15,6 +15,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .field_attribute("circuit.Circuit.macros", "#[serde(skip_serializing_if = \"Vec::is_empty\")]")
         .field_attribute("circuit.Netlist.macros", "#[serde(skip_serializing_if = \"Vec::is_empty\")]")
         .field_attribute("circuit.Simulation.stimuli", "#[serde(skip_serializing_if = \"Vec::is_empty\")]")
+        .field_attribute("circuit.Waveform.file", "#[serde(skip_serializing_if = \"String::is_empty\")]")
         .compile_protos(&["proto/circuit.proto", "proto/simulation.proto", "proto/value.proto"], &["proto"])?;
     Ok(())
 }

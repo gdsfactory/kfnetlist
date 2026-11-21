@@ -25,7 +25,7 @@ _sym_db = _symbol_database.Default()
 import kfnetlist.morphnet.morphnet_schema.value_pb2 as value__pb2
 
 
-DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10simulation.proto\x12\x07\x63ircuit\x1a\x0bvalue.proto\"\xb1\x01\n\x08\x41nalysis\x12#\n\x04kind\x18\x01 \x01(\x0e\x32\x15.circuit.AnalysisKind\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x11\n\targuments\x18\n \x03(\t\x12/\n\x07options\x18\x14 \x03(\x0b\x32\x1e.circuit.Analysis.OptionsEntry\x1a.\n\x0cOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"c\n\rOutputRequest\x12(\n\x04kind\x18\x01 \x01(\x0e\x32\x1a.circuit.OutputRequestKind\x12\x15\n\ranalysis_type\x18\x02 \x01(\t\x12\x11\n\tvariables\x18\n \x03(\t\"@\n\x0bMeasurement\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x15\n\ranalysis_type\x18\x02 \x01(\t\x12\x0c\n\x04\x62ody\x18\x03 \x01(\t\"\x84\x01\n\x10InitialCondition\x12=\n\nconditions\x18\x01 \x03(\x0b\x32).circuit.InitialCondition.ConditionsEntry\x1a\x31\n\x0f\x43onditionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xc9\x01\n\x08Waveform\x12#\n\x04kind\x18\x01 \x01(\x0e\x32\x15.circuit.WaveformKind\x12)\n\x04\x61rgs\x18\x02 \x03(\x0b\x32\x1b.circuit.Waveform.ArgsEntry\x12\'\n\x06points\x18\x03 \x03(\x0b\x32\x17.circuit.ParameterValue\x1a\x44\n\tArgsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12&\n\x05value\x18\x02 \x01(\x0b\x32\x17.circuit.ParameterValue:\x02\x38\x01\"\xbc\x01\n\x08Stimulus\x12\x0c\n\x04name\x18\x01 \x01(\t\x12#\n\x02\x64\x63\x18\x02 \x01(\x0b\x32\x17.circuit.ParameterValue\x12-\n\x0c\x61\x63_magnitude\x18\x03 \x01(\x0b\x32\x17.circuit.ParameterValue\x12)\n\x08\x61\x63_phase\x18\x04 \x01(\x0b\x32\x17.circuit.ParameterValue\x12#\n\x08waveform\x18\x05 \x01(\x0b\x32\x11.circuit.Waveform\"\x90\x03\n\nSimulation\x12#\n\x08\x61nalyses\x18\x01 \x03(\x0b\x32\x11.circuit.Analysis\x12/\n\x0foutput_requests\x18\x02 \x03(\x0b\x32\x16.circuit.OutputRequest\x12*\n\x0cmeasurements\x18\x03 \x03(\x0b\x32\x14.circuit.Measurement\x12\x35\n\x12initial_conditions\x18\x04 \x01(\x0b\x32\x19.circuit.InitialCondition\x12,\n\tnode_sets\x18\x05 \x01(\x0b\x32\x19.circuit.InitialCondition\x12\x14\n\x0ctemperatures\x18\x06 \x03(\x01\x12\"\n\x07stimuli\x18\x07 \x03(\x0b\x32\x11.circuit.Stimulus\x12\x31\n\x07options\x18\n \x03(\x0b\x32 .circuit.Simulation.OptionsEntry\x1a.\n\x0cOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01*\xac\x02\n\x0c\x41nalysisKind\x12\x1d\n\x19\x41NALYSIS_KIND_UNSPECIFIED\x10\x00\x12\x14\n\x10\x41NALYSIS_KIND_OP\x10\x01\x12\x14\n\x10\x41NALYSIS_KIND_DC\x10\x02\x12\x14\n\x10\x41NALYSIS_KIND_AC\x10\x03\x12\x16\n\x12\x41NALYSIS_KIND_TRAN\x10\x04\x12\x17\n\x13\x41NALYSIS_KIND_NOISE\x10\x05\x12\x14\n\x10\x41NALYSIS_KIND_TF\x10\x06\x12\x16\n\x12\x41NALYSIS_KIND_SENS\x10\x07\x12\x14\n\x10\x41NALYSIS_KIND_PZ\x10\x08\x12\x17\n\x13\x41NALYSIS_KIND_DISTO\x10\t\x12\x16\n\x12\x41NALYSIS_KIND_FOUR\x10\n\x12\x15\n\x11\x41NALYSIS_KIND_FFT\x10\x0b*\xb2\x01\n\x11OutputRequestKind\x12#\n\x1fOUTPUT_REQUEST_KIND_UNSPECIFIED\x10\x00\x12\x1d\n\x19OUTPUT_REQUEST_KIND_PRINT\x10\x01\x12\x1c\n\x18OUTPUT_REQUEST_KIND_PLOT\x10\x02\x12\x1d\n\x19OUTPUT_REQUEST_KIND_PROBE\x10\x03\x12\x1c\n\x18OUTPUT_REQUEST_KIND_SAVE\x10\x04*\xa3\x01\n\x0cWaveformKind\x12\x1d\n\x19WAVEFORM_KIND_UNSPECIFIED\x10\x00\x12\x17\n\x13WAVEFORM_KIND_PULSE\x10\x01\x12\x15\n\x11WAVEFORM_KIND_SIN\x10\x02\x12\x15\n\x11WAVEFORM_KIND_EXP\x10\x03\x12\x16\n\x12WAVEFORM_KIND_SFFM\x10\x04\x12\x15\n\x11WAVEFORM_KIND_PWL\x10\x05\x62\x06proto3')
+DESCRIPTOR = _descriptor_pool.Default().AddSerializedFile(b'\n\x10simulation.proto\x12\x07\x63ircuit\x1a\x0bvalue.proto\"\xb1\x01\n\x08\x41nalysis\x12#\n\x04kind\x18\x01 \x01(\x0e\x32\x15.circuit.AnalysisKind\x12\x0c\n\x04name\x18\x02 \x01(\t\x12\x11\n\targuments\x18\n \x03(\t\x12/\n\x07options\x18\x14 \x03(\x0b\x32\x1e.circuit.Analysis.OptionsEntry\x1a.\n\x0cOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"c\n\rOutputRequest\x12(\n\x04kind\x18\x01 \x01(\x0e\x32\x1a.circuit.OutputRequestKind\x12\x15\n\ranalysis_type\x18\x02 \x01(\t\x12\x11\n\tvariables\x18\n \x03(\t\"@\n\x0bMeasurement\x12\x0c\n\x04name\x18\x01 \x01(\t\x12\x15\n\ranalysis_type\x18\x02 \x01(\t\x12\x0c\n\x04\x62ody\x18\x03 \x01(\t\"\x84\x01\n\x10InitialCondition\x12=\n\nconditions\x18\x01 \x03(\x0b\x32).circuit.InitialCondition.ConditionsEntry\x1a\x31\n\x0f\x43onditionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01\"\xd7\x01\n\x08Waveform\x12#\n\x04kind\x18\x01 \x01(\x0e\x32\x15.circuit.WaveformKind\x12)\n\x04\x61rgs\x18\x02 \x03(\x0b\x32\x1b.circuit.Waveform.ArgsEntry\x12\'\n\x06points\x18\x03 \x03(\x0b\x32\x17.circuit.ParameterValue\x12\x0c\n\x04\x66ile\x18\x04 \x01(\t\x1a\x44\n\tArgsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12&\n\x05value\x18\x02 \x01(\x0b\x32\x17.circuit.ParameterValue:\x02\x38\x01\"\xbc\x01\n\x08Stimulus\x12\x0c\n\x04name\x18\x01 \x01(\t\x12#\n\x02\x64\x63\x18\x02 \x01(\x0b\x32\x17.circuit.ParameterValue\x12-\n\x0c\x61\x63_magnitude\x18\x03 \x01(\x0b\x32\x17.circuit.ParameterValue\x12)\n\x08\x61\x63_phase\x18\x04 \x01(\x0b\x32\x17.circuit.ParameterValue\x12#\n\x08waveform\x18\x05 \x01(\x0b\x32\x11.circuit.Waveform\"\x90\x03\n\nSimulation\x12#\n\x08\x61nalyses\x18\x01 \x03(\x0b\x32\x11.circuit.Analysis\x12/\n\x0foutput_requests\x18\x02 \x03(\x0b\x32\x16.circuit.OutputRequest\x12*\n\x0cmeasurements\x18\x03 \x03(\x0b\x32\x14.circuit.Measurement\x12\x35\n\x12initial_conditions\x18\x04 \x01(\x0b\x32\x19.circuit.InitialCondition\x12,\n\tnode_sets\x18\x05 \x01(\x0b\x32\x19.circuit.InitialCondition\x12\x14\n\x0ctemperatures\x18\x06 \x03(\x01\x12\"\n\x07stimuli\x18\x07 \x03(\x0b\x32\x11.circuit.Stimulus\x12\x31\n\x07options\x18\n \x03(\x0b\x32 .circuit.Simulation.OptionsEntry\x1a.\n\x0cOptionsEntry\x12\x0b\n\x03key\x18\x01 \x01(\t\x12\r\n\x05value\x18\x02 \x01(\t:\x02\x38\x01*\xac\x02\n\x0c\x41nalysisKind\x12\x1d\n\x19\x41NALYSIS_KIND_UNSPECIFIED\x10\x00\x12\x14\n\x10\x41NALYSIS_KIND_OP\x10\x01\x12\x14\n\x10\x41NALYSIS_KIND_DC\x10\x02\x12\x14\n\x10\x41NALYSIS_KIND_AC\x10\x03\x12\x16\n\x12\x41NALYSIS_KIND_TRAN\x10\x04\x12\x17\n\x13\x41NALYSIS_KIND_NOISE\x10\x05\x12\x14\n\x10\x41NALYSIS_KIND_TF\x10\x06\x12\x16\n\x12\x41NALYSIS_KIND_SENS\x10\x07\x12\x14\n\x10\x41NALYSIS_KIND_PZ\x10\x08\x12\x17\n\x13\x41NALYSIS_KIND_DISTO\x10\t\x12\x16\n\x12\x41NALYSIS_KIND_FOUR\x10\n\x12\x15\n\x11\x41NALYSIS_KIND_FFT\x10\x0b*\xb2\x01\n\x11OutputRequestKind\x12#\n\x1fOUTPUT_REQUEST_KIND_UNSPECIFIED\x10\x00\x12\x1d\n\x19OUTPUT_REQUEST_KIND_PRINT\x10\x01\x12\x1c\n\x18OUTPUT_REQUEST_KIND_PLOT\x10\x02\x12\x1d\n\x19OUTPUT_REQUEST_KIND_PROBE\x10\x03\x12\x1c\n\x18OUTPUT_REQUEST_KIND_SAVE\x10\x04*\xa3\x01\n\x0cWaveformKind\x12\x1d\n\x19WAVEFORM_KIND_UNSPECIFIED\x10\x00\x12\x17\n\x13WAVEFORM_KIND_PULSE\x10\x01\x12\x15\n\x11WAVEFORM_KIND_SIN\x10\x02\x12\x15\n\x11WAVEFORM_KIND_EXP\x10\x03\x12\x16\n\x12WAVEFORM_KIND_SFFM\x10\x04\x12\x15\n\x11WAVEFORM_KIND_PWL\x10\x05\x62\x06proto3')
 
 _globals = globals()
 _builder.BuildMessageAndEnumDescriptors(DESCRIPTOR, _globals)
@@ -40,12 +40,12 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_WAVEFORM_ARGSENTRY']._serialized_options = b'8\001'
   _globals['_SIMULATION_OPTIONSENTRY']._loaded_options = None
   _globals['_SIMULATION_OPTIONSENTRY']._serialized_options = b'8\001'
-  _globals['_ANALYSISKIND']._serialized_start=1323
-  _globals['_ANALYSISKIND']._serialized_end=1623
-  _globals['_OUTPUTREQUESTKIND']._serialized_start=1626
-  _globals['_OUTPUTREQUESTKIND']._serialized_end=1804
-  _globals['_WAVEFORMKIND']._serialized_start=1807
-  _globals['_WAVEFORMKIND']._serialized_end=1970
+  _globals['_ANALYSISKIND']._serialized_start=1337
+  _globals['_ANALYSISKIND']._serialized_end=1637
+  _globals['_OUTPUTREQUESTKIND']._serialized_start=1640
+  _globals['_OUTPUTREQUESTKIND']._serialized_end=1818
+  _globals['_WAVEFORMKIND']._serialized_start=1821
+  _globals['_WAVEFORMKIND']._serialized_end=1984
   _globals['_ANALYSIS']._serialized_start=43
   _globals['_ANALYSIS']._serialized_end=220
   _globals['_ANALYSIS_OPTIONSENTRY']._serialized_start=174
@@ -59,13 +59,13 @@ if not _descriptor._USE_C_DESCRIPTORS:
   _globals['_INITIALCONDITION_CONDITIONSENTRY']._serialized_start=473
   _globals['_INITIALCONDITION_CONDITIONSENTRY']._serialized_end=522
   _globals['_WAVEFORM']._serialized_start=525
-  _globals['_WAVEFORM']._serialized_end=726
-  _globals['_WAVEFORM_ARGSENTRY']._serialized_start=658
-  _globals['_WAVEFORM_ARGSENTRY']._serialized_end=726
-  _globals['_STIMULUS']._serialized_start=729
-  _globals['_STIMULUS']._serialized_end=917
-  _globals['_SIMULATION']._serialized_start=920
-  _globals['_SIMULATION']._serialized_end=1320
+  _globals['_WAVEFORM']._serialized_end=740
+  _globals['_WAVEFORM_ARGSENTRY']._serialized_start=672
+  _globals['_WAVEFORM_ARGSENTRY']._serialized_end=740
+  _globals['_STIMULUS']._serialized_start=743
+  _globals['_STIMULUS']._serialized_end=931
+  _globals['_SIMULATION']._serialized_start=934
+  _globals['_SIMULATION']._serialized_end=1334
   _globals['_SIMULATION_OPTIONSENTRY']._serialized_start=174
   _globals['_SIMULATION_OPTIONSENTRY']._serialized_end=220
 # @@protoc_insertion_point(module_scope)

@@ -541,3 +541,32 @@ def test_stimulus_json_round_trips_through_the_rust_schema():
     assert Netlist.from_json(nl.to_json()) == nl
     rust = ProtoNetlist.from_json(nl.to_json())
     assert Netlist.from_json(rust.to_json()) == nl
+
+
+def test_a_pwl_file_is_a_path_stored_posix():
+    from pathlib import Path
+
+    from kfnetlist.kfnetlist_schema import ProtoNetlist
+    from kfnetlist.morphnet.morphnet_schema import (
+        Simulation,
+        Stimulus,
+        Waveform,
+        WaveformKind,
+    )
+
+    wave = Waveform(kind=WaveformKind.PWL, file="data\\w.txt")
+    assert wave.file == Path("data/w.txt")
+    nl = Netlist(
+        top_circuit="__top__",
+        circuits=[Circuit(name="__top__")],
+        simulation=Simulation(stimuli=[Stimulus(name="__top__/V1", waveform=wave)]),
+    )
+    assert '"file":"data/w.txt"' in nl.to_json().replace(" ", "")
+    rust = ProtoNetlist.from_json(nl.to_json())
+    assert Netlist.from_json(rust.to_json()) == nl
+    with pytest.raises(ValueError, match="points or a file"):
+        Waveform(
+            kind=WaveformKind.PWL,
+            file="w.txt",
+            points=[ParameterValue(prefixed_value=PrefixedValue(double_value=0))],
+        )

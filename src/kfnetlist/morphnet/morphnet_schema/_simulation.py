@@ -3,9 +3,10 @@ from __future__ import annotations
 
 from enum import IntEnum
 from operator import not_
+from pathlib import Path
 from typing import ClassVar
 
-from pydantic import Field
+from pydantic import Field, field_serializer, field_validator, model_validator
 
 from kfnetlist.morphnet.morphnet_schema import simulation_pb2 as pb
 from kfnetlist.morphnet.morphnet_schema._base import ProtoModel
@@ -106,6 +107,28 @@ class Waveform(ProtoModel):
     kind: WaveformKind = WaveformKind.UNSPECIFIED
     args: dict[str, ParameterValue] = {}
     points: list[ParameterValue] = []  # PWL: t0 v0 t1 v1 ...
+    file: Path | None = None  # PWL from a file; stored POSIX (see netlist.paths)
+
+    @field_validator("file", mode="after")
+    @classmethod
+    def _file(cls, value: Path | None) -> Path | None:
+        from kfnetlist.morphnet.netlist.paths import resolve_file  # (import cycle)
+
+        if value is None or value == Path():  # proto's unset string is ""
+            return None
+        return resolve_file(value)
+
+    @field_serializer("file")
+    def _posix(self, value: Path | None) -> str | None:
+        from kfnetlist.morphnet.netlist.paths import posix_file  # (import cycle)
+
+        return None if value is None else posix_file(value)
+
+    @model_validator(mode="after")
+    def _points_or_file(self) -> Waveform:
+        if self.points and self.file is not None:
+            raise ValueError("a PWL waveform has points or a file, not both")
+        return self
 
 
 class Stimulus(ProtoModel):

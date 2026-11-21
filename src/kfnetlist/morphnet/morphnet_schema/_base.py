@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from enum import IntEnum
+from pathlib import PurePath
 from typing import Any, ClassVar, Self, get_args, get_origin
 
 from google.protobuf.message import Message as ProtoMessage
@@ -157,6 +158,8 @@ def _to_proto_value(value: Any) -> Any:
         return {key: _to_proto_value(val) for key, val in value.items()}
     if isinstance(value, IntEnum):
         return int(value)
+    if isinstance(value, PurePath):
+        return value.as_posix()  # a file path is stored POSIX
     return value
 
 
