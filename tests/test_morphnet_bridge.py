@@ -756,7 +756,7 @@ def test_net_names_survive_the_yaml_and_bridge_round_trips():
     src = (_FIXTURES / "hspice" / "hierarchical_subckt.sp").read_text()
     nl = morphnet.to_netlists(parse_spice(src))["inverter"]
     names = [n.name for n in nl.nets]
-    assert names == ["in_", "out", "vss"]
+    assert names == ["in_", "out", "vdd", "vss"]  # `vdd`: a port no element uses
     doc = NetlistDocument.from_netlists({"inverter": nl}, "inverter")
     yaml_back = NetlistDocument.from_yaml(doc.to_yaml()).to_netlists()["inverter"]
     assert [n.name for n in yaml_back.nets] == names

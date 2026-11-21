@@ -277,7 +277,8 @@ def rebind(nl: Netlist, net: str, *pins: tuple[str, str]) -> None:
                     members.append(ref)
     for inst, pin in pins:
         add_port_to_net(net_map, net, inst, pin)
-    circuit.connections = net_map_to_connections(net_map)
+    # an edited-away pin left alone on a net is no net (no source-only Connection)
+    circuit.connections = [c for c in net_map_to_connections(net_map) if c.target]
 
 
 def nets_by_name(nl: Netlist) -> dict[str, set[tuple[str, str]]]:

@@ -839,3 +839,10 @@ def test_a_source_in_a_child_schematic_is_named_after_its_circuit(tmp_path):
     v1 = nl.circuits[0].subcircuits[0]
     assert (nl.circuits[0].name, v1.properties["stimulus"]) == ("cell", "cell/V1")
     assert "V1 p 0 DC 1" in write_spice(nl)
+
+
+@pytest.mark.parametrize("write", [write_spice, write_xyce, write_spectre])
+def test_an_open_pin_is_its_own_named_node(write):
+    text = write(export("ihp_subckt_parent_nets", "ngspice"))
+    assert "nc_A_S" in text and "nc_B_D" in text
+    assert "?" not in text

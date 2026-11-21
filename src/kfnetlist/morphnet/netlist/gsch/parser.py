@@ -16,7 +16,6 @@ from typing import Any
 
 from kfnetlist.morphnet.morphnet_schema import (
     Circuit,
-    Connection,
     Directive,
     ExternalCircuit,
     Macro,
@@ -486,16 +485,7 @@ def parse_gsch(
         name=circuit_name,
         ports=ports,
         subcircuits=subcircuits,
-        connections=[
-            *net_map_to_connections(net_map),
-            *(  # a named single pin: an open node, not `?` shared with others
-                Connection(
-                    name=net, source=refs[0], domain=domain_of(refs[0].port_name)
-                )
-                for net, refs in net_map.items()
-                if len(refs) == 1
-            ),
-        ],
+        connections=net_map_to_connections(net_map),  # a named single pin too
         properties={INFO: json.dumps(circuit_info)},
     )
     properties = {"ground_net": GROUND}

@@ -19,7 +19,10 @@ from kfnetlist.morphnet.morphnet_schema import (
     ParameterValue,
     Simulation,
 )
-from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
+from kfnetlist.morphnet.netlist.net_utils import (
+    connections_to_instance_nets,
+    open_node,
+)
 from kfnetlist.morphnet.netlist.stimulus import spice_text, stimulus_of
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PORT_TEMPLATES,
@@ -219,7 +222,10 @@ class SpiceWriter:
                 if ext_circuit
                 else DEVICE_PORT_TEMPLATES[prefix]
             )
-            nets = [inst_nets.get((inst_name, pn), "?") for pn in port_order]
+            nets = [
+                inst_nets.get((inst_name, pn)) or open_node(inst_name, pn)
+                for pn in port_order
+            ]
             nets_str = " ".join(nets)
 
             model_name = ref.properties.get("model_name", "")
@@ -258,7 +264,10 @@ class SpiceWriter:
         else:
             port_order = self.infer_port_order(ref, inst_nets)
 
-        nets = [inst_nets.get((inst_name, pn), "?") for pn in port_order]
+        nets = [
+            inst_nets.get((inst_name, pn)) or open_node(inst_name, pn)
+            for pn in port_order
+        ]
         nets_str = " ".join(nets)
 
         params_parts = [

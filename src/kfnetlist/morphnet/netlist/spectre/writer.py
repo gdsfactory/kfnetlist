@@ -19,7 +19,10 @@ from kfnetlist.morphnet.morphnet_schema import (
     ParameterValue,
     Simulation,
 )
-from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
+from kfnetlist.morphnet.netlist.net_utils import (
+    connections_to_instance_nets,
+    open_node,
+)
 from kfnetlist.morphnet.netlist.stimulus import spectre_params, stimulus_of
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PORT_TEMPLATES,
@@ -203,7 +206,10 @@ class SpectreWriter:
             else:
                 port_order = self.infer_port_order(ref, inst_nets)
 
-        nets = [inst_nets.get((ref.name, pn), "?") for pn in port_order]
+        nets = [
+            inst_nets.get((ref.name, pn)) or open_node(ref.name, pn)
+            for pn in port_order
+        ]
         nets_str = " ".join(nets)
 
         cell_name = ref.properties.get("model_name") or ref.circuit_name

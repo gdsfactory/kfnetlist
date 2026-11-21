@@ -4,6 +4,7 @@ from kfnetlist.morphnet.netlist.net_utils import (
     add_port_to_net,
     connections_to_instance_nets,
     net_map_to_connections,
+    open_node,
 )
 
 
@@ -34,12 +35,23 @@ class TestNetMapToConnections:
         assert all(c.name == "vdd" for c in conns)
         assert all(c.source.port_name == "vdd" for c in conns)
 
-    def test_single_port_net_produces_no_connections(self) -> None:
+    def test_single_port_net_is_a_source_only_connection(self) -> None:
         net_map: NetMap = {
             "floating": [PortReference(instance_name="R1", port_name="p")],
         }
-        conns = net_map_to_connections(net_map)
-        assert conns == []
+        (conn,) = net_map_to_connections(net_map)
+        assert (conn.name, conn.source.instance_name, conn.target) == (
+            "floating",
+            "R1",
+            None,
+        )
+
+    def test_an_open_pin_node_is_no_connection(self) -> None:
+        assert open_node("A", "S") == "nc_A_S"
+        net_map: NetMap = {
+            "nc_A_S": [PortReference(instance_name="A", port_name="S")],
+        }
+        assert net_map_to_connections(net_map) == []
 
     def test_empty_net_map(self) -> None:
         assert net_map_to_connections({}) == []

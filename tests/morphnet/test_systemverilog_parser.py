@@ -120,6 +120,7 @@ endmodule
             frozenset({"U1.y", "U3.a"}),
             frozenset({"y", "U2.y", "U4.y"}),
             frozenset({"z", "U3.y"}),
+            frozenset({"U4.a"}),  # tied to 1'b0: a node of its own
         }
 
     def test_positional_unknown_module_uses_pin_index(self) -> None:
