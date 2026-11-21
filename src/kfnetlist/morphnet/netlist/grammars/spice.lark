@@ -151,7 +151,7 @@ param_assign: IDENT "=" param_value
 // ── Terminals ──────────────────────────────────────────────────────────
 SI_NUMBER: /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?(?:meg|mil|[TtGgKkMmUuNnPpFfAa])?/
 OUTPUT_VAR: /[A-Za-z_]\w*\([^)]*\)/
-FUNC_CALL: /[A-Za-z_]\w*\((?:[^()]|\([^()]*\))*\)/  // a source waveform: PULSE(0 1 {a*(b)})
+FUNC_CALL: /[A-Za-z_]\w*[ \t]*\((?:[^()]|\([^()]*\))*\)/  // a source waveform: PULSE(0 1 {a*(b)}), PULSE (0 1)
 IDENT: /[A-Za-z_][A-Za-z0-9_.\[\]:!#]*/
 BRACE_EXPR: /\{[^}]+\}/
 QSTRING: /\"[^\"]*\"/ | /'[^']*'/

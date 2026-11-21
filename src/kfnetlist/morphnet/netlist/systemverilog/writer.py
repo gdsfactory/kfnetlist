@@ -23,7 +23,7 @@ from kfnetlist.morphnet.netlist.hdl import (
 )
 from kfnetlist.morphnet.netlist.net_utils import BIT_RE, connections_to_instance_nets
 from kfnetlist.morphnet.netlist.expression import format_expression
-from kfnetlist.morphnet.netlist.stimulus import primitive, stimulus_of
+from kfnetlist.morphnet.netlist.stimulus import primitive, primitive_file, stimulus_of
 from kfnetlist.morphnet.netlist.expression import Resolve
 from kfnetlist.morphnet.netlist.value_utils import macro_lines, sim_params, to_float
 
@@ -196,6 +196,8 @@ class SystemVerilogWriter:
             parts += [f".{k}({v})" for k, v in stim_params]
         if parts:
             params = f" #({', '.join(parts)})"
+        file = primitive_file(stim) if stim is not None else None
+        attr = f'(* pwl_file = "{file}" *) ' if file else ""
 
         target = circuit_by_name.get(ref.circuit_name) or ext_by_name.get(
             ref.circuit_name
@@ -214,7 +216,7 @@ class SystemVerilogWriter:
             expr = connection_expr(f"{ref.name}.{name}", nets, buses or {}, sv_name)
             conns.append(f".{sv_name(name)}({expr})")
         conns = ", ".join(conns)
-        return f"  {sv_name(master)}{params} {sv_name(ref.name)} ({conns});"
+        return f"  {attr}{sv_name(master)}{params} {sv_name(ref.name)} ({conns});"
 
 
 def write_systemverilog(netlist: Netlist) -> str:

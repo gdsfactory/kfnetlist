@@ -60,6 +60,7 @@ PRIMITIVES = set(DEVICE_PREFIX_TO_CIRCUIT.values())
 
 class InstanceData:
     __slots__ = (
+        "attributes",
         "dims",
         "module_type",
         "name",
@@ -78,7 +79,9 @@ class InstanceData:
         named_params: dict[str, ParameterValue],
         positional_params: list[ParameterValue],
         dims: list[Dim] | None = None,
+        attributes: dict[str, str] | None = None,
     ) -> None:
+        self.attributes = attributes or {}
         self.dims = dims or []
         self.module_type = module_type
         self.name = name
@@ -418,6 +421,8 @@ class VamsTransformer(Transformer[Token, Netlist]):
         return conn
 
     def instance_stmt(self, items: list[Any]) -> InstanceData:
+        attributes = {k: v for i in items if isinstance(i, dict) for k, v in i.items()}
+        items = [i for i in items if not isinstance(i, dict)]
         rest = items[1:]
         params = rest.pop(0) if isinstance(rest[0], ParamOverride) else ParamOverride()
         name, dims, ports = rest
@@ -429,6 +434,7 @@ class VamsTransformer(Transformer[Token, Netlist]):
             named_params=params.named,
             positional_params=params.positional,
             dims=dims,
+            attributes=attributes,
         )
 
     # ── Analog placeholder ─────────────────────────────────────────────
@@ -659,7 +665,8 @@ class VamsTransformer(Transformer[Token, Netlist]):
                 ):
                     add_port_to_net(net_map, net, name, pin)
 
-            stim = from_primitive(inst.module_type, inst.named_params)
+            file = inst.attributes.get("pwl_file")  # Annex E vpwl has no file form
+            stim = from_primitive(inst.module_type, inst.named_params, file=file)
             if stim is not None:  # an LRM Annex E source: vpulse, isine, ...
                 keys = stimulus_keys(stim)
                 params = [p for p in params if p.name not in keys]

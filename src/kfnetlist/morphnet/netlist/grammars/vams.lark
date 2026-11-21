@@ -73,7 +73,7 @@ _GROUND_KW: "ground"
 // module_type inst_name (.port1(net1), .port2(net2)) ;
 // module_type inst_name (net1, net2) ;
 // module_type inst_name[3:0] (.port1(bus), .port2({a, b[1:0]})) ;
-instance_stmt: IDENT param_override? IDENT dims port_conn _SEMI
+instance_stmt: attribute* IDENT param_override? IDENT dims port_conn _SEMI  // (* pwl_file = "w.txt" *)
 
 param_override: "#" "(" (override_item ("," override_item)*)? ")"
 ?override_item: named_override | positional_override
