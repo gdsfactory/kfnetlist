@@ -722,7 +722,6 @@ def test_spectre_wraps_spice_macros_in_simulator_lang():
         ("write_hspice", "", "*"),
         ("write_spectre", "vacask", "//"),
         ("write_systemverilog", "", "//"),
-        ("write_vams", "", "//"),
     ],
 )
 def test_a_macro_in_another_language_is_a_comment_and_a_warning(
@@ -735,6 +734,16 @@ def test_a_macro_in_another_language_is_a_comment_and_a_warning(
         text = getattr(writers, writer)(nl)
     assert f"{comment} skipped macro va (verilog-a-ish)" in text.splitlines()
     assert "va body" not in text
+
+
+def test_verilog_a_carries_foreign_code_in_an_attribute():
+    from kfnetlist.morphnet.netlist import parse_vams, write_vams
+
+    nl = macro_netlist(("va", "verilog-a-ish"))
+    text = write_vams(nl)  # no warning: nothing is lost
+    assert "(* spice_code = " in text
+    (macro,) = parse_vams(text).macros
+    assert (macro.name, macro.language) == ("va", "verilog-a-ish")
 
 
 def test_vacask_skips_the_spectre_code_nyancad_drops():

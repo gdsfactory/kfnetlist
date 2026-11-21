@@ -140,3 +140,48 @@ class TestNatureAndDisciplineOutput:
         assert "enddiscipline" in output
         assert "domain continuous;" in output
         assert "potential Voltage;" in output
+
+
+class TestNativeSimulationForms:
+    def test_a_gsch_schematic_is_written_with_native_verilog_ams(self) -> None:
+        from pathlib import Path
+
+        from kfnetlist.morphnet.netlist import parse_vams, read_gsch
+
+        gsch = Path(__file__).parent / "netlists" / "gsch" / "ihp_hier_top.gsch"
+        nl = read_gsch(gsch, corners=["mos_ff"])
+        text = write_vams(nl)
+        assert "Mprim #(" in text  # a `.model` name is the module (LRM E.2.2.1)
+        assert "paramset Mprim mosfet;" in text  # ... of a primitive (LRM 7.5)
+        assert "vsine #(.dc(1.8)) V2" in text  # a DC source (LRM E.2.2.3)
+        assert "vpulse #(.dc(0.9), .val0(0), .val1(1.8), .td(1n)" in text
+        assert (
+            '(* spice_lib = "ihp/models/ngspice/models/cornerMOSlv.lib mos_ff' in text
+        )
+        assert "ground GND;" in text
+        back = parse_vams(text)
+        assert {(d.kind.name, d.value) for d in back.directives} >= {
+            ("LIB", "ihp/models/ngspice/models/cornerMOSlv.lib mos_ff"),
+            ("INCLUDE", "pdk/models/mprim.lib"),
+        }
+        assert len(back.simulation.stimuli) == 3
+
+    def test_node_sets_are_net_initializers(self) -> None:
+        from kfnetlist.morphnet.morphnet_schema import InitialCondition, Simulation
+        from kfnetlist.morphnet.netlist import parse_vams
+
+        nl = parse_vams(
+            "module t (a);\n  inout a;\n  resistor #(.r(1k)) R1 (.p(a), .n(b));\nendmodule\n"
+        )
+        nl.simulation = Simulation(node_sets=InitialCondition(conditions={"V(b)": "5"}))
+        text = write_vams(nl)
+        assert "electrical b = 5;" in text
+        assert parse_vams(text).simulation.node_sets.conditions == {"V(b)": "5"}
+
+    def test_a_model_instance_reads_back_as_its_primitive(self) -> None:
+        from kfnetlist.morphnet.netlist import parse_spice, parse_vams
+
+        nl = parse_spice("* t\nM1 d g s b pch w=1u\n.end\n")
+        back = parse_vams(write_vams(nl))
+        (m1,) = back.circuits[0].subcircuits
+        assert (m1.circuit_name, m1.properties["model_name"]) == ("mosfet", "pch")

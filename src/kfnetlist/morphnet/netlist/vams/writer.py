@@ -1,5 +1,7 @@
 from __future__ import annotations
 
+import json
+
 from kfnetlist.morphnet.morphnet_schema import (
     Netlist,
     Directive,
@@ -7,6 +9,7 @@ from kfnetlist.morphnet.morphnet_schema import (
     ExternalCircuit,
     ExternalCircuitKind,
     Circuit,
+    Macro,
     SubCircuit,
 )
 from kfnetlist.morphnet.netlist.hdl import (
@@ -19,15 +22,33 @@ from kfnetlist.morphnet.netlist.hdl import (
     port_pins,
 )
 from kfnetlist.morphnet.netlist.net_utils import BIT_RE, connections_to_instance_nets
+from kfnetlist.morphnet.netlist.stimulus import primitive, stimulus_of
 from kfnetlist.morphnet.netlist.systemverilog.writer import sv_name
 from kfnetlist.morphnet.netlist.expression import Resolve, format_expression
 from kfnetlist.morphnet.netlist.value_utils import (
+    DEVICE_PREFIX_TO_CIRCUIT,
     format_si_value,
     macro_lines,
     sim_params,
 )
 
 MACRO_LANGUAGES = dict.fromkeys(("verilog-ams", "verilog-a", "vams"))
+PRIMITIVES = set(DEVICE_PREFIX_TO_CIRCUIT.values())
+
+
+def foreign(macros: list[Macro]) -> str:
+    """JSON of the macros in a language other than Verilog's ("" when none)."""
+    code = [
+        {"name": m.name, "language": m.language, "body": m.body}
+        for m in macros
+        if m.language.lower() not in MACRO_LANGUAGES
+    ]
+    return json.dumps(code) if code else ""
+
+
+def verilog_string(text: str) -> str:
+    """``text`` as a Verilog string literal (``\\``, ``\"`` and ``\n`` escaped)."""
+    return json.dumps(text)  # JSON's escapes are Verilog's for these
 
 
 def declaration(keyword: str, names: list[str], rng: Range | None) -> str:
@@ -39,8 +60,11 @@ def declaration(keyword: str, names: list[str], rng: Range | None) -> str:
 class VamsWriter:
     """Convert a Netlist model to Verilog-AMS netlist text."""
 
+    netlist: Netlist  # the one being written
+
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
+        self.netlist = netlist
 
         ext_by_name: dict[str, ExternalCircuit] = {
             e.name: e for e in netlist.ext_circuits
@@ -48,7 +72,7 @@ class VamsWriter:
         circuit_by_name: dict[str, Circuit] = {m.name: m for m in netlist.circuits}
 
         self.write_directives(netlist.directives, lines)
-        lines.extend(macro_lines(netlist.macros, MACRO_LANGUAGES, "//"))
+        lines.extend(macro_lines(self.verilog(netlist.macros), MACRO_LANGUAGES, "//"))
 
         for ext in netlist.ext_circuits:
             if ext.kind == ExternalCircuitKind.NATURE:
@@ -56,12 +80,47 @@ class VamsWriter:
             elif ext.kind == ExternalCircuitKind.DISCIPLINE:
                 self.write_discipline(ext, lines)
 
+        for model, base in self.paramsets(netlist).items():  # LRM 7.5
+            lines += [f"paramset {sv_name(model)} {base};", "endparamset"]
+
         for circuit in netlist.circuits:
             self.write_module(circuit, ext_by_name, circuit_by_name, lines)
 
         if lines and lines[-1] != "":
             lines.append("")
         return "\n".join(lines)
+
+    def paramsets(self, netlist: Netlist) -> dict[str, str]:
+        """``model -> primitive`` of the device models instances are called by, so a
+        reader knows ``pch M1 (...)`` is a ``mosfet`` (its pins, its kind)."""
+        defined = {c.name for c in netlist.circuits}
+        out: dict[str, str] = {}
+        for circuit in netlist.circuits:
+            for ref in circuit.subcircuits:
+                model = ref.properties.get("model_name")
+                if model and model not in defined and ref.circuit_name in PRIMITIVES:
+                    out.setdefault(model, ref.circuit_name)
+        return out
+
+    @staticmethod
+    def verilog(macros: list[Macro]) -> list[Macro]:
+        return [m for m in macros if m.language.lower() in MACRO_LANGUAGES]
+
+    def attributes(self, circuit: Circuit) -> str:
+        """What Verilog-A cannot say, as attributes of its module: on the top one the
+        netlist's SPICE libraries (``.lib path section``) and inline code in other
+        languages; on any module its own such code."""
+        attrs: list[str] = []
+        if circuit.name == self.netlist.top_circuit:
+            directives = self.netlist.directives
+            libs = [d.value for d in directives if d.kind == DirectiveKind.LIB]
+            if libs:
+                attrs.append(f"spice_lib = {verilog_string(chr(10).join(libs))}")
+            if code := foreign(self.netlist.macros):
+                attrs.append(f"spice_code = {verilog_string(code)}")
+        if code := foreign(circuit.macros):
+            attrs.append(f"spice_module_code = {verilog_string(code)}")
+        return f"(* {', '.join(attrs)} *)" if attrs else ""
 
     def write_directives(self, directives: list[Directive], lines: list[str]) -> None:
         for d in directives:
@@ -100,8 +159,10 @@ class VamsWriter:
     ) -> None:
         port_names = [p.name for p in circuit.ports]
         ports_str = ", ".join(port_names)
-        lines.append(f"module {circuit.name} ({ports_str});")
-        lines.extend(macro_lines(circuit.macros, MACRO_LANGUAGES, "//"))
+        if attributes := self.attributes(circuit):
+            lines.append(attributes)
+        lines.append(f"module {sv_name(circuit.name)} ({ports_str});")
+        lines.extend(macro_lines(self.verilog(circuit.macros), MACRO_LANGUAGES, "//"))
 
         ranges = {
             p.name: declared_range(p.width, p.properties.get("range"))
@@ -134,6 +195,11 @@ class VamsWriter:
                 disc_by_disc.setdefault(key, []).append(net)
         for (disc, rng), names in disc_by_disc.items():
             lines.append(f"  {declaration(disc, names, rng)};")
+        sim = self.netlist.simulation
+        if circuit.name == self.netlist.top_circuit and sim and sim.node_sets:
+            for node, value in sim.node_sets.conditions.items():  # LRM §3.6.3.2
+                net = node.removeprefix("V(").removesuffix(")")
+                lines.append(f"  electrical {sv_name(net)} = {value};")
         buses: Buses = {
             **{b: r for b, r in internal.items() if b not in port_names},
             **{n: r for n, r in ranges.items() if r is not None},
@@ -147,7 +213,14 @@ class VamsWriter:
             type_str = f" {ptype}" if ptype else ""
             lines.append(f"  {kw}{type_str} {param.name} = {val};")
 
-        ground_net = circuit.properties.get("ground_net")
+        ground_net = circuit.properties.get("ground_net") or (
+            self.netlist.properties.get("ground_net")
+            if any(
+                c.name == self.netlist.properties.get("ground_net")
+                for c in circuit.connections
+            )
+            else None
+        )
         if ground_net:
             lines.append(f"  ground {ground_net};")
 
@@ -174,12 +247,18 @@ class VamsWriter:
     ) -> str:
         params_str = ""
         shown, resolve = sim_params(ref)
-        if shown:
-            param_parts = [
-                f".{p.name}({self.format_param_value(p.default_value, resolve)})"
-                for p in shown
-                if p.default_value
-            ]
+        param_parts = [
+            f".{p.name}({self.format_param_value(p.default_value, resolve)})"
+            for p in shown
+            if p.default_value
+        ]
+        # a `.model` name is the module (LRM E.2.2.1); a source an Annex E primitive
+        master = ref.properties.get("model_name") or ref.circuit_name
+        stim = stimulus_of(self.netlist, ref)
+        if stim is not None:
+            master, stim_params = primitive(stim, current=ref.circuit_name == "isource")
+            param_parts += [f".{k}({v})" for k, v in stim_params]
+        if param_parts:
             params_str = f" #({', '.join(param_parts)})"
 
         ref_circuit = circuit_by_name.get(ref.circuit_name)
@@ -200,7 +279,7 @@ class VamsWriter:
             port_parts.append(f".{pn}({expr})")
         ports_str = ", ".join(port_parts)
 
-        return f"  {ref.circuit_name}{params_str} {sv_name(ref.name)} ({ports_str});"
+        return f"  {sv_name(master)}{params_str} {sv_name(ref.name)} ({ports_str});"
 
     def format_param_value(self, pval: object, resolve: Resolve | None = None) -> str:
         from kfnetlist.morphnet.morphnet_schema import ParameterValue

@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import json
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from typing import Any
@@ -7,6 +8,13 @@ from typing import Any
 from lark import Token, Transformer
 
 from kfnetlist.morphnet.morphnet_schema import (
+    Directive,
+    DirectiveKind,
+    Expression,
+    InitialCondition,
+    Macro,
+    Simulation,
+    Stimulus,
     Netlist,
     ExternalCircuit,
     ExternalCircuitKind,
@@ -39,7 +47,14 @@ from kfnetlist.morphnet.netlist.net_utils import (
     propagate_domains,
     typed_connections,
 )
-from kfnetlist.morphnet.netlist.value_utils import parse_parameter_number
+from kfnetlist.morphnet.netlist.expression import parameter_value, value_text
+from kfnetlist.morphnet.netlist.stimulus import attach, from_primitive, stimulus_keys
+from kfnetlist.morphnet.netlist.value_utils import (
+    DEVICE_PREFIX_TO_CIRCUIT,
+    parse_parameter_number,
+)
+
+PRIMITIVES = set(DEVICE_PREFIX_TO_CIRCUIT.values())
 
 
 class InstanceData:
@@ -198,6 +213,10 @@ class VamsTransformer(Transformer[Token, Netlist]):
         self.analog_blocks = analog_blocks or []
         self.disciplines = disciplines or {}
         self.pin_domains = pin_domains or {}
+        self.attributes: dict[str, dict[str, str]] = {}  # module -> `(* k = "v" *)`
+        self.initial: list[tuple[str, ParameterValue]] = []  # of the module being read
+        self.nodesets: dict[str, dict[str, ParameterValue]] = {}  # module -> net -> v
+        self.stimuli: list[tuple[str, SubCircuit, Stimulus]] = []
 
     # ── Leaf transformers ───────────────────────────────────────────────
 
@@ -205,10 +224,22 @@ class VamsTransformer(Transformer[Token, Netlist]):
         return parse_parameter_number(str(items[0]))
 
     def pvalue_ident(self, items: list[Token]) -> ParameterValue:
-        return ParameterValue()
+        return parameter_value(str(items[0]))
 
     def pvalue_string(self, items: list[Token]) -> ParameterValue:
-        return ParameterValue()
+        return ParameterValue(expression=Expression(raw=str(items[0])))
+
+    # ── Attributes ─────────────────────────────────────────────────────
+
+    def attr_spec(self, items: list[Any]) -> tuple[str, str]:
+        value = items[1] if len(items) > 1 else None
+        raw = value.expression.raw if value and value.expression else None
+        if raw and raw.startswith('"'):
+            return str(items[0]), json.loads(raw)  # Verilog's `\"`, `\\`, `\n`
+        return str(items[0]), value_text(value, "vams") if value else "1"
+
+    def attribute(self, items: list[tuple[str, str]]) -> dict[str, str]:
+        return dict(items)
 
     def param_assign(self, items: list[Any]) -> tuple[str, ParameterValue]:
         name = str(items[0])
@@ -232,7 +263,10 @@ class VamsTransformer(Transformer[Token, Netlist]):
         return items[0]
 
     def decl_name(self, items: list[Any]) -> tuple[str, list[Dim]]:
-        return str(items[0]).removeprefix("\\"), items[1]
+        name = str(items[0]).removeprefix("\\")
+        if len(items) > 2 and isinstance(items[2], ParameterValue):
+            self.initial.append((name, items[2]))  # `electrical b = 5.0;`
+        return name, items[1]
 
     def port_name_list(
         self, items: list[tuple[str, list[Dim]]]
@@ -347,11 +381,8 @@ class VamsTransformer(Transformer[Token, Netlist]):
     # ── Instance statement ─────────────────────────────────────────────
 
     def named_override(self, items: list[Any]) -> tuple[str, ParameterValue]:
-        name = str(items[0])
-        value = items[1]
-        if not isinstance(value, ParameterValue):
-            value = ParameterValue()
-        return (name, value)
+        text = str(items[1])[1:-1].strip()  # `(0.13 * 1e-6)`
+        return str(items[0]), parameter_value(text) if text else ParameterValue()
 
     def positional_override(self, items: list[Any]) -> ParameterValue:
         v = items[0]
@@ -388,7 +419,7 @@ class VamsTransformer(Transformer[Token, Netlist]):
         params = rest.pop(0) if isinstance(rest[0], ParamOverride) else ParamOverride()
         name, dims, ports = rest
         return InstanceData(
-            module_type=str(items[0]),
+            module_type=str(items[0]).removeprefix("\\"),
             name=str(name).removeprefix("\\"),
             named_ports=ports.named,
             positional_ports=ports.positional,
@@ -481,7 +512,13 @@ class VamsTransformer(Transformer[Token, Netlist]):
     # ── Module definition ──────────────────────────────────────────────
 
     def module_def(self, items: list[Any]) -> VamsModule:
-        module_name = str(items[0])
+        attrs = [i for i in items if isinstance(i, dict)]
+        items = [i for i in items if not isinstance(i, dict)]
+        module_name = str(items[0]).removeprefix("\\")
+        self.attributes[module_name] = {k: v for a in attrs for k, v in a.items()}
+        if self.initial:
+            self.nodesets[module_name] = dict(self.initial)
+            self.initial = []
 
         port_names: list[str] = []
         body_items: list[Any] = []
@@ -570,7 +607,10 @@ class VamsTransformer(Transformer[Token, Netlist]):
         )
 
     def _build_circuit(
-        self, module: VamsModule, modules: dict[str, VamsModule]
+        self,
+        module: VamsModule,
+        modules: dict[str, VamsModule],
+        paramsets: Mapping[str, str] | None = None,
     ) -> Circuit:
         net_map: NetMap = {}
         for port in module.ports:
@@ -616,6 +656,26 @@ class VamsTransformer(Transformer[Token, Netlist]):
                 ):
                     add_port_to_net(net_map, net, name, pin)
 
+            stim = from_primitive(inst.module_type, inst.named_params)
+            if stim is not None:  # an LRM Annex E source: vpulse, isine, ...
+                keys = stimulus_keys(stim)
+                params = [p for p in params if p.name not in keys]
+                master = "isource" if inst.module_type[0].lower() == "i" else "vsource"
+                for n in names:
+                    ref = SubCircuit(name=n, circuit_name=master, parameters=params)
+                    subcircuits.append(ref)
+                    self.stimuli.append((module.name, ref, stim.model_copy(deep=True)))
+                continue
+            base = (paramsets or {}).get(inst.module_type)
+            if base in PRIMITIVES:  # `pch M1 (...)` with `paramset pch mosfet`
+                props = {"model_name": inst.module_type}
+                subcircuits += [
+                    SubCircuit(
+                        name=n, circuit_name=base, parameters=params, properties=props
+                    )
+                    for n in names
+                ]
+                continue
             subcircuits += [
                 SubCircuit(name=n, circuit_name=inst.module_type, parameters=params)
                 for n in names
@@ -634,7 +694,10 @@ class VamsTransformer(Transformer[Token, Netlist]):
 
     def start(self, items: list[Any]) -> Netlist:
         modules = {m.name: m for m in items if isinstance(m, VamsModule)}
-        circuits = [self._build_circuit(m, modules) for m in modules.values()]
+        paramsets = {i.name: i.base_type for i in items if isinstance(i, ParamsetData)}
+        circuits = [
+            self._build_circuit(m, modules, paramsets) for m in modules.values()
+        ]
         ext_circuits: dict[str, ExternalCircuit] = {}
 
         for item in items:
@@ -679,13 +742,37 @@ class VamsTransformer(Transformer[Token, Netlist]):
                     properties={"ext_kind": "model", "model_type": item.base_type},
                 )
 
-        top_circuit = circuits[-1].name if circuits else ""
+        names = [c.name for c in circuits]
+        top_circuit = "__top__" if "__top__" in names else (names or [""])[-1]
+        # Verilog-A cannot say these: they ride in attributes (see the VAMS writer)
+        top = self.attributes.get(top_circuit, {})
+        directives = [
+            Directive(kind=DirectiveKind.LIB, value=line.strip())
+            for line in top.get("spice_lib", "").splitlines()
+            if line.strip()
+        ]
+        macros = [Macro(**m) for m in json.loads(top.get("spice_code") or "[]")]
+        for circuit in circuits:
+            code = self.attributes.get(circuit.name, {}).get("spice_module_code")
+            circuit.macros = [Macro(**m) for m in json.loads(code or "[]")]
+        nodesets = self.nodesets.get(top_circuit, {})
+        simulation = None
+        if nodesets:
+            conditions = {
+                f"V({n})": value_text(v, "ngspice") for n, v in nodesets.items()
+            }
+            simulation = Simulation(node_sets=InitialCondition(conditions=conditions))
 
         netlist = Netlist(
             name="",
             top_circuit=top_circuit,
             circuits=circuits,
             ext_circuits=list(ext_circuits.values()),
+            directives=directives,
+            macros=macros,
+            simulation=simulation,
         )
+        for circuit_name, ref, stim in self.stimuli:
+            attach(netlist, circuit_name, ref, stim)
         propagate_domains(netlist, self.disciplines, self.pin_domains)
         return netlist

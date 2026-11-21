@@ -11,11 +11,15 @@ start: toplevel_item*
               | paramset_def
 
 // ── Module definition ─────────────────────────────────────────────────
-module_def: _MODULE_KW IDENT port_list? _SEMI module_body _ENDMODULE_KW
+module_def: attribute* _MODULE_KW IDENT port_list? _SEMI module_body _ENDMODULE_KW
 _MODULE_KW: "module"
 _ENDMODULE_KW: "endmodule"
 
-port_list: "(" port_item ("," port_item)* ")"
+port_list: "(" (port_item ("," port_item)*)? ")"
+
+// ── Attribute instance (IEEE 1364 §3.8): (* name = "value", flag *) ─────
+attribute: "(*" attr_spec ("," attr_spec)* "*)"
+attr_spec: IDENT ("=" param_value)?
 port_item: IDENT
 
 module_body: module_stmt*
@@ -35,7 +39,7 @@ port_dir_decl: PORT_DIR range? port_name_list _SEMI
 PORT_DIR.2: "input" | "output" | "inout"
 
 port_name_list: decl_name ("," decl_name)*
-decl_name: IDENT dims
+decl_name: IDENT dims ("=" param_value)?   // `electrical b = 5.0;`: a nodeset
 
 // ── Discipline declaration on nets/ports ──────────────────────────────
 // electrical a, b;   optical [3:0] bus;
@@ -73,7 +77,7 @@ instance_stmt: IDENT param_override? IDENT dims port_conn _SEMI
 
 param_override: "#" "(" (override_item ("," override_item)*)? ")"
 ?override_item: named_override | positional_override
-named_override: "." IDENT "(" param_value ")"
+named_override: "." IDENT OVERRIDE_VALUE   // `.l(0.13 * 1e-6)`: any expression
 positional_override: param_value
 
 port_conn: "(" conn_item ("," conn_item)* ")"
@@ -127,6 +131,7 @@ SI_NUMBER: /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?(?:meg|mil|[TtGgKkMmUuNnPpF
 // plain or escaped identifier (\I[3] ends at whitespace)
 IDENT: /\\[^\s]+|[A-Za-z_][A-Za-z0-9_.!$#]*/
 BOUND: /[^\]:\s][^\]:]*/
-QSTRING: /\"[^\"]*\"/ | /'[^']*'/
+QSTRING: /\"(?:[^\"\\]|\\.)*\"/ | /'[^']*'/
+OVERRIDE_VALUE: /\((?:[^()\"]|\"(?:[^\"\\]|\\.)*\"|\((?:[^()]|\([^()]*\))*\))*\)/
 
 %ignore /[ \t\r\n]+/

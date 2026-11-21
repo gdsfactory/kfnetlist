@@ -65,14 +65,7 @@ class VamsParser:
             directives.append(Directive(kind=dk, value=value))
 
         if directives:
-            netlist = Netlist(
-                name=netlist.name,
-                top_circuit=netlist.top_circuit,
-                circuits=netlist.circuits,
-                ext_circuits=netlist.ext_circuits,
-                properties=netlist.properties,
-                directives=directives,
-            )
+            netlist.directives = [*directives, *netlist.directives]
 
         return netlist
 
