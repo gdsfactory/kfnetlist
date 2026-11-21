@@ -13,8 +13,8 @@
 - **OS-agnostic file paths** — `kfnetlist.morphnet.netlist.paths`
   (`posix_file`, `resolve_file`, `is_absolute`) and Rust
   `kfnetlist_schema::paths` give the same answers on every OS: `\` or `/`
-  separators, `/x`, `C:\x` and `\\server\share` absolute everywhere, `.`/`..`
-  resolved lexically, a relative path joined to an optional base. One shared case
+  separators, `/x`, `C:\x`, `C:x` and `\\server\share` absolute everywhere, `.`/`..`
+  resolved lexically and never above a root, a relative path joined to an optional base. One shared case
   table (`tests/data/path_cases.json`) tests both.
 - **Simulation stimuli** — `simulation.proto` gains `Stimulus` (dc, AC magnitude
   and phase, `Waveform` of kind PULSE/SIN/EXP/SFFM/PWL) in `Simulation.stimuli`;

@@ -2,7 +2,8 @@
 
 The stored form is POSIX (``data/w.txt``): ``\\`` and ``/`` both separate, ``.`` and
 ``..`` resolve lexically (no filesystem, no symlinks), and ``/x``, ``C:/x``,
-``C:\\x`` and ``\\\\server\\share`` are absolute on every host. A relative path stays
+``C:\\x``, ``C:x`` and ``\\\\server\\share`` are absolute on every host; ``..``
+never climbs above a root (a drive, a share, ``/``). A relative path stays
 relative unless a ``base`` is given.
 """
 
@@ -17,15 +18,18 @@ DRIVE_RE = re.compile(r"[A-Za-z]:")
 
 
 def _split(text: str) -> tuple[str, str]:
-    """``(root, rest)``: ``//`` (UNC), ``C:`` / ``C:/`` (drive), ``/`` or ``""``."""
+    """``(root, rest)``. Every root is absolute: ``//server/share/`` (UNC: ``..``
+    stops at the share), ``C:/`` (a drive letter is that drive's root, also in
+    ``C:rel``), ``/`` (one, or three or more, slashes); ``""`` for a relative path."""
     text = text.replace("\\", "/")
-    if text.startswith("//"):
-        return "//", text[2:]
+    if text.startswith("//") and not text.startswith("///"):
+        server, _, rest = text[2:].partition("/")
+        share, _, rest = rest.partition("/")
+        return f"//{server}/{share}/" if share else f"//{server}/", rest
     if DRIVE_RE.match(text):
-        root, rest = text[:2], text[2:]
-        return (root + "/", rest[1:]) if rest.startswith("/") else (root, rest)
+        return text[:2] + "/", text[2:].lstrip("/")
     if text.startswith("/"):
-        return "/", text[1:]
+        return "/", text.lstrip("/")
     return "", text
 
 
@@ -50,8 +54,7 @@ def posix_file(path: str | PurePath) -> str:
 
 
 def is_absolute(path: str | PurePath) -> bool:
-    root = _split(_text(path))[0]
-    return root in ("/", "//") or root.endswith(":/")
+    return bool(_split(_text(path))[0])
 
 
 def resolve_file(path: str | PurePath, base: str | PurePath | None = None) -> Path:

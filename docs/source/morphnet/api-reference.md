@@ -575,7 +575,10 @@ same answers on every OS (one shared case table tests both):
 
 - `posix_file(path)`: the stored form, POSIX separators, `.`/`..` resolved
   (`data\w.txt` → `data/w.txt`).
-- `is_absolute(path)`: `/x`, `C:/x`, `C:\x`, `\\server\share\x` on every host.
+- `is_absolute(path)`: `/x`, `C:/x`, `C:\x`, `C:x` (a drive letter is that
+  drive's root), `\\server\share\x` on every host. `..` never climbs above a
+  root: `\\srv\share\..\w.txt` → `//srv/share/w.txt`, `C:..\w.txt` →
+  `C:/w.txt`, `///x` → `/x`.
 - `resolve_file(path, base=None)`: `path` joined to `base` when relative, in the
   stored form; a `pathlib.Path` in Python, a `String` in Rust. Lexical only: no
   filesystem access, no symlinks.

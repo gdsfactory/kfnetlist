@@ -96,5 +96,40 @@
     "posix": "w.txt",
     "resolved": "w.txt",
     "absolute": false
+  },
+  {
+    "file": "\\\\srv\\share\\..\\..\\w.txt",
+    "base": null,
+    "posix": "//srv/share/w.txt",
+    "resolved": "//srv/share/w.txt",
+    "absolute": true
+  },
+  {
+    "file": "///x",
+    "base": null,
+    "posix": "/x",
+    "resolved": "/x",
+    "absolute": true
+  },
+  {
+    "file": "C:..\\w.txt",
+    "base": null,
+    "posix": "C:/w.txt",
+    "resolved": "C:/w.txt",
+    "absolute": true
+  },
+  {
+    "file": "C:w.txt",
+    "base": "/proj",
+    "posix": "C:/w.txt",
+    "resolved": "C:/w.txt",
+    "absolute": true
+  },
+  {
+    "file": "c:",
+    "base": null,
+    "posix": "c:/",
+    "resolved": "c:/",
+    "absolute": true
   }
 ]
