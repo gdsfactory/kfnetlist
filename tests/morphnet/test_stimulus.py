@@ -17,6 +17,7 @@ from kfnetlist.morphnet.netlist.stimulus import (
     from_spectre,
     parse_spice,
     primitive,
+    primitive_file,
     spectre_params,
     spice_text,
     stimulus_of,
@@ -84,6 +85,7 @@ CASES = {
             points=[parameter_value(t) for t in ("0", "0", "1n", "1.8")],
         )
     ),
+    "pwl_file": stim(waveform=Waveform(kind=WaveformKind.PWL, file="data/w.txt")),
     "expression": stim(
         dc="vdd / 2",
         waveform=wave(
@@ -116,7 +118,7 @@ def test_spectre_params_read_back(case):
 def test_verilog_a_primitive_reads_back(case):
     s = CASES[case]
     master, params = primitive(s, current=False)
-    assert from_primitive(master, dict(params)) == s
+    assert from_primitive(master, dict(params), file=primitive_file(s)) == s
 
 
 def test_spice_text_is_what_nyancad_writes():
@@ -165,3 +167,26 @@ def test_attach_names_the_stimulus_after_its_source():
     assert stimulus_of(nl, ref) == nl.simulation.stimuli[0]
     assert nl.simulation.stimuli[0].name == "top/V1"
     assert stimulus_of(nl, SubCircuit(name="R1")) is None
+
+
+def test_a_pwl_file_in_every_dialect():
+    s = CASES["pwl_file"]
+    assert spice_text(s, "ngspice") == 'PWL FILE "data/w.txt"'
+    assert dict(spectre_params(s, "spectre")) == {"type": "pwl", "file": '"data/w.txt"'}
+    assert primitive(s, current=True) == ("ipwl", [])
+    assert primitive_file(s) == "data/w.txt"
+    assert parse_spice('PWL FILE "data\\w.txt"') == s  # written on Windows
+    assert parse_spice("PWL FILE=data/w.txt") == s
+
+
+def test_a_space_before_the_parenthesis_is_the_same_source():
+    assert parse_spice("DC 0.9 PULSE (0 1.8 1n 10p 10p 1n 2n)") == CASES["pulse"]
+    assert parse_spice("PWL ( 0 0 1n 1.8 )") == CASES["pwl"]
+
+
+def test_spectre_wave_given_as_a_value_keeps_its_points():
+    from kfnetlist.morphnet.morphnet_schema import Expression, ParameterValue
+
+    raw = ParameterValue(expression=Expression(raw="[0 0 1n {vdd}]"))
+    stim_ = from_spectre({"type": "pwl", "wave": raw})
+    assert stim_.waveform.points[-1] == parameter_value("vdd")
