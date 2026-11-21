@@ -175,6 +175,9 @@ scalar_field!(
     Value,
     serde_json::Map<String, Value>,
     proto::Directive,
+    proto::Macro,
+    proto::Expression,
+    kfnetlist_core::Directive,
     proto::Simulation,
     proto::ExternalLibrary
 );
@@ -310,6 +313,14 @@ proto_schema_class!(ParameterValue, proto::ParameterValue, [], {
             _ => None,
         }
     }
+    /// The expression tree as a dict (`{"binary": {...}}`).
+    #[getter]
+    fn expression(&self, py: Python<'_>) -> PyResult<PyObject> {
+        match &self.0.value {
+            Some(proto::parameter_value::Value::Expression(e)) => e.field(py),
+            _ => Ok(py.None()),
+        }
+    }
 });
 proto_schema_class!(
     Parameter,
@@ -436,7 +447,8 @@ proto_schema_class!(
         connections,
         buses,
         properties,
-        directives
+        directives,
+        macros
     ],
     {
         #[getter]
@@ -468,7 +480,8 @@ proto_schema_class!(
         properties,
         directives,
         simulation,
-        libraries
+        libraries,
+        macros
     ],
     {
         #[getter]
@@ -515,7 +528,9 @@ schema_class!(
         ports,
         connections,
         nets,
-        routes
+        net_names,
+        routes,
+        directives
     ],
     {
         fn to_netlist(&self) -> PyResult<crate::netlist::Netlist> {

@@ -448,3 +448,74 @@ endmodule
         text = "module top (a);\n  inout [2:0] a;\n  leaf L[1:0] (.x(a));\nendmodule\n"
         with pytest.raises(ValueError, match="3 bits for 2 instance"):
             parse_vams(text)
+
+
+class TestSimulationFixtures:
+    """Verilog-AMS native forms: LRM Annex E source primitives, net initializers."""
+
+    def test_a_source_primitive_is_a_stimulus(self) -> None:
+        from kfnetlist.morphnet.morphnet_schema import WaveformKind
+        from kfnetlist.morphnet.netlist.expression import parameter_value
+        from kfnetlist.morphnet.netlist.stimulus import stimulus_of
+
+        nl = parse_vams(
+            "module t (a);\n  inout a;\n"
+            "  vpulse #(.dc(0.9), .val0(0), .val1(1.8), .td(1n)) V1 (.p(a), .n(gnd));\n"
+            "  isine #(.dc(1m)) I1 (.p(a), .n(gnd));\nendmodule\n"
+        )
+        v1, i1 = nl.circuits[0].subcircuits
+        assert (v1.circuit_name, i1.circuit_name) == ("vsource", "isource")
+        assert v1.parameters == [] and i1.parameters == []
+        stim = stimulus_of(nl, v1)
+        assert stim.waveform.kind == WaveformKind.PULSE
+        assert stim.waveform.args["delay"] == parameter_value("1n")
+        assert stimulus_of(nl, i1).dc == parameter_value("1m")
+
+    def test_override_values_are_expressions_and_references(self) -> None:
+        nl = parse_vams(
+            "module t (a, b);\n  inout a, b;\n"
+            "  nch #(.l(0.13 * 1e-6), .w(wmin)) M1 (.d(a), .g(b), .s(b), .b(b));\n"
+            "endmodule\n"
+        )
+        l, w = nl.circuits[0].subcircuits[0].parameters
+        assert l.default_value.expression.binary is not None
+        assert w.default_value.expression.reference == "wmin"
+
+    def test_a_module_without_ports_parses(self) -> None:
+        for header in ("module t;", "module t ();"):
+            nl = parse_vams(
+                f"{header}\n  resistor #(.r(1k)) R1 (.p(a), .n(b));\nendmodule\n"
+            )
+            assert [c.name for c in nl.circuits] == ["t"]
+
+    def test_attributes_carry_spice_libraries_and_code(self) -> None:
+        import json
+
+        code = json.dumps(
+            [
+                {
+                    "name": "rdiv",
+                    "language": "spice",
+                    "body": ".subckt rdiv a b\nR1 a b 1k\n.ends rdiv",
+                }
+            ]
+        )
+        escaped = code.replace("\\", "\\\\").replace('"', '\\"')
+        nl = parse_vams(
+            f'(* spice_lib = "a.lib mos_ff\\nb.lib", spice_code = "{escaped}" *)\n'
+            "module t;\n  rdiv X1 (.a(x), .b(y));\nendmodule\n"
+        )
+        assert [(d.kind.name, d.value) for d in nl.directives] == [
+            ("LIB", "a.lib mos_ff"),
+            ("LIB", "b.lib"),
+        ]
+        (macro,) = nl.macros
+        assert (macro.name, macro.language) == ("rdiv", "spice")
+        assert macro.body.splitlines()[1] == "R1 a b 1k"
+
+    def test_a_net_initializer_is_a_nodeset(self) -> None:
+        nl = parse_vams(
+            "module t (a);\n  inout a;\n  electrical a;\n  electrical b = 5.0;\n"
+            "  resistor #(.r(1k)) R1 (.p(a), .n(b));\nendmodule\n"
+        )
+        assert nl.simulation.node_sets.conditions == {"V(b)": "5"}

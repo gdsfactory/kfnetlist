@@ -125,6 +125,10 @@ pub struct PlacedNetlistWire {
     pub nets: Vec<Net>,
     #[serde(default)]
     pub ports: Vec<NetlistPort>,
+    #[serde(default, skip_serializing_if = "Vec::is_empty")]
+    pub directives: Vec<crate::Directive>,
+    #[serde(default, skip_serializing_if = "serde_json::Map::is_empty")]
+    pub info: serde_json::Map<String, serde_json::Value>,
 }
 
 /// Merge the optional `placements` and `cells` maps into a single per-instance
@@ -256,6 +260,8 @@ impl PlacedNetlist {
         let mut netlist = Netlist {
             nets: wire.nets,
             ports: wire.ports,
+            directives: wire.directives,
+            info: wire.info,
             ..Netlist::default()
         };
         let mut extras = IndexMap::new();
@@ -299,6 +305,8 @@ impl PlacedNetlistWire {
                 .collect(),
             nets: netlist.nets.clone(),
             ports: netlist.ports.clone(),
+            directives: netlist.directives.clone(),
+            info: netlist.info.clone(),
         }
     }
 }

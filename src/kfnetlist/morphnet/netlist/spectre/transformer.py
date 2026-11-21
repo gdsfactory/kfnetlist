@@ -11,6 +11,8 @@ from kfnetlist.morphnet.morphnet_schema import (
     DirectiveKind,
     ExternalCircuit,
     Circuit,
+    Expression,
+    Stimulus,
     SubCircuit,
     OutputRequest,
     Parameter,
@@ -19,6 +21,8 @@ from kfnetlist.morphnet.morphnet_schema import (
     PortDirection,
     Simulation,
 )
+from kfnetlist.morphnet.netlist.expression import parameter_value, value_text
+from kfnetlist.morphnet.netlist.stimulus import attach, from_spectre, spectre_keys
 from kfnetlist.morphnet.netlist.net_utils import (
     NetMap,
     add_port_to_net,
@@ -34,8 +38,6 @@ from kfnetlist.morphnet.netlist.simulation_data import (
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PORT_TEMPLATES,
     DEVICE_PREFIX_TO_CIRCUIT,
-    format_si_value,
-    parse_parameter_number,
 )
 
 CIRCUIT_TO_PREFIX: dict[str, str] = {v: k for k, v in DEVICE_PREFIX_TO_CIRCUIT.items()}
@@ -53,13 +55,6 @@ SPECTRE_ANALYSIS_TYPES: set[str] = {
     "psp",
     "op",
 }
-
-
-def _param_value_to_str(pval: ParameterValue) -> str:
-    """Convert a ParameterValue to a plain string for directive storage."""
-    if pval.prefixed_value is not None:
-        return format_si_value(pval.prefixed_value)
-    return ""
 
 
 class InstanceData:
@@ -102,10 +97,21 @@ class SubcktData:
 
 
 class IncludeData:
-    __slots__ = ("path",)
+    __slots__ = ("lang", "path", "section")
 
-    def __init__(self, path: str) -> None:
+    def __init__(self, path: str, section: str = "", lang: str = "") -> None:
         self.path = path
+        self.section = section
+        self.lang = lang
+
+    def to_directive(self) -> Directive:
+        """``include "p" section=s`` is a library include; ``lang=`` goes in ``name``."""
+        name = f"lang={self.lang}" if self.lang else ""
+        if self.section:
+            return Directive(
+                kind=DirectiveKind.LIB, name=name, value=f"{self.path} {self.section}"
+            )
+        return Directive(kind=DirectiveKind.INCLUDE, name=name, value=self.path)
 
 
 class ParamData:
@@ -121,20 +127,19 @@ class SpectreTransformer(Transformer[Token, Netlist]):
     def __init__(self) -> None:
         super().__init__()
         self.all_subckts: dict[str, Circuit] = {}
+        self.stimuli: list[tuple[str, SubCircuit, Stimulus]] = []
 
     # ── Leaf transformers ───────────────────────────────────────────────
 
     def net_ref(self, items: list[Token]) -> str:
         return str(items[0])
 
-    def pvalue_number(self, items: list[Token]) -> ParameterValue:
-        return parse_parameter_number(str(items[0]))
-
-    def pvalue_ident(self, items: list[Token]) -> ParameterValue:
-        return ParameterValue()
+    def pvalue_value(self, items: list[Token]) -> ParameterValue:
+        return parameter_value(str(items[0]))
 
     def pvalue_string(self, items: list[Token]) -> ParameterValue:
-        return ParameterValue()
+        """A quoted string (``type="pulse"``), kept as written."""
+        return ParameterValue(expression=Expression(raw=str(items[0])))
 
     def param_assign(self, items: list[Any]) -> tuple[str, ParameterValue]:
         name = str(items[0])
@@ -170,7 +175,7 @@ class SpectreTransformer(Transformer[Token, Netlist]):
         if cell_name in SPECTRE_ANALYSIS_TYPES and cell_name not in self.all_subckts:
             opts: dict[str, str] = {}
             for pname, pval in params.items():
-                opts[pname] = _param_value_to_str(pval)
+                opts[pname] = value_text(pval, "spectre")
             return AnalysisData(
                 kind=cell_name, name=inst_name, arguments=[], options=opts
             )
@@ -209,9 +214,16 @@ class SpectreTransformer(Transformer[Token, Netlist]):
 
     # ── include ─────────────────────────────────────────────────────────
 
+    def include_opt(self, items: list[Token]) -> tuple[str, str]:
+        return (f"{items[0]}", str(items[1]))
+
     def include_stmt(self, items: list[Any]) -> IncludeData:
-        path = str(items[0]).strip("\"'")
-        return IncludeData(path=path)
+        opts = dict(items[1:])
+        return IncludeData(
+            path=str(items[0]).strip("\"'"),
+            section=opts.get("section", ""),
+            lang=opts.get("lang", ""),
+        )
 
     # ── save statement ───────────────────────────────────────────────────
 
@@ -283,9 +295,7 @@ class SpectreTransformer(Transformer[Token, Netlist]):
                 for pname, pval in item.params.items():
                     circuit_params.append(Parameter(name=pname, default_value=pval))
             elif isinstance(item, IncludeData):
-                directives.append(
-                    Directive(kind=DirectiveKind.INCLUDE, value=item.path)
-                )
+                directives.append(item.to_directive())
             elif isinstance(item, list):
                 for sub_item in item:
                     if isinstance(sub_item, InstanceData):
@@ -371,22 +381,29 @@ class SpectreTransformer(Transformer[Token, Netlist]):
                         properties={"spice_prefix": device_prefix},
                     )
 
+                given = dict(inst.params)
+                stim = None
+                if device_prefix in ("V", "I"):
+                    stim = from_spectre(given)
+                    for key in spectre_keys(stim, given):
+                        given.pop(key, None)
                 params = [
                     Parameter(name=pname, default_value=pval)
-                    for pname, pval in inst.params.items()
+                    for pname, pval in given.items()
                 ]
                 props: dict[str, str] = {}
                 if inst.cell_name and inst.cell_name != module_name:
                     props["model_name"] = inst.cell_name
 
-                subcircuits.append(
-                    SubCircuit(
-                        name=inst.name,
-                        circuit_name=module_name,
-                        parameters=params,
-                        properties=props,
-                    )
+                ref = SubCircuit(
+                    name=inst.name,
+                    circuit_name=module_name,
+                    parameters=params,
+                    properties=props,
                 )
+                subcircuits.append(ref)
+                if stim is not None:
+                    self.stimuli.append((name, ref, stim))
 
         for mdata in model_defs.values():
             if mdata.name not in ext_circuits:
@@ -435,12 +452,10 @@ class SpectreTransformer(Transformer[Token, Netlist]):
             elif isinstance(item, OutputRequestData):
                 output_requests.append(item)
             elif isinstance(item, IncludeData):
-                directives.append(
-                    Directive(kind=DirectiveKind.INCLUDE, value=item.path)
-                )
+                directives.append(item.to_directive())
             elif isinstance(item, ParamData):
                 for pname, pval in item.params.items():
-                    val = _param_value_to_str(pval)
+                    val = value_text(pval, "spectre")
                     directives.append(
                         Directive(kind=DirectiveKind.PARAM, name=pname, value=val)
                     )
@@ -476,7 +491,9 @@ class SpectreTransformer(Transformer[Token, Netlist]):
                     properties={"model_type": mdata.type_name},
                 )
 
-        top_circuit = circuits[-1].name if circuits else ""
+        top_circuit = (
+            "__top__" if top_instances else (circuits[-1].name if circuits else "")
+        )
 
         simulation: Simulation | None = None
         if analyses or output_requests:
@@ -500,7 +517,7 @@ class SpectreTransformer(Transformer[Token, Netlist]):
                 ],
             )
 
-        return Netlist(
+        netlist = Netlist(
             name="",
             top_circuit=top_circuit,
             circuits=circuits,
@@ -508,3 +525,6 @@ class SpectreTransformer(Transformer[Token, Netlist]):
             directives=directives,
             simulation=simulation,
         )
+        for circuit_name, ref, stim in self.stimuli:
+            attach(netlist, circuit_name, ref, stim)
+        return netlist

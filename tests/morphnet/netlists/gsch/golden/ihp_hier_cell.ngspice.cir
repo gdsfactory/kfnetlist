@@ -1,0 +1,4 @@
+.title schematic
+.lib ihp/models/ngspice/models/cornerMOSlv.lib mos_tt
+XM1 out in 0 0 sg13_lv_nmos l={0.13 * 1e-6} m=1 ng=2 w={0.3 * 1e-6}
+RR1 vdd out rload

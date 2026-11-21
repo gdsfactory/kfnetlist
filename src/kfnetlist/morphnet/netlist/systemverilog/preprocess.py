@@ -13,6 +13,18 @@ from kfnetlist.morphnet.netlist.vams.preprocess import (
 
 # (* attr = value *) — but not the `@(*)` event control
 ATTRIBUTE_RE: re.Pattern[str] = re.compile(r"\(\*(?!\s*\)).*?\*\)", re.DOTALL)
+# `(* pwl_file = "w.txt" *) vpwl [#(] ...`: a PWL source's file (see stimulus.py)
+PWL_FILE_RE: re.Pattern[str] = re.compile(
+    r'\(\*\s*pwl_file\s*=\s*("(?:[^"\\]|\\.)*")[^*]*\*\)\s*'
+    r"(\\\S+\s|[A-Za-z_$][\w$]*)\s*(#\s*\()?"
+)
+
+
+def _pwl_file_param(m: re.Match[str]) -> str:
+    """The attribute as a ``pwl_file`` parameter of the instance."""
+    opened = f"{m[2]} #(.pwl_file({m[1]})"
+    return f"{opened}, " if m[3] else f"{opened}) "
+
 
 # Constructs that are not netlist structure. Matched left to right, so a
 # construct nested in an earlier one is consumed with it.
@@ -72,6 +84,7 @@ def preprocess_systemverilog(
     """
     text = BLOCK_COMMENT_RE.sub("", text)
     text = LINE_COMMENT_RE.sub("", text)
+    text = PWL_FILE_RE.sub(_pwl_file_param, text)  # kept: the rest are dropped
     text = ATTRIBUTE_RE.sub("", text)
     text = apply_defines(text, defines)
 

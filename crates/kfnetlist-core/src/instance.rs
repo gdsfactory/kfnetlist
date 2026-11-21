@@ -1,5 +1,19 @@
 use serde::{Deserialize, Serialize};
 
+/// Compare instance metadata, ignoring reserved `__`-prefixed keys (bridge and editor
+/// stashes such as `__morphnet__`), which are not part of instance identity.
+pub fn public_info_eq(
+    a: &serde_json::Map<String, serde_json::Value>,
+    b: &serde_json::Map<String, serde_json::Value>,
+) -> bool {
+    fn public(
+        m: &serde_json::Map<String, serde_json::Value>,
+    ) -> impl Iterator<Item = (&String, &serde_json::Value)> {
+        m.iter().filter(|(k, _)| !k.starts_with("__"))
+    }
+    public(a).eq(public(b))
+}
+
 /// Array dimensions for an array instance (`na` × `nb`).
 #[derive(Clone, Debug, Hash, PartialEq, Eq, Serialize, Deserialize)]
 #[serde(deny_unknown_fields)]
@@ -14,7 +28,7 @@ pub struct NetlistArray {
 /// and is intentionally excluded from the JSON wire format.
 ///
 /// Placement-aware instances compose this value with physical attributes.
-#[derive(Clone, Debug, PartialEq, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 #[serde(from = "LeafNetlistInstanceWire", into = "LeafNetlistInstanceWire")]
 pub struct LeafNetlistInstance {
     /// Per-instance JSON-compatible metadata.
@@ -65,6 +79,18 @@ impl LeafNetlistInstance {
             array: wire.array,
             name,
         }
+    }
+}
+
+/// Equality ignores reserved `__`-prefixed info keys, like [`crate::Netlist`] does.
+impl PartialEq for LeafNetlistInstance {
+    fn eq(&self, other: &Self) -> bool {
+        self.name == other.name
+            && self.kcl == other.kcl
+            && self.component == other.component
+            && self.settings == other.settings
+            && self.array == other.array
+            && public_info_eq(&self.info, &other.info)
     }
 }
 

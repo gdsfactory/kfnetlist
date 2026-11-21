@@ -1,0 +1,46 @@
+{
+  "uuid-A:M1": {
+    "id": "uuid-A:M1",
+    "type": "straight",
+    "model": "gf.components.straight",
+    "props": { "length": 20 },
+    "x": 0,
+    "y": 0,
+    "irl_x": 0,
+    "irl_y": 0,
+    "bbox_width": 20,
+    "bbox_height": 0.5,
+    "ports": [
+      { "name": "o1", "irl_rx": -10, "irl_ry": 0, "orientation": 180, "bendRadii": [5.0] },
+      { "name": "o2", "irl_rx": 10,  "irl_ry": 0, "orientation": 0,   "bendRadii": [5.0] }
+    ]
+  },
+  "uuid-B:M2": {
+    "id": "uuid-B:M2",
+    "type": "straight",
+    "model": "gf.components.straight",
+    "props": { "length": 20 },
+    "x": 1,
+    "y": 0,
+    "irl_x": 30,
+    "irl_y": 0,
+    "bbox_width": 20,
+    "bbox_height": 0.5,
+    "ports": [
+      { "name": "o1", "irl_rx": -10, "irl_ry": 0, "orientation": 180, "bendRadii": [5.0] },
+      { "name": "o2", "irl_rx": 10,  "irl_ry": 0, "orientation": 0,   "bendRadii": [5.0] }
+    ]
+  },
+  "poly_1": {
+    "id": "poly_1",
+    "type": "polyline",
+    "terminals": {
+      "start":  { "component_id": "uuid-A:M1", "port_name": "o2" },
+      "finish": { "component_id": "uuid-B:M2", "port_name": "o1" }
+    },
+    "vertices": [[10, 0], [20, 0]],
+    "cross_section": "strip",
+    "width": 0.45,
+    "radius": 5.0
+  }
+}

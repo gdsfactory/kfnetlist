@@ -1,3 +1,4 @@
+from kfnetlist.morphnet.morphnet_schema import DirectiveKind
 from kfnetlist.morphnet.netlist.spectre.parser import parse_spectre
 from kfnetlist.morphnet.netlist.spectre.writer import write_spectre
 
@@ -166,3 +167,76 @@ ends top
     top = netlist.circuits[1]
     assert [s.name for s in top.subcircuits] == ["Xdc1"]
     assert len(top.connections) == 2
+
+
+class TestIncludeSection:
+    def test_include_section_is_lib_directive(self) -> None:
+        netlist = parse_spectre('include "m.scs" section=tt\n')
+        (d,) = netlist.directives
+        assert (d.kind, d.value, d.name) == (DirectiveKind.LIB, "m.scs tt", "")
+
+    def test_include_section_lang(self) -> None:
+        netlist = parse_spectre('include "m.lib" section=tt lang=ngspice\n')
+        (d,) = netlist.directives
+        assert (d.kind, d.value, d.name) == (
+            DirectiveKind.LIB,
+            "m.lib tt",
+            "lang=ngspice",
+        )
+
+    def test_include_lang_only(self) -> None:
+        netlist = parse_spectre('include "m.lib" lang=ngspice\n')
+        (d,) = netlist.directives
+        assert (d.kind, d.value, d.name) == (
+            DirectiveKind.INCLUDE,
+            "m.lib",
+            "lang=ngspice",
+        )
+
+    def test_plain_include_unchanged(self) -> None:
+        (d,) = parse_spectre('include "m.scs"\n').directives
+        assert (d.kind, d.value, d.name) == (DirectiveKind.INCLUDE, "m.scs", "")
+
+    def test_round_trip(self) -> None:
+        for line in (
+            'include "m.scs" section=tt',
+            'include "m.lib" section=tt lang=ngspice',
+            'include "m.lib" lang=ngspice',
+            'include "m.scs"',
+        ):
+            assert line in write_spectre(parse_spectre(line + "\n")).splitlines()
+
+
+class TestSimulationFixtures:
+    def test_a_source_is_a_stimulus(self) -> None:
+        from kfnetlist.morphnet.morphnet_schema import WaveformKind
+        from kfnetlist.morphnet.netlist.expression import parameter_value
+        from kfnetlist.morphnet.netlist.stimulus import stimulus_of
+
+        nl = parse_spectre(
+            "V1 (a 0) vsource dc=0.9 mag=1 type=pulse val0=0 val1=1.8 period=2n\n"
+            'I1 (a 0) isource dc=1m type="sine" sinedc=1m ampl=0.5m freq=1M\n'
+            "R1 (a 0) resistor r=1k\n"
+        )
+        v1, i1, _ = nl.circuits[0].subcircuits
+        assert v1.parameters == [] and i1.parameters == []
+        stim = stimulus_of(nl, v1)
+        assert stim.name == "__top__/V1"
+        assert stim.waveform.kind == WaveformKind.PULSE
+        assert stim.waveform.args["val1"] == parameter_value("1.8")
+        assert stim.ac_magnitude == parameter_value("1")
+        assert stimulus_of(nl, i1).waveform.kind == WaveformKind.SIN
+
+    def test_simulator_lang_sections_are_one_netlist(self) -> None:
+        nl = parse_spectre(
+            "simulator lang=spice\n.subckt rdiv a b\nR1 a b 1k\n.ends rdiv\n"
+            "simulator lang=spectre\nX1 (in mid) rdiv\nX2 (mid out) rdiv\n"
+        )
+        assert sorted(c.name for c in nl.circuits) == ["__top__", "rdiv"]
+        assert nl.top_circuit == "__top__"
+
+    def test_top_level_instances_are_the_top_even_with_subcircuits(self) -> None:
+        nl = parse_spectre(
+            "subckt foo (a)\nR1 (a 0) resistor r=1k\nends foo\nX1 (n) foo\n"
+        )
+        assert nl.top_circuit == "__top__"

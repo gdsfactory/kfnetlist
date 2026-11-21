@@ -3,6 +3,7 @@ syntax = "proto3";
 package circuit;
 
 import "simulation.proto";
+import "value.proto";
 
 // ======================================================================
 // Enums
@@ -18,34 +19,6 @@ enum SignalDomain {
     SIGNAL_DOMAIN_UNSPECIFIED  = 0;
     SIGNAL_DOMAIN_ELECTRICAL   = 1;
     SIGNAL_DOMAIN_WAVEGUIDE    = 2;
-}
-
-enum SIPrefix {
-    SI_PREFIX_UNSPECIFIED = 0;
-    SI_PREFIX_QUECTO      = 1;
-    SI_PREFIX_RONTO       = 2;
-    SI_PREFIX_YOCTO       = 3;
-    SI_PREFIX_ZEPTO       = 4;
-    SI_PREFIX_ATTO        = 5;
-    SI_PREFIX_FEMTO       = 6;
-    SI_PREFIX_PICO        = 7;
-    SI_PREFIX_NANO        = 8;
-    SI_PREFIX_MICRO       = 9;
-    SI_PREFIX_MILLI       = 10;
-    SI_PREFIX_CENTI       = 11;
-    SI_PREFIX_DECI        = 12;
-    SI_PREFIX_DECA        = 13;
-    SI_PREFIX_HECTO       = 14;
-    SI_PREFIX_KILO        = 15;
-    SI_PREFIX_MEGA        = 16;
-    SI_PREFIX_GIGA        = 17;
-    SI_PREFIX_TERA        = 18;
-    SI_PREFIX_PETA        = 19;
-    SI_PREFIX_EXA         = 20;
-    SI_PREFIX_ZETTA       = 21;
-    SI_PREFIX_YOTTA       = 22;
-    SI_PREFIX_RONNA       = 23;
-    SI_PREFIX_QUETTA      = 24;
 }
 
 // Kind of an ExternalCircuit.
@@ -72,18 +45,6 @@ enum DirectiveKind {
 // Parameters
 // ======================================================================
 
-message PrefixedValue {
-    double   double_value = 1;
-    SIPrefix prefix       = 2;
-}
-
-message ParameterValue {
-    oneof value {
-        PrefixedValue  prefixed_value = 1;
-        ModelReference model_ref      = 2;
-    }
-}
-
 message Parameter {
     reserved 1;
     reserved "uid";
@@ -99,6 +60,15 @@ message Directive {
     string        value = 3;
 }
 
+// A multi-line block in a simulator language (e.g. a nyanlib inline `code` entry),
+// written verbatim by writers whose dialect accepts that language.
+message Macro {
+    string              name       = 1;
+    string              language   = 2;
+    string              body       = 3;
+    map<string, string> properties = 4;
+}
+
 // ======================================================================
 // Model interfaces
 // ======================================================================
@@ -108,11 +78,6 @@ message ModelInterface {
     string              function_name = 2;
     repeated Parameter  parameters    = 10;
     map<string, string> properties    = 20;
-}
-
-message ModelReference {
-    string                      model_interface_name = 1;
-    map<string, ParameterValue> arguments            = 10;
 }
 
 // ======================================================================
@@ -181,6 +146,7 @@ message Circuit {
     repeated Bus              buses            = 60;
     map<string, string>       properties       = 70;
     repeated Directive        directives       = 71;
+    repeated Macro            macros           = 72;
 }
 
 // A body-less circuit definition provided externally (device, model, PDK cell).
@@ -220,6 +186,7 @@ message Netlist {
     repeated Directive           directives   = 31;
     Simulation                   simulation   = 40;
     map<string, ExternalLibrary> libraries    = 45;
+    repeated Macro               macros       = 46;
 }
 
 // Kept for backwards compatibility.

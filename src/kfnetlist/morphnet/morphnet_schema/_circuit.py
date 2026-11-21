@@ -2,16 +2,31 @@
 from __future__ import annotations
 
 from enum import IntEnum
+from operator import not_
 from typing import ClassVar
 
-from pydantic import AliasChoices, Field, model_validator
+from pydantic import AliasChoices, Field
 
 from kfnetlist.morphnet.morphnet_schema import circuit_pb2 as pb
 from kfnetlist.morphnet.morphnet_schema._base import ProtoModel
 from kfnetlist.morphnet.morphnet_schema._simulation import Simulation
+from kfnetlist.morphnet.morphnet_schema._value import (
+    BinaryOp,
+    Call,
+    Expression,
+    ModelReference,
+    Operator,
+    ParameterValue,
+    PrefixedValue,
+    SIPrefix,
+    Ternary,
+    UnaryOp,
+)
 
 __all__ = [
+    "BinaryOp",
     "Bus",
+    "Call",
     "Circuit",
     "Connection",
     "Directive",
@@ -19,9 +34,12 @@ __all__ = [
     "ExternalLibrary",
     "ExternalCircuit",
     "ExternalCircuitKind",
+    "Expression",
+    "Macro",
     "ModelInterface",
     "ModelReference",
     "Netlist",
+    "Operator",
     "Parameter",
     "ParameterValue",
     "Port",
@@ -31,6 +49,8 @@ __all__ = [
     "SIPrefix",
     "SignalDomain",
     "SubCircuit",
+    "Ternary",
+    "UnaryOp",
 ]
 
 
@@ -49,34 +69,6 @@ class SignalDomain(IntEnum):
     UNSPECIFIED = 0
     ELECTRICAL = 1
     WAVEGUIDE = 2
-
-
-class SIPrefix(IntEnum):
-    UNSPECIFIED = 0
-    QUECTO = 1
-    RONTO = 2
-    YOCTO = 3
-    ZEPTO = 4
-    ATTO = 5
-    FEMTO = 6
-    PICO = 7
-    NANO = 8
-    MICRO = 9
-    MILLI = 10
-    CENTI = 11
-    DECI = 12
-    DECA = 13
-    HECTO = 14
-    KILO = 15
-    MEGA = 16
-    GIGA = 17
-    TERA = 18
-    PETA = 19
-    EXA = 20
-    ZETTA = 21
-    YOTTA = 22
-    RONNA = 23
-    QUETTA = 24
 
 
 class ExternalCircuitKind(IntEnum):
@@ -103,36 +95,6 @@ class DirectiveKind(IntEnum):
 # ======================================================================
 
 
-class PrefixedValue(ProtoModel):
-    _proto_type: ClassVar[type] = pb.PrefixedValue
-
-    double_value: float = 0.0
-    prefix: SIPrefix = SIPrefix.UNSPECIFIED
-
-
-class ModelReference(ProtoModel):
-    _proto_type: ClassVar[type] = pb.ModelReference
-
-    model_interface_name: str = ""
-    arguments: dict[str, ParameterValue] = {}
-
-
-class ParameterValue(ProtoModel):
-    _proto_type: ClassVar[type] = pb.ParameterValue
-
-    prefixed_value: PrefixedValue | None = None
-    model_ref: ModelReference | None = None
-
-    @model_validator(mode="after")
-    def _check_oneof(self) -> ParameterValue:
-        set_count = sum(v is not None for v in (self.prefixed_value, self.model_ref))
-        if set_count > 1:
-            raise ValueError(
-                "ParameterValue is a oneof: set exactly one of 'prefixed_value', 'model_ref'"
-            )
-        return self
-
-
 class Parameter(ProtoModel):
     _proto_type: ClassVar[type] = pb.Parameter
 
@@ -153,6 +115,17 @@ class Directive(ProtoModel):
     kind: DirectiveKind = DirectiveKind.UNSPECIFIED
     name: str = ""
     value: str = ""
+
+
+class Macro(ProtoModel):
+    """A multi-line block in a simulator ``language``, written verbatim."""
+
+    _proto_type: ClassVar[type] = pb.Macro
+
+    name: str = ""
+    language: str = ""
+    body: str = ""
+    properties: dict[str, str] = {}
 
 
 # ======================================================================
@@ -251,6 +224,7 @@ class Circuit(ProtoModel):
     buses: list[Bus] = []
     properties: dict[str, str] = {}
     directives: list[Directive] = []
+    macros: list[Macro] = Field(default=[], exclude_if=not_)  # as Rust skips it
 
     def add_terminal(
         self,
@@ -362,6 +336,7 @@ class Netlist(ProtoModel):
     directives: list[Directive] = []
     simulation: Simulation | None = None
     libraries: dict[str, ExternalLibrary] = {}
+    macros: list[Macro] = Field(default=[], exclude_if=not_)  # as Rust skips it
 
     def add(self, *circuits: Circuit) -> "Netlist":
         self.circuits.extend(circuits)
@@ -376,8 +351,3 @@ class Netlist(ProtoModel):
     def add_library(self, name: str, lib: ExternalLibrary) -> "Netlist":
         self.libraries[name] = lib
         return self
-
-
-# Resolve forward references for the ParameterValue <-> ModelReference cycle
-ModelReference.model_rebuild()
-ParameterValue.model_rebuild()

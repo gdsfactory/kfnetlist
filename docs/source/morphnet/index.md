@@ -1,12 +1,12 @@
 # kfnetlist.morphnet
 
-A bidirectional netlist parser built on [Lark](https://github.com/lark-parser/lark), enabling translation between SPICE-family circuit netlist formats (HSPICE, Xyce, Spectre, Spectre-SPICE), Verilog-AMS and structural SystemVerilog.
+A bidirectional netlist parser built on [Lark](https://github.com/lark-parser/lark), enabling translation between SPICE-family circuit netlist formats (HSPICE, Xyce, Spectre, Spectre-SPICE), Verilog-AMS, structural SystemVerilog and gdsfactory+ `.gsch` schematics.
 
 All formats share a common intermediate representation defined in [Protocol Buffers](https://protobuf.dev/) and wrapped with [Pydantic v2](https://docs.pydantic.dev/) models, making it straightforward to parse, transform, and serialize netlists programmatically.
 
 ## Key Features
 
-- **7 netlist formats** — HSPICE, SPICE, Xyce, Spectre, Spectre-SPICE, Verilog-AMS, SystemVerilog
+- **8 netlist formats** — HSPICE, SPICE, Xyce, Spectre, Spectre-SPICE, Verilog-AMS, SystemVerilog, gsch (gdsfactory+ schematics)
 - **Electrical and photonic** — terminals named `o1`, `o2`, ... are waveguide terminals in every format; `e1`, ... and unprefixed names are electrical
 - **Bidirectional** — every format has both a parser and a writer
 - **Common IR** — all formats parse into the same `Netlist` model (`Netlist` → `Circuit` definitions → `SubCircuit` instances), which serializes to protobuf, JSON and YAML with the kfnetlist schema (`circuit.proto`) field names
@@ -22,7 +22,8 @@ hspice.sp  ───┤  parse_*()   write_*()   ├── hspice.sp
 xyce.cir   ───┼──────────► Netlist ──────►├── xyce.cir
 spice.sp   ───┤          (protobuf +      ├── spice.sp
 vams.vams  ───┤           pydantic)       ├── vams.vams
-netlist.sv ───┘                           └── netlist.sv
+netlist.sv ───┤                           ├── netlist.sv
+top.gsch   ───┘                           └── top.gsch
                              │
                         to_yaml / from_yaml
                              │
@@ -74,6 +75,7 @@ endmodule
 | Spectre-SPICE | `kfnetlist.morphnet.netlist.spectre_spice.parser.parse_spectre_spice` | `kfnetlist.morphnet.netlist.spectre_spice.writer.write_spectre_spice` |
 | Verilog-AMS | `kfnetlist.morphnet.netlist.vams.parser.parse_vams` | `kfnetlist.morphnet.netlist.vams.writer.write_vams` |
 | SystemVerilog | `kfnetlist.morphnet.netlist.systemverilog.parser.parse_systemverilog` | `kfnetlist.morphnet.netlist.systemverilog.writer.write_systemverilog` |
+| gsch | `kfnetlist.morphnet.netlist.gsch.parser.parse_gsch` (`read_gsch` reads a file and its child schematics) | `kfnetlist.morphnet.netlist.gsch.writer.write_gsch` |
 
 Every parser and writer is also exported from `kfnetlist.morphnet.netlist`. See
 [Parsing netlist formats](netlist_formats.md) and

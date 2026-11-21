@@ -8,6 +8,7 @@ from typing import Any
 from lark import Token, Transformer
 
 from kfnetlist.morphnet.morphnet_schema import (
+    Stimulus,
     Circuit,
     Directive,
     Netlist,
@@ -40,6 +41,8 @@ from kfnetlist.morphnet.netlist.net_utils import (
     propagate_domains,
     typed_connections,
 )
+from kfnetlist.morphnet.netlist.expression import parse_expression
+from kfnetlist.morphnet.netlist.stimulus import attach, from_primitive, stimulus_keys
 from kfnetlist.morphnet.netlist.value_utils import (
     is_si_number,
     parse_parameter_number,
@@ -188,15 +191,15 @@ def _ident(tok: Token) -> str:
     return str(tok).removeprefix("\\")
 
 
-def parameter_value(expr: str) -> tuple[ParameterValue | None, dict[str, str]]:
-    """Numeric value when ``expr`` is a literal, else the expression text."""
+def parameter_value(expr: str) -> ParameterValue:
+    """Numeric value when ``expr`` is a literal, else its expression tree."""
     if is_si_number(expr):
-        return parse_parameter_number(expr.replace("_", "")), {}
+        return parse_parameter_number(expr.replace("_", ""))
     m = SIZED_RE.fullmatch(expr)
     if m:
         value = int(m.group(2).replace("_", ""), BASES[m.group(1).lower()])
-        return parse_parameter_number(str(value)), {}
-    return None, {"expr": expr}
+        return parse_parameter_number(str(value))
+    return ParameterValue(expression=parse_expression(expr))
 
 
 class SystemVerilogTransformer(Transformer[Token, Netlist]):
@@ -211,6 +214,7 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
     ) -> None:
         super().__init__()
         self.blocks = blocks or []
+        self.stimuli: list[tuple[str, SubCircuit, Stimulus]] = []
         self.directives = directives or []
         self.disciplines = disciplines or {}
         self.pin_domains = pin_domains or {}
@@ -234,6 +238,9 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
 
     def paren(self, items: list[Any]) -> str:
         return f"({items[0]})"
+
+    def assign_pattern(self, items: list[Any]) -> str:
+        return "'{" + ", ".join(f"{i}" for i in items) + "}"
 
     def concat(self, items: list[Any]) -> Concat:
         return Concat.make(items)
@@ -444,6 +451,8 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
             properties=properties,
             directives=self.directives,
         )
+        for circuit_name, ref, stim in self.stimuli:
+            attach(netlist, circuit_name, ref, stim)
         propagate_domains(netlist, self.disciplines, self.pin_domains)
         return netlist
 
@@ -522,17 +531,14 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
             param_names = target.param_names() if target else []
             target_ranges = target.port_ranges() if target else None
             params = [
-                Parameter(name=n, default_value=v, properties=props)
+                Parameter(name=n, default_value=parameter_value(expr))
                 for n, expr in stmt.named_params.items()
-                for v, props in [parameter_value(expr)]
             ] + [
                 Parameter(
                     name=param_names[i] if i < len(param_names) else f"p{i}",
-                    default_value=v,
-                    properties=props,
+                    default_value=parameter_value(expr),
                 )
                 for i, expr in enumerate(stmt.ordered_params)
-                for v, props in [parameter_value(expr)]
             ]
             for inst in stmt.instances:
                 rng = decl_range(inst.name, inst.dims)
@@ -546,6 +552,28 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
                         names, port, expr, buses, target_ranges
                     ):
                         add_port_to_net(net_map, find(net), name, pin)
+                given = {p.name: p.default_value for p in params if p.default_value}
+                file = None
+                if stmt.module.lower() in (
+                    "vpwl",
+                    "ipwl",
+                ):  # see preprocess PWL_FILE_RE
+                    file_value = given.pop("pwl_file", None)
+                    if file_value is not None and file_value.expression is not None:
+                        file = (file_value.expression.raw or "").strip('"')
+                    params = [p for p in params if p.name != "pwl_file"]
+                stim = from_primitive(stmt.module, given, file=file)
+                if stim is not None:  # a Verilog-AMS LRM Annex E source primitive
+                    keys = stimulus_keys(stim)
+                    master = "isource" if stmt.module[0].lower() == "i" else "vsource"
+                    rest = [p for p in params if p.name not in keys]
+                    for n in names:
+                        ref = SubCircuit(name=n, circuit_name=master, parameters=rest)
+                        subcircuits.append(ref)
+                        self.stimuli.append(
+                            (module.name, ref, stim.model_copy(deep=True))
+                        )
+                    continue
                 subcircuits += [
                     SubCircuit(name=n, circuit_name=stmt.module, parameters=params)
                     for n in names
@@ -562,7 +590,7 @@ class SystemVerilogTransformer(Transformer[Token, Netlist]):
 
     @staticmethod
     def _parameter(spec: ParamSpec) -> Parameter:
-        value, props = parameter_value(spec.expr)
+        value, props = parameter_value(spec.expr), {}
         if spec.local:
             props["localparam"] = "true"
         if spec.type:

@@ -1,0 +1,82 @@
+{
+  "demo:V1": {
+    "type": "vsource",
+    "x": 0,
+    "y": 2,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "V1",
+    "nets": {
+      "P": "in",
+      "N": "GND"
+    },
+    "props": {
+      "dc": "1"
+    }
+  },
+  "demo:X1": {
+    "type": "ckt",
+    "x": 4,
+    "y": 2,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "X1",
+    "model": "demo.rdiv",
+    "nets": {
+      "a": "in",
+      "b": "mid"
+    },
+    "props": {}
+  },
+  "demo:X2": {
+    "type": "ckt",
+    "x": 8,
+    "y": 2,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "X2",
+    "model": "demo.rdiv",
+    "nets": {
+      "a": "mid",
+      "b": "out"
+    },
+    "props": {}
+  },
+  "demo:GND": {
+    "type": "port",
+    "x": 2,
+    "y": 6,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "GND",
+    "nets": {
+      "P": "GND"
+    },
+    "variant": "ground",
+    "nature": "electric"
+  }
+}

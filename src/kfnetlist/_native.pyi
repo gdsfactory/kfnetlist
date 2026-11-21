@@ -208,6 +208,12 @@ class Netlist:
     def nets(self) -> list[Net]: ...
     @property
     def ports(self) -> list[NetlistPort]: ...
+    directives: list[dict[str, str]]
+    """File directives ``{"kind", "name", "value"}`` (fresh snapshot; not part of
+    equality). ``kind`` is one of include, lib, global, option, param, define,
+    timescale."""
+    info: dict[str, Any]
+    """Free-form metadata (fresh snapshot; not part of equality)."""
     def __init__(self) -> None: ...
     def instance_names(self) -> list[str]: ...
     def has_instance(self, name: str) -> bool: ...
@@ -381,11 +387,14 @@ class ParameterValue(_ProtoModel):
     def prefixed_value(self) -> PrefixedValue | None: ...
     @property
     def model_ref(self) -> ModelReference | None: ...
+    @property
+    def expression(self) -> dict[str, Any] | None: ...
     def __init__(
         self,
         *,
         prefixed_value: PrefixedValue | None = ...,
         model_ref: ModelReference | None = ...,
+        expression: dict[str, Any] | None = ...,
     ) -> None: ...
 
 class Parameter(_ProtoModel):
@@ -626,6 +635,8 @@ class ProtoCircuit(_ProtoModel):
     def properties(self) -> dict[str, str]: ...
     @property
     def directives(self) -> list[dict[str, Any]]: ...
+    @property
+    def macros(self) -> list[dict[str, Any]]: ...
     def __init__(
         self,
         *,
@@ -642,6 +653,7 @@ class ProtoCircuit(_ProtoModel):
         buses: list[Bus] = ...,
         properties: dict[str, str] = ...,
         directives: list[dict[str, Any]] = ...,
+        macros: list[dict[str, Any]] = ...,
     ) -> None: ...
 
 class ProtoNetlist(_ProtoModel):
@@ -674,6 +686,8 @@ class ProtoNetlist(_ProtoModel):
     def simulation(self) -> dict[str, Any] | None: ...
     @property
     def libraries(self) -> dict[str, dict[str, Any]]: ...
+    @property
+    def macros(self) -> list[dict[str, Any]]: ...
     def __init__(
         self,
         *,
@@ -689,6 +703,7 @@ class ProtoNetlist(_ProtoModel):
         directives: list[dict[str, Any]] = ...,
         simulation: dict[str, Any] | None = ...,
         libraries: dict[str, dict[str, Any]] = ...,
+        macros: list[dict[str, Any]] = ...,
     ) -> None: ...
 
 class ArraySpec(_SchemaModel):
@@ -736,7 +751,13 @@ class CircuitDocument(_SchemaModel):
     @property
     def nets(self) -> list[list[str]]: ...
     @property
+    def net_names(self) -> list[str]:
+        """Name of ``nets[i]``; empty (or past the end) means unnamed."""
+    @property
     def routes(self) -> dict[str, Any]: ...
+    @property
+    def directives(self) -> list[dict[str, str]]:
+        """File directives ``{"kind", "name", "value"}`` of the cell."""
     def __init__(
         self,
         *,
@@ -748,7 +769,9 @@ class CircuitDocument(_SchemaModel):
         ports: dict[str, str] = ...,
         connections: dict[str, str] = ...,
         nets: list[list[str]] = ...,
+        net_names: list[str] = ...,
         routes: dict[str, Any] = ...,
+        directives: list[dict[str, str]] = ...,
     ) -> None: ...
     def to_netlist(self) -> Netlist: ...
     @classmethod

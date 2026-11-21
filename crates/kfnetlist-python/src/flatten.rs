@@ -37,6 +37,7 @@ fn read_netlist(obj: &Bound<'_, PyAny>) -> PyResult<kfnetlist_core::NetlistData>
             nets: base.nets.clone(),
             ports: base.ports.clone(),
             extras: child.extras.clone(),
+            directives: base.directives.clone(),
         });
     }
     let plain = obj
@@ -48,6 +49,7 @@ fn read_netlist(obj: &Bound<'_, PyAny>) -> PyResult<kfnetlist_core::NetlistData>
         nets: plain.nets.clone(),
         ports: plain.ports.clone(),
         extras: IndexMap::new(),
+        directives: plain.directives.clone(),
     })
 }
 

@@ -6,6 +6,7 @@ from kfnetlist import (
     Netlist,
     NetlistArray,
     NetlistPort,
+    PlacedNetlist,
     PortArrayRef,
     PortRef,
 )
@@ -251,3 +252,64 @@ def _remove_instances_reference() -> Netlist:
     nl = _netlist_with_removable_instance()
     nl.remove_instances(["flat"])
     return nl
+
+
+def test_netlist_directives_and_info_are_snapshots_outside_equality() -> None:
+    nl = Netlist()
+    assert nl.directives == []
+    assert nl.info == {}
+    plain_json = nl.to_json()
+
+    nl.directives = [{"kind": "include", "name": "", "value": "models.lib"}]
+    nl.info = {"dialect": "spice", "nested": {"a": [1, 2]}}
+    nl.directives.append({"kind": "lib", "name": "", "value": "x"})
+    nl.info["dialect"] = "spectre"
+    assert nl.directives == [{"kind": "include", "name": "", "value": "models.lib"}]
+    assert nl.info == {"dialect": "spice", "nested": {"a": [1, 2]}}
+    assert nl == Netlist()
+
+    back = Netlist.from_json(nl.to_json())
+    assert back.directives == nl.directives
+    assert back.info == nl.info
+    assert Netlist.from_json(plain_json).to_json() == plain_json
+
+    placed = PlacedNetlist()
+    placed.directives = nl.directives
+    placed.info = nl.info
+    back = PlacedNetlist.from_json(placed.to_json())
+    assert (back.directives, back.info) == (nl.directives, nl.info)
+
+
+def test_netlist_directive_kind_is_validated() -> None:
+    nl = Netlist()
+    with pytest.raises(ValueError, match="directive kind"):
+        nl.directives = [{"kind": "bogus", "value": "x"}]
+    nl.directives = [{"kind": "global", "value": "VDD"}]
+    assert nl.directives == [{"kind": "global", "name": "", "value": "VDD"}]
+
+
+def test_flatten_keeps_top_info_and_unions_directives() -> None:
+    child = Netlist()
+    child.create_inst("r", kcl="", component="res")
+    child.directives = [{"kind": "include", "name": "", "value": "child.lib"}]
+    child.info = {"from": "child"}
+    top = Netlist()
+    top.create_inst("x", kcl="", component="child")
+    top.directives = [{"kind": "include", "name": "", "value": "top.lib"}]
+    top.info = {"from": "top"}
+    flat = top.flatten({"child": child}, instance_cell_map={"x": "child"})
+    assert flat.info == {"from": "top"}
+    assert [d["value"] for d in flat.directives] == ["top.lib", "child.lib"]
+
+
+def test_reserved_instance_info_keys_are_ignored_by_equality() -> None:
+    def make(info: dict) -> Netlist:
+        nl = Netlist()
+        nl.create_inst("X1", kcl="", component="c", info=info)
+        return nl
+
+    assert make({"owner": "a", "__x__": 1}) == make({"owner": "a", "__x__": 2})
+    assert make({"owner": "a", "__morphnet__": {}}) == make({"owner": "a"})
+    assert make({"owner": "a"}) != make({"owner": "b"})
+    a, b = make({"__gsch__": 1}), make({})
+    assert a.instances["X1"] == b.instances["X1"]

@@ -1,0 +1,20 @@
+// schematic
+
+ground 0
+
+load "spice/capacitor.osdi"
+load "spice/resistor.osdi"
+
+model sp_capacitor sp_capacitor
+model sp_resistor sp_resistor
+model vsource vsource
+
+vv1 (W3 0) vsource dc=1 mag=1
+rr1 (P1 W3) sp_resistor r=1k
+cc1 (P1 0) sp_capacitor c=0.1u
+
+control
+  options temp=27 tnom=27 rawfile="binary"
+  save default
+  analysis op1 op
+endc

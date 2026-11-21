@@ -1,0 +1,108 @@
+syntax = "proto3";
+
+package circuit;
+
+// Value types shared by circuit.proto and simulation.proto: SI-prefixed numbers,
+// expression trees and parameter values.
+
+enum SIPrefix {
+    SI_PREFIX_UNSPECIFIED = 0;
+    SI_PREFIX_QUECTO      = 1;
+    SI_PREFIX_RONTO       = 2;
+    SI_PREFIX_YOCTO       = 3;
+    SI_PREFIX_ZEPTO       = 4;
+    SI_PREFIX_ATTO        = 5;
+    SI_PREFIX_FEMTO       = 6;
+    SI_PREFIX_PICO        = 7;
+    SI_PREFIX_NANO        = 8;
+    SI_PREFIX_MICRO       = 9;
+    SI_PREFIX_MILLI       = 10;
+    SI_PREFIX_CENTI       = 11;
+    SI_PREFIX_DECI        = 12;
+    SI_PREFIX_DECA        = 13;
+    SI_PREFIX_HECTO       = 14;
+    SI_PREFIX_KILO        = 15;
+    SI_PREFIX_MEGA        = 16;
+    SI_PREFIX_GIGA        = 17;
+    SI_PREFIX_TERA        = 18;
+    SI_PREFIX_PETA        = 19;
+    SI_PREFIX_EXA         = 20;
+    SI_PREFIX_ZETTA       = 21;
+    SI_PREFIX_YOTTA       = 22;
+    SI_PREFIX_RONNA       = 23;
+    SI_PREFIX_QUETTA      = 24;
+}
+
+message PrefixedValue {
+    double   double_value = 1;
+    SIPrefix prefix       = 2;
+}
+
+// Operators of an Expression: unary NEG/NOT, the rest binary.
+enum Operator {
+    OPERATOR_UNSPECIFIED = 0;
+    OPERATOR_ADD         = 1;
+    OPERATOR_SUB         = 2;
+    OPERATOR_MUL         = 3;
+    OPERATOR_DIV         = 4;
+    OPERATOR_POW         = 5;
+    OPERATOR_MOD         = 6;
+    OPERATOR_NEG         = 7;
+    OPERATOR_NOT         = 8;
+    OPERATOR_EQ          = 9;
+    OPERATOR_NE          = 10;
+    OPERATOR_LT          = 11;
+    OPERATOR_LE          = 12;
+    OPERATOR_GT          = 13;
+    OPERATOR_GE          = 14;
+    OPERATOR_AND         = 15;
+    OPERATOR_OR          = 16;
+}
+
+message UnaryOp {
+    Operator   op      = 1;
+    Expression operand = 2;
+}
+
+message BinaryOp {
+    Operator   op  = 1;
+    Expression lhs = 2;
+    Expression rhs = 3;
+}
+
+message Call {
+    string              name = 1;
+    repeated Expression args = 2;
+}
+
+message Ternary {
+    Expression cond      = 1;
+    Expression then      = 2;
+    Expression otherwise = 3;
+}
+
+// A parameter expression tree, dialect-neutral (writers add `{}`/`'…'` wrapping).
+message Expression {
+    oneof node {
+        PrefixedValue literal   = 1;
+        string        reference = 2;
+        UnaryOp       unary     = 3;
+        BinaryOp      binary    = 4;
+        Call          call      = 5;
+        Ternary       ternary   = 6;
+        string        raw       = 7;  // dialect text no grammar parsed (kept verbatim)
+    }
+}
+
+message ParameterValue {
+    oneof value {
+        PrefixedValue  prefixed_value = 1;
+        ModelReference model_ref      = 2;
+        Expression     expression     = 3;
+    }
+}
+
+message ModelReference {
+    string                      model_interface_name = 1;
+    map<string, ParameterValue> arguments            = 10;
+}

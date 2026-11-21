@@ -1,0 +1,124 @@
+{
+  "cell:M1": {
+    "type": "nmos",
+    "x": 2,
+    "y": 4,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "M1",
+    "nets": {
+      "D": "out",
+      "G": "in",
+      "S": "GND",
+      "B": "GND"
+    },
+    "props": {
+      "width": 0.3,
+      "length": 0.13,
+      "nf": 2,
+      "m": 1,
+      "model": "sg13_lv_nmos"
+    },
+    "model": "ihp.cells.fet_transistors.nmos"
+  },
+  "cell:R1": {
+    "type": "resistor",
+    "x": 2,
+    "y": 1,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "R1",
+    "nets": {
+      "P": "vdd",
+      "N": "out"
+    },
+    "props": {
+      "resistance": "rload"
+    }
+  },
+  "cell:in": {
+    "type": "port",
+    "x": 0,
+    "y": 4,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "in",
+    "nets": {
+      "P": "in"
+    },
+    "nature": "electric"
+  },
+  "cell:out": {
+    "type": "port",
+    "x": 4,
+    "y": 3,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "out",
+    "nets": {
+      "P": "out"
+    },
+    "nature": "electric"
+  },
+  "cell:vdd": {
+    "type": "port",
+    "x": 2,
+    "y": 0,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "vdd",
+    "nets": {
+      "P": "vdd"
+    },
+    "nature": "electric"
+  },
+  "cell:GND": {
+    "type": "port",
+    "x": 2,
+    "y": 6,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "GND",
+    "nets": {
+      "P": "GND"
+    },
+    "variant": "ground",
+    "nature": "electric"
+  }
+}

@@ -1,0 +1,7 @@
+.title schematic
+.lib ihp/models/ngspice/models/cornerMOSlv.lib mos_tt
+XM1 P1 P2 0 0 sg13_lv_nmos l=0.13 * 1e-6 m=1 ng=1 w=0.15 * 1e-6
+VV1 W5 0 DC 1.8
+VV2 P2 0 DC 0.9 AC 1
+RR1 W5 P1 1meg
+XM2 W5 P2 P1 W5 sg13_lv_pmos l=0.13 * 1e-6 m=1 ng=1 w=0.15 * 1e-6

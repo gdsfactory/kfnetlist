@@ -1,0 +1,66 @@
+{
+  "inst_a": {
+    "name": "A",
+    "type": "subckt",
+    "model": "ihp_subckt_child.gsch",
+    "irl_x": 0,
+    "irl_y": 0,
+    "bbox_width": 0.87,
+    "bbox_height": 0.51,
+    "bbox_xmin": 0,
+    "bbox_ymin": -0.105,
+    "nets": {
+      "D": "coupling"
+    },
+    "ports": [
+      {
+        "name": "D",
+        "irl_rx": 0.285,
+        "irl_ry": 0,
+        "orientation": 0,
+        "port_type": "electrical",
+        "width": 0.26
+      },
+      {
+        "name": "S",
+        "irl_rx": -0.285,
+        "irl_ry": 0,
+        "orientation": 180,
+        "port_type": "electrical",
+        "width": 0.26
+      }
+    ]
+  },
+  "inst_b": {
+    "name": "B",
+    "type": "subckt",
+    "model": "ihp_subckt_child.gsch",
+    "irl_x": 0.57,
+    "irl_y": 0,
+    "bbox_width": 0.87,
+    "bbox_height": 0.51,
+    "bbox_xmin": 0,
+    "bbox_ymin": -0.105,
+    "nets": {
+      "S": "coupling"
+    },
+    "ports": [
+      {
+        "name": "D",
+        "irl_rx": 0.285,
+        "irl_ry": 0,
+        "orientation": 0,
+        "port_type": "electrical",
+        "width": 0.26
+      },
+      {
+        "name": "S",
+        "irl_rx": -0.285,
+        "irl_ry": 0,
+        "orientation": 180,
+        "port_type": "electrical",
+        "width": 0.26
+      }
+    ]
+  }
+}

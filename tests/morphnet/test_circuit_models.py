@@ -3,7 +3,13 @@ from enum import IntEnum
 import pytest
 
 from kfnetlist.morphnet.morphnet_schema import (
+    BinaryOp,
     Bus,
+    Call,
+    Expression,
+    Operator,
+    Ternary,
+    UnaryOp,
     Netlist,
     Connection,
     ExternalCircuit,
@@ -122,6 +128,33 @@ class TestParameterValueOneof:
                 prefixed_value=prefixed_value,
                 model_ref=model_reference,
             )
+
+
+class TestExpression:
+    def test_rejects_two_nodes(self):
+        with pytest.raises(ValueError, match="oneof"):
+            Expression(reference="a", raw="b")
+
+    def test_rejects_expression_beside_a_number(self, prefixed_value):
+        with pytest.raises(ValueError, match="oneof"):
+            ParameterValue(prefixed_value=prefixed_value, expression=Expression(raw=""))
+
+    def test_tree_roundtrips_proto_binary(self, prefixed_value):
+        x = Expression(reference="x")
+        tree = Expression(
+            ternary=Ternary(
+                cond=Expression(binary=BinaryOp(op=Operator.GT, lhs=x, rhs=x)),
+                then=Expression(unary=UnaryOp(op=Operator.NEG, operand=x)),
+                otherwise=Expression(
+                    call=Call(
+                        name="max",
+                        args=[Expression(literal=prefixed_value), Expression(raw="")],
+                    )
+                ),
+            )
+        )
+        pv = ParameterValue(expression=tree)
+        assert ParameterValue.from_proto_bytes(pv.to_proto_bytes()) == pv
 
 
 # ======================================================================
@@ -389,3 +422,158 @@ class TestNetlistIntegration:
         from_json = Netlist.from_json(netlist.to_json())
         from_yaml = Netlist.from_yaml(netlist.to_yaml())
         assert from_proto == from_json == from_yaml == netlist
+
+
+# ======================================================================
+# JSON shared with the Rust schema (kfnetlist_schema.ProtoNetlist)
+# ======================================================================
+
+EXPRESSIONS = """* expressions
+.param w=1 c=1
+.subckt cell a b
+.ends
+X1 a b cell r={w*2} s={w} t={max(w, 2)} u={c ? 1 : w} v={a^2}
+.end
+"""
+
+
+def test_expression_json_round_trips_through_the_rust_schema():
+    from pathlib import Path
+
+    from kfnetlist.kfnetlist_schema import ProtoNetlist
+    from kfnetlist.morphnet.netlist import parse_gsch, parse_spice
+
+    gsch = Path(__file__).parent / "netlists" / "gsch" / "ihp_cmos_inverter.gsch"
+    for nl in (parse_spice(EXPRESSIONS), parse_gsch(gsch.read_text())):
+        rust = ProtoNetlist.from_json(nl.to_json())
+        assert Netlist.from_json(rust.to_json()) == nl
+    x1 = parse_spice(EXPRESSIONS).circuits[0].subcircuits[0]
+    kinds = {
+        p.name: next(k for k, v in p.default_value.expression.model_dump().items() if v)
+        for p in x1.parameters
+    }
+    assert kinds == {
+        "r": "binary",
+        "s": "reference",
+        "t": "call",
+        "u": "ternary",
+        "v": "raw",
+    }
+
+
+def test_json_omits_unset_oneofs_and_empty_macros():
+    nl = Netlist(
+        circuits=[
+            Circuit(
+                name="top",
+                parameters=[
+                    Parameter(
+                        name="w",
+                        default_value=ParameterValue(
+                            prefixed_value=PrefixedValue(double_value=1.0)
+                        ),
+                    )
+                ],
+            )
+        ]
+    )
+    for text in (nl.to_json(), nl.to_yaml()):
+        assert "macros" not in text
+        assert "expression" not in text
+        assert "null" not in text
+    assert Netlist.from_json(nl.to_json()) == nl
+    assert Netlist.from_yaml(nl.to_yaml()) == nl
+
+
+def test_an_expression_with_no_node_is_not_written():
+    from kfnetlist.morphnet.netlist import write_spice
+
+    nl = Netlist(top_circuit="top", circuits=[Circuit(name="top")])
+    nl.circuits[0].subcircuits.append(
+        SubCircuit(
+            name="X1",
+            circuit_name="cell",
+            parameters=[
+                Parameter(
+                    name="w", default_value=ParameterValue(expression=Expression())
+                )
+            ],
+        )
+    )
+    assert "w=" not in write_spice(nl)
+
+
+def test_stimulus_json_round_trips_through_the_rust_schema():
+    from kfnetlist.kfnetlist_schema import ProtoNetlist
+    from kfnetlist.morphnet.morphnet_schema import (
+        Simulation,
+        Stimulus,
+        Waveform,
+        WaveformKind,
+    )
+
+    def num(x: float) -> ParameterValue:
+        return ParameterValue(prefixed_value=PrefixedValue(double_value=x))
+
+    stim = Stimulus(
+        name="__top__/V1",
+        dc=num(0.9),
+        ac_magnitude=num(1.0),
+        waveform=Waveform(
+            kind=WaveformKind.PULSE,
+            args={
+                "val0": num(0.0),
+                "val1": ParameterValue(expression=Expression(reference="vdd")),
+            },
+        ),
+    )
+    pwl = Stimulus(
+        name="__top__/I1",
+        waveform=Waveform(
+            kind=WaveformKind.PWL, points=[num(0), num(0), num(1e-9), num(1)]
+        ),
+    )
+    nl = Netlist(
+        top_circuit="__top__",
+        circuits=[Circuit(name="__top__")],
+        simulation=Simulation(stimuli=[stim, pwl]),
+    )
+    assert Netlist.from_json(nl.to_json()) == nl
+    rust = ProtoNetlist.from_json(nl.to_json())
+    assert Netlist.from_json(rust.to_json()) == nl
+
+
+def test_a_pwl_file_is_a_path_stored_posix():
+    from pathlib import Path
+
+    from kfnetlist.kfnetlist_schema import ProtoNetlist
+    from kfnetlist.morphnet.morphnet_schema import (
+        Simulation,
+        Stimulus,
+        Waveform,
+        WaveformKind,
+    )
+
+    wave = Waveform(kind=WaveformKind.PWL, file="data\\w.txt")
+    assert wave.file == Path("data/w.txt")
+    nl = Netlist(
+        top_circuit="__top__",
+        circuits=[Circuit(name="__top__")],
+        simulation=Simulation(stimuli=[Stimulus(name="__top__/V1", waveform=wave)]),
+    )
+    assert '"file":"data/w.txt"' in nl.to_json().replace(" ", "")
+    rust = ProtoNetlist.from_json(nl.to_json())
+    assert Netlist.from_json(rust.to_json()) == nl
+    with pytest.raises(ValueError, match="points or a file"):
+        Waveform(
+            kind=WaveformKind.PWL,
+            file="w.txt",
+            points=[ParameterValue(prefixed_value=PrefixedValue(double_value=0))],
+        )
+
+
+def test_a_file_belongs_to_a_pwl_waveform_only():
+    from kfnetlist.morphnet.morphnet_schema import Waveform, WaveformKind
+
+    with pytest.raises(ValueError, match="PWL"):
+        Waveform(kind=WaveformKind.PULSE, file="w.txt")

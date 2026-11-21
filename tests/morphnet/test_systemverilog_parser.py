@@ -7,9 +7,11 @@ from kfnetlist.morphnet.morphnet_schema import (
     DirectiveKind,
     Netlist,
     Parameter,
+    ParameterValue,
     SignalDomain,
 )
 from kfnetlist.morphnet.netlist import parse_systemverilog
+from kfnetlist.morphnet.netlist.expression import parse_expression
 
 
 def nets(text: str | Netlist, cell: str) -> set[frozenset[str]]:
@@ -79,8 +81,10 @@ endmodule
         assert value(params["gap"]) == pytest.approx(200e-9)
         assert params["length"].properties["type"] == "real"
         assert value(params["n"]) == 10
-        assert params["W"].default_value is None
-        assert params["W"].properties == {"expr": "2*n+1", "localparam": "true"}
+        assert params["W"].default_value == ParameterValue(
+            expression=parse_expression("2 * n + 1")
+        )
+        assert params["W"].properties == {"localparam": "true"}
 
     def test_instance_parameter_overrides(self) -> None:
         text = """\
@@ -116,6 +120,7 @@ endmodule
             frozenset({"U1.y", "U3.a"}),
             frozenset({"y", "U2.y", "U4.y"}),
             frozenset({"z", "U3.y"}),
+            frozenset({"U4.a"}),  # tied to 1'b0: a node of its own
         }
 
     def test_positional_unknown_module_uses_pin_index(self) -> None:

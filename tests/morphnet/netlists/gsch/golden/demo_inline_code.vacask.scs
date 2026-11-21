@@ -1,0 +1,15 @@
+// schematic
+
+ground 0
+
+model vsource vsource
+
+vv1 (in 0) vsource dc=1
+xx1 (in mid) rdiv
+xx2 (mid out) rdiv
+
+control
+  options temp=27 tnom=27 rawfile="binary"
+  save default
+  analysis op1 op
+endc
