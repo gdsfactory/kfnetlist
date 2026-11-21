@@ -18,9 +18,6 @@ class XyceTransformer(SpiceTransformer):
 
     dialect = "xyce"
 
-    def token_expr(self, items: list[Token]) -> Token:
-        return items[0]
-
     def params_kw(self, items: list[Any]) -> None:
         return None
 

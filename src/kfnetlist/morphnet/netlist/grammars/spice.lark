@@ -45,8 +45,11 @@ port_decl: IDENT
 // Tokens are either positional args (nets, model, value) or key=value params.
 instance_stmt: IDENT token+ param_assign*
 
-token: SI_NUMBER -> token_number
-     | IDENT    -> token_ident
+token: SI_NUMBER  -> token_number
+     | BRACE_EXPR -> token_expr
+     | QSTRING    -> token_expr
+     | FUNC_CALL  -> token_func
+     | IDENT      -> token_ident
 
 // ── .model statement ───────────────────────────────────────────────────
 model_stmt: MODEL_KW IDENT IDENT param_assign*
@@ -148,6 +151,7 @@ param_assign: IDENT "=" param_value
 // ── Terminals ──────────────────────────────────────────────────────────
 SI_NUMBER: /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?(?:meg|mil|[TtGgKkMmUuNnPpFfAa])?/
 OUTPUT_VAR: /[A-Za-z_]\w*\([^)]*\)/
+FUNC_CALL: /[A-Za-z_]\w*\((?:[^()]|\([^()]*\))*\)/  // a source waveform: PULSE(0 1 {a*(b)})
 IDENT: /[A-Za-z_][A-Za-z0-9_.\[\]:!#]*/
 BRACE_EXPR: /\{[^}]+\}/
 QSTRING: /\"[^\"]*\"/ | /'[^']*'/

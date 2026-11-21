@@ -20,8 +20,8 @@ from kfnetlist.morphnet.morphnet_schema import (
     ParameterValue,
     Port,
     PortDirection,
-    PrefixedValue,
     Simulation,
+    Stimulus,
 )
 from kfnetlist.morphnet.netlist.expression import (
     parameter_value,
@@ -34,6 +34,8 @@ from kfnetlist.morphnet.netlist.net_utils import (
     domain_of,
     net_map_to_connections,
 )
+from kfnetlist.morphnet.netlist.stimulus import attach
+from kfnetlist.morphnet.netlist.stimulus import parse_spice as parse_source
 from kfnetlist.morphnet.netlist.simulation_data import (
     ANALYSIS_KIND_MAP,
     OUTPUT_REQUEST_KIND_MAP,
@@ -48,7 +50,6 @@ from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PREFIX_TO_CIRCUIT,
     is_si_number,
     parse_parameter_number,
-    parse_si_number,
 )
 
 
@@ -61,6 +62,7 @@ class InstanceData:
         "name",
         "net_names",
         "params",
+        "source",
         "value",
     )
 
@@ -69,9 +71,10 @@ class InstanceData:
         name: str,
         net_names: list[str],
         model_or_subckt: str,
-        value: PrefixedValue | None,
+        value: ParameterValue | None,
         params: dict[str, ParameterValue],
         device_prefix: str,
+        source: str | None = None,
     ) -> None:
         self.name = name
         self.net_names = net_names
@@ -79,6 +82,7 @@ class InstanceData:
         self.value = value
         self.params = params
         self.device_prefix = device_prefix
+        self.source = source  # a V/I value: `DC 1 AC 1 PULSE(...)`
 
 
 class ModelData:
@@ -173,6 +177,12 @@ class SpiceTransformer(Transformer[Token, Netlist]):
     def __init__(self) -> None:
         super().__init__()
         self.all_subckts: dict[str, Circuit] = {}
+        self.models: set[str] = set()  # every `.model` name of the deck
+        self.stimuli: list[tuple[str, SubCircuit, Stimulus]] = []
+
+    def transform(self, tree: Any) -> Netlist:
+        self.models = {str(m.children[1]).lower() for m in tree.find_data("model_stmt")}
+        return super().transform(tree)
 
     # ── Leaf transformers ───────────────────────────────────────────────
 
@@ -180,6 +190,12 @@ class SpiceTransformer(Transformer[Token, Netlist]):
         return items[0]
 
     def token_ident(self, items: list[Token]) -> Token:
+        return items[0]
+
+    def token_expr(self, items: list[Token]) -> Token:
+        return items[0]
+
+    def token_func(self, items: list[Token]) -> Token:
         return items[0]
 
     def pvalue_number(self, items: list[Token]) -> ParameterValue:
@@ -244,12 +260,28 @@ class SpiceTransformer(Transformer[Token, Netlist]):
             # Devices like R, C, L: after ports, next token is value or model name
             net_names = token_strs[:n_ports]
             remaining = token_strs[n_ports:]
+            if device_prefix in ("V", "I"):
+                return InstanceData(
+                    name=inst_name,
+                    net_names=net_names,
+                    model_or_subckt="",
+                    value=None,
+                    params=params,
+                    device_prefix=device_prefix,
+                    source=" ".join(remaining) or None,
+                )
 
-            value: PrefixedValue | None = None
+            value: ParameterValue | None = None
             model_name = ""
             for tok in remaining:
                 if is_si_number(tok):
-                    value = parse_si_number(tok)
+                    value = parse_parameter_number(tok)
+                elif tok[:1] in ("{", "'"):
+                    value = ParameterValue(expression=parse_expression(tok))
+                elif (
+                    device_prefix in ("R", "C", "L") and tok.lower() not in self.models
+                ):
+                    value = parameter_value(tok)  # `R1 a b rload`: a param
                 else:
                     model_name = tok
 
@@ -648,12 +680,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
 
                 params: list[Parameter] = []
                 if inst.value is not None:
-                    params.append(
-                        Parameter(
-                            name="value",
-                            default_value=ParameterValue(prefixed_value=inst.value),
-                        )
-                    )
+                    params.append(Parameter(name="value", default_value=inst.value))
                 for pname, pval in inst.params.items():
                     params.append(Parameter(name=pname, default_value=pval))
 
@@ -661,14 +688,15 @@ class SpiceTransformer(Transformer[Token, Netlist]):
                 if inst.model_or_subckt:
                     props["model_name"] = inst.model_or_subckt
 
-                subcircuits.append(
-                    SubCircuit(
-                        name=inst.name,
-                        circuit_name=module_name,
-                        parameters=params,
-                        properties=props,
-                    )
+                ref = SubCircuit(
+                    name=inst.name,
+                    circuit_name=module_name,
+                    parameters=params,
+                    properties=props,
                 )
+                subcircuits.append(ref)
+                if inst.source is not None:
+                    self.stimuli.append((name, ref, parse_source(inst.source)))
             else:
                 # Unknown prefix — treat as subcircuit
                 for i, net_name in enumerate(inst.net_names):
@@ -811,9 +839,11 @@ class SpiceTransformer(Transformer[Token, Netlist]):
                     properties={"model_type": mdata.type_name},
                 )
 
-        # Determine top circuit: last defined subcircuit is conventionally the top
+        # The deck's own elements are the top; else the last subcircuit, by convention
         top_circuit = ""
-        if circuits:
+        if top_instances:
+            top_circuit = "__top__"
+        elif circuits:
             top_circuit = circuits[-1].name
 
         for p in circuit_params:
@@ -869,7 +899,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
                 temperatures=temperatures,
             )
 
-        return Netlist(
+        netlist = Netlist(
             name="",
             top_circuit=top_circuit,
             circuits=circuits,
@@ -877,3 +907,6 @@ class SpiceTransformer(Transformer[Token, Netlist]):
             directives=directives,
             simulation=simulation,
         )
+        for circuit_name, ref, stim in self.stimuli:
+            attach(netlist, circuit_name, ref, stim)
+        return netlist
