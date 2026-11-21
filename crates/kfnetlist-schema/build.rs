@@ -1,6 +1,7 @@
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("cargo:rerun-if-changed=proto/circuit.proto");
     println!("cargo:rerun-if-changed=proto/simulation.proto");
+    println!("cargo:rerun-if-changed=proto/value.proto");
     prost_build::Config::new()
         .protoc_executable(protoc_bin_vendored::protoc_bin_path()?)
         .btree_map(["."])
@@ -13,6 +14,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .field_attribute("circuit.Circuit.terminals", "#[serde(alias = \"terminal\")]")
         .field_attribute("circuit.Circuit.macros", "#[serde(skip_serializing_if = \"Vec::is_empty\")]")
         .field_attribute("circuit.Netlist.macros", "#[serde(skip_serializing_if = \"Vec::is_empty\")]")
-        .compile_protos(&["proto/circuit.proto", "proto/simulation.proto"], &["proto"])?;
+        .field_attribute("circuit.Simulation.stimuli", "#[serde(skip_serializing_if = \"Vec::is_empty\")]")
+        .compile_protos(&["proto/circuit.proto", "proto/simulation.proto", "proto/value.proto"], &["proto"])?;
     Ok(())
 }

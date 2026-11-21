@@ -501,3 +501,43 @@ def test_an_expression_with_no_node_is_not_written():
         )
     )
     assert "w=" not in write_spice(nl)
+
+
+def test_stimulus_json_round_trips_through_the_rust_schema():
+    from kfnetlist.kfnetlist_schema import ProtoNetlist
+    from kfnetlist.morphnet.morphnet_schema import (
+        Simulation,
+        Stimulus,
+        Waveform,
+        WaveformKind,
+    )
+
+    def num(x: float) -> ParameterValue:
+        return ParameterValue(prefixed_value=PrefixedValue(double_value=x))
+
+    stim = Stimulus(
+        name="__top__/V1",
+        dc=num(0.9),
+        ac_magnitude=num(1.0),
+        waveform=Waveform(
+            kind=WaveformKind.PULSE,
+            args={
+                "val0": num(0.0),
+                "val1": ParameterValue(expression=Expression(reference="vdd")),
+            },
+        ),
+    )
+    pwl = Stimulus(
+        name="__top__/I1",
+        waveform=Waveform(
+            kind=WaveformKind.PWL, points=[num(0), num(0), num(1e-9), num(1)]
+        ),
+    )
+    nl = Netlist(
+        top_circuit="__top__",
+        circuits=[Circuit(name="__top__")],
+        simulation=Simulation(stimuli=[stim, pwl]),
+    )
+    assert Netlist.from_json(nl.to_json()) == nl
+    rust = ProtoNetlist.from_json(nl.to_json())
+    assert Netlist.from_json(rust.to_json()) == nl

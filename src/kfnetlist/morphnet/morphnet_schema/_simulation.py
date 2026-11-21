@@ -2,10 +2,14 @@
 from __future__ import annotations
 
 from enum import IntEnum
+from operator import not_
 from typing import ClassVar
+
+from pydantic import Field
 
 from kfnetlist.morphnet.morphnet_schema import simulation_pb2 as pb
 from kfnetlist.morphnet.morphnet_schema._base import ProtoModel
+from kfnetlist.morphnet.morphnet_schema._value import ParameterValue
 
 __all__ = [
     "Analysis",
@@ -15,6 +19,9 @@ __all__ = [
     "OutputRequest",
     "OutputRequestKind",
     "Simulation",
+    "Stimulus",
+    "Waveform",
+    "WaveformKind",
 ]
 
 
@@ -44,6 +51,15 @@ class OutputRequestKind(IntEnum):
     PLOT = 2
     PROBE = 3
     SAVE = 4
+
+
+class WaveformKind(IntEnum):
+    UNSPECIFIED = 0
+    PULSE = 1
+    SIN = 2
+    EXP = 3
+    SFFM = 4
+    PWL = 5
 
 
 # ======================================================================
@@ -82,6 +98,28 @@ class InitialCondition(ProtoModel):
     conditions: dict[str, str] = {}
 
 
+class Waveform(ProtoModel):
+    """A transient source shape; ``args`` use SPICE semantics with Spectre names."""
+
+    _proto_type: ClassVar[type] = pb.Waveform
+
+    kind: WaveformKind = WaveformKind.UNSPECIFIED
+    args: dict[str, ParameterValue] = {}
+    points: list[ParameterValue] = []  # PWL: t0 v0 t1 v1 ...
+
+
+class Stimulus(ProtoModel):
+    """What drives one V/I source, named ``"<circuit>/<instance>"``."""
+
+    _proto_type: ClassVar[type] = pb.Stimulus
+
+    name: str = ""
+    dc: ParameterValue | None = None
+    ac_magnitude: ParameterValue | None = None
+    ac_phase: ParameterValue | None = None
+    waveform: Waveform | None = None
+
+
 class Simulation(ProtoModel):
     _proto_type: ClassVar[type] = pb.Simulation
 
@@ -91,4 +129,5 @@ class Simulation(ProtoModel):
     initial_conditions: InitialCondition | None = None
     node_sets: InitialCondition | None = None
     temperatures: list[float] = []
+    stimuli: list[Stimulus] = Field(default=[], exclude_if=not_)  # as Rust skips it
     options: dict[str, str] = {}

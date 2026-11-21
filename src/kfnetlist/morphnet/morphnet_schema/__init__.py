@@ -36,6 +36,9 @@ from kfnetlist.morphnet.morphnet_schema._simulation import (
     OutputRequest,
     OutputRequestKind,
     Simulation,
+    Stimulus,
+    Waveform,
+    WaveformKind,
 )
 
 __all__ = [
@@ -71,9 +74,12 @@ __all__ = [
     "SIPrefix",
     "SignalDomain",
     "Simulation",
+    "Stimulus",
     "SubCircuit",
     "Ternary",
     "UnaryOp",
+    "Waveform",
+    "WaveformKind",
 ]
 
 # Names before the Netlist → Circuit → SubCircuit rename.

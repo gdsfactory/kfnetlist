@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package circuit;
 
+import "value.proto";
+
 // ======================================================================
 // Enums
 // ======================================================================
@@ -27,6 +29,16 @@ enum OutputRequestKind {
     OUTPUT_REQUEST_KIND_PLOT       = 2;
     OUTPUT_REQUEST_KIND_PROBE      = 3;
     OUTPUT_REQUEST_KIND_SAVE       = 4;
+}
+
+// Transient shape of a source: SPICE PULSE/SIN/EXP/SFFM/PWL, Spectre `type=`.
+enum WaveformKind {
+    WAVEFORM_KIND_UNSPECIFIED = 0;
+    WAVEFORM_KIND_PULSE       = 1;
+    WAVEFORM_KIND_SIN         = 2;
+    WAVEFORM_KIND_EXP         = 3;
+    WAVEFORM_KIND_SFFM        = 4;
+    WAVEFORM_KIND_PWL         = 5;
 }
 
 // ======================================================================
@@ -56,6 +68,26 @@ message InitialCondition {
     map<string, string> conditions = 1;
 }
 
+// A transient waveform. `args` uses SPICE semantics with Spectre names:
+// pulse val0 val1 delay rise fall width period; sin sinedc ampl freq delay theta;
+// exp val0 val1 delay tau1 td2 tau2 (td2 from time 0); sffm sinedc ampl freq
+// modindex modfreq. PWL keeps its time/value pairs in `points` (t0 v0 t1 v1 ...).
+message Waveform {
+    WaveformKind                kind   = 1;
+    map<string, ParameterValue> args   = 2;
+    repeated ParameterValue     points = 3;
+}
+
+// What drives one V/I source; the source element names it in
+// properties["stimulus"] ("<circuit>/<instance>").
+message Stimulus {
+    string         name         = 1;
+    ParameterValue dc           = 2;
+    ParameterValue ac_magnitude = 3;
+    ParameterValue ac_phase     = 4;
+    Waveform       waveform     = 5;
+}
+
 message Simulation {
     repeated Analysis         analyses           = 1;
     repeated OutputRequest    output_requests    = 2;
@@ -63,5 +95,6 @@ message Simulation {
     InitialCondition          initial_conditions = 4;
     InitialCondition          node_sets          = 5;
     repeated double           temperatures       = 6;
+    repeated Stimulus         stimuli            = 7;
     map<string, string>       options            = 10;
 }

@@ -862,3 +862,48 @@ fn macros_ride_the_stash_and_merge_lead_first() {
     assert!(json.contains("ground_net"), "{json}");
     assert!(!json.contains("macros"), "{json}");
 }
+
+#[test]
+fn stimuli_and_their_sources_survive_kfnetlist() {
+    let simulation: proto::Simulation = serde_json::from_value(json!({
+        "stimuli": [{
+            "name": "top/V1",
+            "dc": {"prefixed_value": {"double_value": 0.9}},
+            "waveform": {"kind": proto::WaveformKind::Pulse as i32,
+                "args": {"val0": {"prefixed_value": {"double_value": 0.0}},
+                         "val1": {"expression": {"reference": "vdd"}}}}
+        }]
+    }))
+    .unwrap();
+    let source = proto::SubCircuit {
+        name: "V1".into(),
+        circuit_name: "vsource".into(),
+        properties: [("stimulus".into(), "top/V1".into())].into(),
+        ..Default::default()
+    };
+    let netlist = proto::Netlist {
+        top_circuit: "top".into(),
+        circuits: vec![proto::Circuit {
+            name: "top".into(),
+            subcircuits: vec![source],
+            connections: vec![proto::Connection {
+                name: "a".into(),
+                source: pin("V1", "p"),
+                target: pin("V1", "n"),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+        simulation: Some(simulation.clone()),
+        ..Default::default()
+    };
+    let back = through_netlists(&netlist);
+    assert_eq!(back.simulation, Some(simulation));
+    assert_eq!(
+        back.circuits[0].subcircuits[0].properties["stimulus"],
+        "top/V1"
+    );
+    assert!(!serde_json::to_string(&proto::Simulation::default())
+        .unwrap()
+        .contains("stimuli"));
+}
