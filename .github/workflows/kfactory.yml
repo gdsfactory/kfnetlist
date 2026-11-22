@@ -105,7 +105,7 @@ jobs:
           uv run --no-project --python ../.venv python -m pytest -n logical -ra --junitxml=../kfactory-results.xml
       - name: Upload kfactory test results
         if: always()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v6
         with:
           name: kfactory-${{ matrix.python-version }}-${{ matrix.os }}
           path: kfactory-results.xml
