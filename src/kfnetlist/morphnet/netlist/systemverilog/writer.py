@@ -22,7 +22,10 @@ from kfnetlist.morphnet.netlist.hdl import (
     port_pins,
 )
 from kfnetlist.morphnet.netlist.net_utils import BIT_RE, connections_to_instance_nets
-from kfnetlist.morphnet.netlist.value_utils import to_float
+from kfnetlist.morphnet.netlist.expression import format_expression
+from kfnetlist.morphnet.netlist.stimulus import primitive, primitive_file, stimulus_of
+from kfnetlist.morphnet.netlist.expression import Resolve
+from kfnetlist.morphnet.netlist.value_utils import macro_lines, sim_params, to_float
 
 IDENT_RE = re.compile(r"[A-Za-z_][A-Za-z0-9_$]*")
 RESERVED = {
@@ -59,20 +62,29 @@ def declaration(type_name: str, name: str, rng: Range | None) -> str:
     return " ".join(p for p in (type_name, dim, sv_name(name)) if p)
 
 
-def format_param_value(param: Parameter) -> str:
+def format_param_value(param: Parameter, resolve: Resolve | None = None) -> str:
     """Plain number (SI suffixes are not SystemVerilog), else the expression text."""
     pval = param.default_value
     if pval is not None and pval.prefixed_value is not None:
         return f"{to_float(pval.prefixed_value):.12g}"
-    return param.properties.get("expr", "0")
+    if pval is not None and pval.expression is not None:
+        return format_expression(pval.expression, "systemverilog", resolve) or "0"
+    return "0"
+
+
+MACRO_LANGUAGES = dict.fromkeys(("systemverilog", "verilog"))
 
 
 class SystemVerilogWriter:
     """Convert a Netlist model to structural SystemVerilog text."""
 
+    netlist: Netlist  # the one being written
+
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
+        self.netlist = netlist
         self.write_directives(netlist.directives, lines)
+        lines.extend(macro_lines(netlist.macros, MACRO_LANGUAGES, "//"))
         lines.extend(
             v
             for k, v in netlist.properties.items()
@@ -117,6 +129,7 @@ class SystemVerilogWriter:
         )
         ports = f"(\n  {ports}\n)" if ports else "()"
         lines.append(f"module {sv_name(circuit.name)}{params} {ports};")
+        lines.extend(macro_lines(circuit.macros, MACRO_LANGUAGES, "//"))
 
         for p in circuit.parameters:
             if p.properties.get("localparam") == "true":
@@ -173,15 +186,18 @@ class SystemVerilogWriter:
         buses: Buses | None = None,
     ) -> str:
         params = ""
-        if ref.parameters:
-            params = (
-                " #("
-                + ", ".join(
-                    f".{sv_name(p.name)}({format_param_value(p)})"
-                    for p in ref.parameters
-                )
-                + ")"
-            )
+        shown, resolve = sim_params(ref)
+        parts = [f".{sv_name(p.name)}({format_param_value(p, resolve)})" for p in shown]
+        master = ref.circuit_name
+        stim = stimulus_of(self.netlist, ref)
+        if stim is not None:  # a Verilog-AMS LRM Annex E source primitive
+            current = ref.circuit_name == "isource"
+            master, stim_params = primitive(stim, current, "systemverilog")
+            parts += [f".{k}({v})" for k, v in stim_params]
+        if parts:
+            params = f" #({', '.join(parts)})"
+        file = primitive_file(stim) if stim is not None else None
+        attr = f'(* pwl_file = "{file}" *) ' if file else ""
 
         target = circuit_by_name.get(ref.circuit_name) or ext_by_name.get(
             ref.circuit_name
@@ -200,7 +216,7 @@ class SystemVerilogWriter:
             expr = connection_expr(f"{ref.name}.{name}", nets, buses or {}, sv_name)
             conns.append(f".{sv_name(name)}({expr})")
         conns = ", ".join(conns)
-        return f"  {sv_name(ref.circuit_name)}{params} {sv_name(ref.name)} ({conns});"
+        return f"  {attr}{sv_name(master)}{params} {sv_name(ref.name)} ({conns});"
 
 
 def write_systemverilog(netlist: Netlist) -> str:

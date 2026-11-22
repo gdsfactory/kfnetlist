@@ -1,0 +1,135 @@
+[
+  {
+    "file": "w.txt",
+    "base": null,
+    "posix": "w.txt",
+    "resolved": "w.txt",
+    "absolute": false
+  },
+  {
+    "file": "data\\w.txt",
+    "base": null,
+    "posix": "data/w.txt",
+    "resolved": "data/w.txt",
+    "absolute": false
+  },
+  {
+    "file": "./a/../w.txt",
+    "base": null,
+    "posix": "w.txt",
+    "resolved": "w.txt",
+    "absolute": false
+  },
+  {
+    "file": "../w.txt",
+    "base": "/proj/sim",
+    "posix": "../w.txt",
+    "resolved": "/proj/w.txt",
+    "absolute": false
+  },
+  {
+    "file": "../../w.txt",
+    "base": null,
+    "posix": "../../w.txt",
+    "resolved": "../../w.txt",
+    "absolute": false
+  },
+  {
+    "file": "a//b/./w.txt",
+    "base": null,
+    "posix": "a/b/w.txt",
+    "resolved": "a/b/w.txt",
+    "absolute": false
+  },
+  {
+    "file": "C:\\lib\\w.txt",
+    "base": null,
+    "posix": "C:/lib/w.txt",
+    "resolved": "C:/lib/w.txt",
+    "absolute": true
+  },
+  {
+    "file": "C:/lib/w.txt",
+    "base": "/x",
+    "posix": "C:/lib/w.txt",
+    "resolved": "C:/lib/w.txt",
+    "absolute": true
+  },
+  {
+    "file": "w.txt",
+    "base": "C:\\proj",
+    "posix": "w.txt",
+    "resolved": "C:/proj/w.txt",
+    "absolute": false
+  },
+  {
+    "file": "\\\\srv\\share\\w.txt",
+    "base": null,
+    "posix": "//srv/share/w.txt",
+    "resolved": "//srv/share/w.txt",
+    "absolute": true
+  },
+  {
+    "file": "/abs/w.txt",
+    "base": "/x",
+    "posix": "/abs/w.txt",
+    "resolved": "/abs/w.txt",
+    "absolute": true
+  },
+  {
+    "file": "/../w.txt",
+    "base": null,
+    "posix": "/w.txt",
+    "resolved": "/w.txt",
+    "absolute": true
+  },
+  {
+    "file": "sub/w.txt",
+    "base": "proj\\sim",
+    "posix": "sub/w.txt",
+    "resolved": "proj/sim/sub/w.txt",
+    "absolute": false
+  },
+  {
+    "file": "w.txt",
+    "base": "",
+    "posix": "w.txt",
+    "resolved": "w.txt",
+    "absolute": false
+  },
+  {
+    "file": "\\\\srv\\share\\..\\..\\w.txt",
+    "base": null,
+    "posix": "//srv/share/w.txt",
+    "resolved": "//srv/share/w.txt",
+    "absolute": true
+  },
+  {
+    "file": "///x",
+    "base": null,
+    "posix": "/x",
+    "resolved": "/x",
+    "absolute": true
+  },
+  {
+    "file": "C:..\\w.txt",
+    "base": null,
+    "posix": "C:/w.txt",
+    "resolved": "C:/w.txt",
+    "absolute": true
+  },
+  {
+    "file": "C:w.txt",
+    "base": "/proj",
+    "posix": "C:/w.txt",
+    "resolved": "C:/w.txt",
+    "absolute": true
+  },
+  {
+    "file": "c:",
+    "base": null,
+    "posix": "c:/",
+    "resolved": "c:/",
+    "absolute": true
+  }
+]

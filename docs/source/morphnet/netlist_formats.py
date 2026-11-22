@@ -15,7 +15,7 @@
 # %% [markdown]
 # # Parsing netlist formats
 #
-# `kfnetlist.morphnet` reads seven netlist formats into one schema document,
+# `kfnetlist.morphnet` reads eight netlist formats into one schema document,
 # the morphnet `Netlist` (circuits, subcircuit instances, connections,
 # parameters, directives). `morphnet.to_netlists()` then turns every circuit
 # into a `kfnetlist.Netlist` connectivity graph.
@@ -29,6 +29,7 @@
 # | Spectre with `simulator lang=spice` blocks | `parse_spectre_spice` | `write_spectre_spice` | `.scs` |
 # | Verilog-AMS | `parse_vams` | `write_vams` | `.vams`, `.va` |
 # | SystemVerilog (structural) | `parse_systemverilog` | `write_systemverilog` | `.sv` |
+# | gsch (gdsfactory+ Mosaic/Livewire schematic) | `parse_gsch`, `read_gsch` | `write_gsch` | `.gsch` |
 #
 # This page defines one example netlist per format, parses it, and shows
 # what ends up in the morphnet `Netlist` and in `kfnetlist.Netlist`. The
@@ -52,6 +53,7 @@ from kfnetlist.morphnet.netlist import (
     parse_vams,
     parse_xyce,
 )
+from kfnetlist.morphnet.netlist.expression import format_expression
 from kfnetlist.morphnet.netlist.value_utils import format_si_value
 
 
@@ -59,7 +61,9 @@ def value(param: morphnet.Parameter) -> str:
     pv = param.default_value
     if pv is not None and pv.prefixed_value is not None:
         return format_si_value(pv.prefixed_value)
-    return param.properties.get("expr", "?")
+    if pv is not None and pv.expression is not None:
+        return format_expression(pv.expression, "spectre")
+    return "?"
 
 
 def summary(netlist: morphnet.Netlist) -> None:
@@ -299,7 +303,7 @@ show_kfnetlist(vams, "divider")
 # - ANSI headers `(input wire [3:0] a, output y)` and non-ANSI port lists with
 #   body declarations;
 # - `parameter`/`localparam`, also in the `#(...)` header; numbers, sized
-#   literals (`4'b1010`) and expressions (kept as text in an `expr` property);
+#   literals (`4'b1010`) and expressions (parsed into an `Expression` tree);
 # - instances with named `.p(n)`, positional, implicit `.p`, wildcard `.*` and
 #   empty `.p()` connections, several per statement;
 # - `assign a = b;` and `alias a = b = c;`, which merge nets.
@@ -336,6 +340,72 @@ show_kfnetlist(systemverilog, "latch")
 # %% [markdown]
 # `assign q = qi;` merged `qi` into the port net `q`, and `.*` connected `vdd`
 # and `vss` by name.
+#
+# ## gsch (gdsfactory+ schematics)
+#
+# `.gsch` files are the JSON schematics of Mosaic (electrical) and Livewire
+# (photonic). `parse_gsch` reads one into a one-circuit `Netlist`; `read_gsch`
+# also follows the child `.gsch` files of its devices. Model libraries come from
+# `models.nyanlib` and become `LIB`/`INCLUDE` directives, which the SPICE and
+# Spectre writers put at the top of the exported netlist. `sim` (`ngspice`,
+# `xyce` or `vacask`) and `corners` choose the model entry and library section,
+# and `write_gsch` writes the schematic back. This minimal RC filter has one
+# model-backed resistor (a library with sections, so a `.lib` line).
+
+# %%
+import json
+
+from kfnetlist.morphnet.netlist import parse_gsch, write_gsch, write_spice
+
+GSCH = json.dumps(
+    {
+        "demo:V1": {
+            "type": "vsource", "name": "V1", "x": 0, "y": 0,
+            "nets": {"P": "in", "N": "GND"}, "props": {"dc": "1"},
+        },
+        "demo:R1": {
+            "type": "pdk.res", "model": "pdk.res", "name": "R1", "x": 2, "y": 0,
+            "nets": {"A": "in", "B": "out"}, "props": {"width": 1},
+        },
+        "demo:C1": {
+            "type": "capacitor", "name": "C1", "x": 4, "y": 0,
+            "nets": {"P": "out", "N": "GND"}, "props": {"capacitance": "1p"},
+        },
+    }
+)  # fmt: skip
+NYANLIB = {
+    "models:pdk.res": {
+        "name": "res",
+        "type": "resistor",
+        "ports": [{"name": "A"}, {"name": "B"}],
+        "models": [
+            {
+                "implementation": "NgSpice",
+                "language": "spice",
+                "library": "pdk/models/res.lib",
+                "name": "rpoly",
+                "params": {"w": "width * 1e-6"},
+                "port-order": ["A", "B"],
+                "sections": ["tt", "ss"],
+                "spice-type": "SUBCKT",
+            }
+        ],
+        "props": [{"name": "width", "default": 1}],
+    }
+}
+gsch = parse_gsch(GSCH, models=NYANLIB, sim="ngspice", corners=["ss"])
+summary(gsch)
+
+# %%
+print(write_spice(gsch))
+
+# %%
+print(write_gsch(gsch)[:300], "...")
+
+# %% [markdown]
+# The `.lib` line is first and picked the `ss` corner. `write_gsch` restores the
+# schematic keys and layout; a file that was not parsed from a `.gsch` gets a
+# grid layout and no Mosaic wires, so Mosaic recomputes `nets` on the first edit.
 #
 # ## Photonic circuits
 #

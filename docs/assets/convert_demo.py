@@ -1,6 +1,9 @@
 """Convert a netlist between formats: ``python convert_demo.py SRC DST < netlist``.
 
 Formats: spice, hspice, xyce, spectre, spectre_spice, vams, systemverilog.
+
+``.gsch`` is not a source or target here: it carries a schematic, see
+``parse_gsch``/``write_gsch``.
 """
 
 import sys

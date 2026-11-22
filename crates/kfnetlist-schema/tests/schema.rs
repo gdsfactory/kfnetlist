@@ -83,6 +83,14 @@ fn terminal_alias_and_oneof_validation_work_in_rust() {
         json!({"prefixed_value": {}, "model_ref": {}})
     )
     .is_err());
+    assert!(serde_json::from_value::<proto::ParameterValue>(
+        json!({"prefixed_value": {}, "expression": {"raw": "x"}})
+    )
+    .is_err());
+    assert!(
+        serde_json::from_value::<proto::Expression>(json!({"raw": "x", "reference": "y"})).is_err()
+    );
+    assert!(serde_json::from_value::<proto::Expression>(json!({"node": {"raw": "x"}})).is_err());
 }
 
 #[test]
@@ -307,4 +315,595 @@ fn bus_terminals_and_bracketed_instance_names_decode() {
     let ports: Vec<_> = nl.ports.iter().map(|p| p.name.as_str()).collect();
     assert_eq!(ports, ["in[1]", "in[0]"]);
     assert_eq!(nl.nets.len(), 2);
+}
+
+/// proto -> document -> kfnetlist Netlists -> document -> proto, as morphnet's bridge does.
+fn through_netlists(netlist: &proto::Netlist) -> proto::Netlist {
+    let netlists = NetlistDocument::from_proto_netlist(netlist)
+        .unwrap()
+        .to_netlists()
+        .unwrap();
+    NetlistDocument::from_netlists(&netlists, None)
+        .to_proto_netlist()
+        .unwrap()
+}
+
+#[test]
+fn morphnet_only_fields_survive_kfnetlist() {
+    let kilo = serde_json::from_value::<Option<proto::ParameterValue>>(
+        json!({"prefixed_value": {"double_value": 1.0, "prefix": 15}}),
+    )
+    .unwrap();
+    let directive = |kind: proto::DirectiveKind, value: &str| proto::Directive {
+        kind: kind as i32,
+        name: String::new(),
+        value: value.into(),
+    };
+    let sub = proto::SubCircuit {
+        name: "R1".into(),
+        circuit_name: "rmodel".into(),
+        parameters: vec![
+            proto::Parameter {
+                name: "r".into(),
+                default_value: kilo.clone(),
+                ..Default::default()
+            },
+            proto::Parameter {
+                name: "w".into(),
+                default_value: serde_json::from_value(json!({"expression": {
+                    "binary": {"op": proto::Operator::Mul as i32,
+                        "lhs": {"literal": {"double_value": 2.0}},
+                        "rhs": {"reference": "l"}}
+                }}))
+                .unwrap(),
+                properties: [("role".into(), "source".into())].into(),
+                ..Default::default()
+            },
+        ],
+        properties: [
+            ("model_name".into(), "rpoly".into()),
+            ("__info__".into(), r#"{"gsch":1}"#.into()),
+        ]
+        .into(),
+        ..Default::default()
+    };
+    let star = |net: &str, inst: &str, port: &str| proto::Connection {
+        name: net.into(),
+        source: pin("", net),
+        target: pin(inst, port),
+        domain: proto::SignalDomain::Electrical as i32,
+        ..Default::default()
+    };
+    let circuit = proto::Circuit {
+        name: "top".into(),
+        terminals: vec![proto::Terminal {
+            name: "a".into(),
+            direction: proto::TerminalDirection::Input as i32,
+            domain: proto::SignalDomain::Electrical as i32,
+            discipline: "electrical".into(),
+            ..Default::default()
+        }],
+        parameters: vec![proto::Parameter {
+            name: "l".into(),
+            default_value: kilo,
+            ..Default::default()
+        }],
+        subcircuits: vec![sub.clone()],
+        connections: vec![star("a", "R1", "p"), star("mid", "R1", "n")],
+        properties: [("analog_block".into(), "analog begin end".into())].into(),
+        directives: vec![directive(proto::DirectiveKind::Include, "top.inc")],
+        ..Default::default()
+    };
+    let netlist = proto::Netlist {
+        name: "doc".into(),
+        top_circuit: "top".into(),
+        circuits: vec![circuit.clone()],
+        ext_circuits: vec![proto::ExternalCircuit {
+            name: "rmodel".into(),
+            properties: [("spice_prefix".into(), "R".into())].into(),
+            ..Default::default()
+        }],
+        properties: [("dialect".into(), "spectre".into())].into(),
+        directives: vec![directive(proto::DirectiveKind::Lib, "corners.lib")],
+        ..Default::default()
+    };
+
+    let doc = NetlistDocument::from_proto_netlist(&netlist).unwrap();
+    let top = &doc.modules["top"];
+    assert_eq!(top.instances["R1"].settings["w"], json!("2 * l"));
+    assert_eq!(top.instances["R1"].info["gsch"], json!(1));
+    assert_eq!(
+        top.instances["R1"].info["__morphnet__"]["properties"],
+        json!({"model_name": "rpoly"})
+    );
+    assert_eq!(top.net_names, ["a", "mid"]);
+    let nl = top.to_netlist().unwrap();
+    assert_eq!(
+        nl.directives
+            .iter()
+            .map(|d| d.kind.as_str())
+            .collect::<Vec<_>>(),
+        ["lib", "include"]
+    );
+    let names: Vec<_> = nl.nets.iter().map(|n| n.name.as_deref()).collect();
+    assert_eq!(names, [Some("a"), Some("mid")]);
+
+    let back = through_netlists(&netlist);
+    assert_eq!(back.name, "doc");
+    assert_eq!(back.top_circuit, "top");
+    assert_eq!(back.ext_circuits, netlist.ext_circuits);
+    assert_eq!(back.properties, netlist.properties);
+    assert_eq!(
+        back.directives,
+        [netlist.directives.clone(), circuit.directives.clone()].concat()
+    );
+    let c = &back.circuits[0];
+    assert!(c.directives.is_empty());
+    assert_eq!(c.terminals, circuit.terminals);
+    assert_eq!(c.parameters, circuit.parameters);
+    assert_eq!(c.properties["analog_block"], "analog begin end");
+    assert_eq!(c.subcircuits[0].parameters, sub.parameters);
+    assert_eq!(c.subcircuits[0].properties["model_name"], "rpoly");
+    assert_eq!(c.subcircuits[0].properties["__info__"], r#"{"gsch":1}"#);
+    let nets: Vec<_> = c
+        .connections
+        .iter()
+        .map(|c| (c.name.as_str(), c.domain))
+        .collect();
+    assert_eq!(nets, [("a", 1), ("mid", 1)]);
+    // A second trip is stable.
+    assert_eq!(through_netlists(&back), back);
+
+    // An edited expression setting comes back as raw text, keeping its properties.
+    let mut netlists = NetlistDocument::from_proto_netlist(&netlist)
+        .unwrap()
+        .to_netlists()
+        .unwrap();
+    let r1 = netlists
+        .get_mut("top")
+        .unwrap()
+        .instances
+        .get_mut("R1")
+        .unwrap();
+    r1.settings["w"] = json!("3*l");
+    let edited = NetlistDocument::from_netlists(&netlists, None)
+        .to_proto_netlist()
+        .unwrap();
+    let w = &edited.circuits[0].subcircuits[0].parameters[1];
+    assert_eq!(w.name, "w");
+    assert_eq!(
+        serde_json::to_value(&w.default_value).unwrap(),
+        json!({"expression": {"raw": "3*l"}})
+    );
+    assert_eq!(w.properties["role"], "source");
+}
+
+#[test]
+fn kfnetlist_round_trip_adds_no_morphnet_metadata() {
+    let mut nl = Netlist::default();
+    nl.create_inst(
+        "X1".into(),
+        String::new(),
+        "cell".into(),
+        json!({"w": "2*l", "on": true, "n": 2}),
+        0,
+        0,
+    )
+    .unwrap();
+    nl.create_named_net(
+        [NetMember::Ref(kfnetlist_core::PortRef {
+            instance: "X1".into(),
+            port: "p".into(),
+        })],
+        "mid",
+    )
+    .unwrap();
+    let doc = NetlistDocument::from_netlists(&[("top".to_string(), nl.clone())].into(), None);
+    let back = NetlistDocument::from_proto(&doc.to_proto().unwrap())
+        .unwrap()
+        .to_netlists()
+        .unwrap();
+    let back = &back["top"];
+    assert!(back.info.is_empty());
+    assert!(back.instances["X1"].info.is_empty());
+    assert_eq!(back.instances["X1"].settings, nl.instances["X1"].settings);
+    assert_eq!(back.nets[0].name.as_deref(), Some("mid"));
+}
+
+#[test]
+fn every_module_carries_the_document_header() {
+    let ext = |name: &str, model: &str| proto::ExternalCircuit {
+        name: name.into(),
+        properties: [("model_type".into(), model.into())].into(),
+        ..Default::default()
+    };
+    let doc = |circuit: &str, exts: Vec<proto::ExternalCircuit>| {
+        let netlist = proto::Netlist {
+            name: "doc".into(),
+            top_circuit: circuit.into(),
+            circuits: vec![
+                proto::Circuit {
+                    name: format!("{circuit}_child"),
+                    ..Default::default()
+                },
+                proto::Circuit {
+                    name: circuit.into(),
+                    ..Default::default()
+                },
+            ],
+            ext_circuits: exts,
+            properties: [("ground_net".into(), "GND".into())].into(),
+            ..Default::default()
+        };
+        let netlists = NetlistDocument::from_proto_netlist(&netlist)
+            .unwrap()
+            .to_netlists()
+            .unwrap();
+        (netlist, netlists)
+    };
+    let (source, netlists) = doc("top", vec![ext("nch", "nmos"), ext("pch", "pmos")]);
+    let header =
+        |p: &proto::Netlist| (p.name.clone(), p.ext_circuits.clone(), p.properties.clone());
+
+    // a non-lead toplevel
+    let back = NetlistDocument::from_netlists(&netlists, Some("top_child".into()))
+        .to_proto_netlist()
+        .unwrap();
+    assert_eq!(header(&back), header(&source));
+    assert_eq!(back.top_circuit, "top_child");
+
+    // a single cell without the toplevel: the stale top reference is dropped
+    let child = [("top_child".to_string(), netlists["top_child"].clone())].into();
+    let back = NetlistDocument::from_netlists(&child, None)
+        .to_proto_netlist()
+        .unwrap();
+    assert_eq!(header(&back), header(&source));
+    assert_eq!(back.top_circuit, "");
+
+    // cells of two documents: the lead's header, then the others' ext circuits by name
+    let (_, other) = doc("other", vec![ext("nch", "other"), ext("res", "r")]);
+    let mut both = netlists.clone();
+    both.extend(other);
+    let back = NetlistDocument::from_netlists(&both, Some("other".into()))
+        .to_proto_netlist()
+        .unwrap();
+    let names: Vec<_> = back
+        .ext_circuits
+        .iter()
+        .map(|e| (e.name.as_str(), e.properties["model_type"].as_str()))
+        .collect();
+    assert_eq!(names, [("nch", "other"), ("res", "r"), ("pch", "pmos")]);
+}
+
+#[test]
+fn only_an_unnamed_port_net_uses_the_port_form() {
+    let mut nl = Netlist::default();
+    nl.create_port("o1".into());
+    nl.create_inst(
+        "mmi".into(),
+        String::new(),
+        "mmi1x2".into(),
+        json!({}),
+        0,
+        0,
+    )
+    .unwrap();
+    let members = || {
+        [
+            NetMember::Port(kfnetlist_core::NetlistPort { name: "o1".into() }),
+            NetMember::Ref(kfnetlist_core::PortRef {
+                instance: "mmi".into(),
+                port: "o1".into(),
+            }),
+        ]
+    };
+    let mut named = nl.clone();
+    named.create_named_net(members(), "o1").unwrap();
+    nl.create_net(members()).unwrap();
+    let plain = CircuitDocument::from_netlist("top".into(), &nl);
+    assert_eq!(plain.ports["o1"], "mmi,o1");
+    let named = CircuitDocument::from_netlist("top".into(), &named);
+    assert_eq!(named.ports["o1"], "o1");
+    assert_eq!(named.net_name(0), Some("o1"));
+}
+
+#[test]
+fn a_non_object_morphnet_stash_is_an_error() {
+    let doc: NetlistDocument = serde_json::from_value(json!({
+        "modules": {"top": {"info": {"__morphnet__": "garbage"}}}
+    }))
+    .unwrap();
+    let err = doc.to_proto().unwrap_err();
+    assert_eq!(err.to_string(), "info['__morphnet__'] must be an object");
+}
+
+#[test]
+fn buses_and_foreign_dunder_properties_survive_kfnetlist() {
+    let props = |pairs: &[(&str, &str)]| -> std::collections::BTreeMap<String, String> {
+        pairs
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect()
+    };
+    let reference = |instance: &str, terminal: &str| {
+        Some(proto::TerminalReference {
+            instance_name: instance.into(),
+            terminal_name: terminal.into(),
+        })
+    };
+    let bus = proto::Bus {
+        name: "data".into(),
+        width: 2,
+        domain: proto::SignalDomain::Electrical as i32,
+        connections: vec![proto::Connection {
+            name: "d0".into(),
+            source: reference("R1", "p"),
+            target: reference("R1", "q"),
+            ..Default::default()
+        }],
+        properties: props(&[("protocol", "spi"), ("__bus_x", "1")]),
+    };
+    let sub = proto::SubCircuit {
+        name: "R1".into(),
+        circuit_name: "r".into(),
+        properties: props(&[("__sub_x", "\"a\"")]),
+        ..Default::default()
+    };
+    let conn = proto::Connection {
+        name: "mid".into(),
+        source: Some(proto::TerminalReference {
+            terminal_name: "mid".into(),
+            ..Default::default()
+        }),
+        target: reference("R1", "n"),
+        properties: props(&[("__conn_x", "2")]),
+        ..Default::default()
+    };
+    let circuit = proto::Circuit {
+        name: "top".into(),
+        subcircuits: vec![sub],
+        connections: vec![conn],
+        buses: vec![bus],
+        properties: props(&[("__circuit_x", "3")]),
+        ..Default::default()
+    };
+    let netlist = proto::Netlist {
+        name: "doc".into(),
+        top_circuit: "top".into(),
+        circuits: vec![circuit],
+        ..Default::default()
+    };
+    let back = through_netlists(&netlist);
+    let (a, b) = (&netlist.circuits[0], &back.circuits[0]);
+    assert_eq!(b.buses, a.buses);
+    assert_eq!(b.subcircuits[0].properties["__sub_x"], "\"a\"");
+    assert_eq!(b.properties["__circuit_x"], "3");
+    assert_eq!(b.connections[0].properties["__conn_x"], "2");
+    assert_eq!(b.connections.len(), a.connections.len());
+    // The bus members stay a plain net of the kfnetlist side.
+    let nl = NetlistDocument::from_proto_netlist(&netlist)
+        .unwrap()
+        .to_netlists()
+        .unwrap();
+    assert_eq!(nl["top"].nets.len(), 2);
+    // A second trip is stable.
+    assert_eq!(through_netlists(&back), back);
+}
+
+fn endpoint(instance: &str, terminal: &str) -> Option<proto::TerminalReference> {
+    Some(proto::TerminalReference {
+        instance_name: instance.into(),
+        terminal_name: terminal.into(),
+    })
+}
+
+/// A circuit of instances `names` (each of master `x`) around `connections` and `buses`.
+fn circuit_of(
+    names: &[&str],
+    connections: Vec<proto::Connection>,
+    buses: Vec<proto::Bus>,
+) -> proto::Netlist {
+    proto::Netlist {
+        name: "doc".into(),
+        top_circuit: "top".into(),
+        circuits: vec![proto::Circuit {
+            name: "top".into(),
+            subcircuits: names
+                .iter()
+                .map(|n| proto::SubCircuit {
+                    name: (*n).into(),
+                    circuit_name: "x".into(),
+                    ..Default::default()
+                })
+                .collect(),
+            connections,
+            buses,
+            ..Default::default()
+        }],
+        ..Default::default()
+    }
+}
+fn link(
+    name: &str,
+    source: (&str, &str),
+    target: (&str, &str),
+    extra: &[(&str, &str)],
+) -> proto::Connection {
+    proto::Connection {
+        name: name.into(),
+        source: endpoint(source.0, source.1),
+        target: endpoint(target.0, target.1),
+        properties: extra
+            .iter()
+            .map(|(k, v)| (k.to_string(), v.to_string()))
+            .collect(),
+        ..Default::default()
+    }
+}
+
+#[test]
+fn a_bus_with_out_of_order_pins_is_restored() {
+    // A `Netlist` sorts net members: `Z,p` then `A,n` comes back as `A,n`, `Z,p`.
+    let bus = proto::Bus {
+        name: "data".into(),
+        connections: vec![link("d0", ("Z", "p"), ("A", "n"), &[])],
+        ..Default::default()
+    };
+    let back = through_netlists(&circuit_of(&["Z", "A"], vec![], vec![bus.clone()]));
+    assert_eq!(back.circuits[0].buses, [bus]);
+    assert!(back.circuits[0].connections.is_empty());
+}
+
+#[test]
+fn foreign_properties_stay_on_their_own_connection() {
+    // An unnamed connection, and one net whose two connections differ.
+    let back = through_netlists(&circuit_of(
+        &["A", "B", "C"],
+        vec![
+            link("", ("A", "o3"), ("B", "o3"), &[("__x", "u")]),
+            link("m", ("A", "o2"), ("B", "o2"), &[("__x", "1")]),
+            link("m", ("A", "o2"), ("C", "o2"), &[]),
+        ],
+        vec![],
+    ));
+    // (terminal, other instance) -> the `__x` it carries.
+    let x = |terminal: &str, other: &str| {
+        back.circuits[0]
+            .connections
+            .iter()
+            .find(|c| {
+                let ends: Vec<_> = [&c.source, &c.target]
+                    .into_iter()
+                    .flatten()
+                    .map(|t| (t.instance_name.as_str(), t.terminal_name.as_str()))
+                    .collect();
+                ends.contains(&(other, terminal))
+            })
+            .unwrap_or_else(|| panic!("no connection to {other},{terminal}"))
+            .properties
+            .get("__x")
+            .cloned()
+    };
+    assert_eq!(x("o3", "B").as_deref(), Some("u"));
+    assert_eq!(x("o2", "B").as_deref(), Some("1"));
+    assert_eq!(x("o2", "C"), None);
+}
+
+#[test]
+fn a_bus_sharing_a_circuit_connection_keeps_both() {
+    // The shape of tests/morphnet/conftest.py: the bus carries a circuit connection.
+    let shared = link("n1", ("A", "o1"), ("B", "o1"), &[]);
+    let bus = proto::Bus {
+        name: "data_bus".into(),
+        width: 4,
+        connections: vec![shared.clone()],
+        ..Default::default()
+    };
+    let back = through_netlists(&circuit_of(&["A", "B"], vec![shared], vec![bus.clone()]));
+    assert_eq!(back.circuits[0].buses, [bus]);
+    assert_eq!(back.circuits[0].connections.len(), 1);
+    assert_eq!(back.circuits[0].connections[0].name, "n1");
+}
+
+#[test]
+fn macros_ride_the_stash_and_merge_lead_first() {
+    let mac = |name: &str, body: &str| proto::Macro {
+        name: name.into(),
+        language: "spice".into(),
+        body: body.into(),
+        ..Default::default()
+    };
+    let netlist = |top: &str, macros: Vec<proto::Macro>| proto::Netlist {
+        name: "doc".into(),
+        top_circuit: top.into(),
+        circuits: vec![proto::Circuit {
+            name: top.into(),
+            macros: vec![mac("local", ".param a=1")],
+            ..Default::default()
+        }],
+        macros,
+        ..Default::default()
+    };
+    let source = netlist("top", vec![mac("rdiv", ".subckt rdiv a b\n.ends rdiv")]);
+    let back = through_netlists(&source);
+    assert_eq!(back.macros, source.macros);
+    assert_eq!(back.circuits[0].macros, source.circuits[0].macros);
+
+    // cells of two documents: the lead's macros, then the others' it lacks (equal
+    // macros once; a same-named one with other code is kept)
+    let cells = |nl: &proto::Netlist| {
+        NetlistDocument::from_proto_netlist(nl)
+            .unwrap()
+            .to_netlists()
+            .unwrap()
+    };
+    let mut both = cells(&source);
+    let rdiv = ".subckt rdiv a b\n.ends rdiv";
+    let other = vec![mac("rdiv", "x"), mac("extra", "y"), mac("rdiv", rdiv)];
+    both.extend(cells(&netlist("other", other)));
+    let back = NetlistDocument::from_netlists(&both, Some("other".into()))
+        .to_proto_netlist()
+        .unwrap();
+    let bodies: Vec<_> = back
+        .macros
+        .iter()
+        .map(|m| (m.name.as_str(), m.body.as_str()))
+        .collect();
+    assert_eq!(bodies, [("rdiv", "x"), ("extra", "y"), ("rdiv", rdiv)]);
+
+    // no macros: the stash JSON is what it was before macros existed
+    let mut plain = proto::Netlist {
+        properties: [("ground_net".into(), "GND".into())].into(),
+        ..netlist("top", Vec::new())
+    };
+    plain.circuits[0].macros.clear();
+    let doc = NetlistDocument::from_proto_netlist(&plain).unwrap();
+    let json = serde_json::to_string(&doc).unwrap();
+    assert!(json.contains("ground_net"), "{json}");
+    assert!(!json.contains("macros"), "{json}");
+}
+
+#[test]
+fn stimuli_and_their_sources_survive_kfnetlist() {
+    let simulation: proto::Simulation = serde_json::from_value(json!({
+        "stimuli": [{
+            "name": "top/V1",
+            "dc": {"prefixed_value": {"double_value": 0.9}},
+            "waveform": {"kind": proto::WaveformKind::Pulse as i32,
+                "args": {"val0": {"prefixed_value": {"double_value": 0.0}},
+                         "val1": {"expression": {"reference": "vdd"}}}}
+        }]
+    }))
+    .unwrap();
+    let source = proto::SubCircuit {
+        name: "V1".into(),
+        circuit_name: "vsource".into(),
+        properties: [("stimulus".into(), "top/V1".into())].into(),
+        ..Default::default()
+    };
+    let netlist = proto::Netlist {
+        top_circuit: "top".into(),
+        circuits: vec![proto::Circuit {
+            name: "top".into(),
+            subcircuits: vec![source],
+            connections: vec![proto::Connection {
+                name: "a".into(),
+                source: pin("V1", "p"),
+                target: pin("V1", "n"),
+                ..Default::default()
+            }],
+            ..Default::default()
+        }],
+        simulation: Some(simulation.clone()),
+        ..Default::default()
+    };
+    let back = through_netlists(&netlist);
+    assert_eq!(back.simulation, Some(simulation));
+    assert_eq!(
+        back.circuits[0].subcircuits[0].properties["stimulus"],
+        "top/V1"
+    );
+    assert!(!serde_json::to_string(&proto::Simulation::default())
+        .unwrap()
+        .contains("stimuli"));
 }

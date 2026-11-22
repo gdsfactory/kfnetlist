@@ -26,7 +26,7 @@ use crate::net::{Net, NetMember};
 use crate::netlist::UnionFind;
 use crate::placement::{BBox, PlacedExtra, PlacedNetlist, Placement};
 use crate::port::{NetlistPort, PortArrayRef, PortRef};
-use crate::{Error, Netlist, Result};
+use crate::{merge_directives, Directive, Error, Netlist, Result};
 use indexmap::IndexMap;
 
 /// Flat view of a netlist's contents, independent of the Python flavor
@@ -38,6 +38,8 @@ pub struct NetlistData {
     pub nets: Vec<Net>,
     pub ports: Vec<NetlistPort>,
     pub extras: IndexMap<String, PlacedExtra>,
+    /// Directives of this netlist, then of every netlist inlined into it.
+    pub directives: Vec<Directive>,
 }
 
 /// Knobs for [`flatten_netlist`].
@@ -95,6 +97,7 @@ impl From<Netlist> for NetlistData {
             nets: netlist.nets,
             ports: netlist.ports,
             extras: IndexMap::new(),
+            directives: netlist.directives,
         }
     }
 }
@@ -106,6 +109,7 @@ impl From<PlacedNetlist> for NetlistData {
             nets: placed.netlist.nets,
             ports: placed.netlist.ports,
             extras: placed.extras,
+            directives: placed.netlist.directives,
         }
     }
 }
@@ -251,7 +255,7 @@ fn expand_pass(
     }
 
     let State {
-        data: cur,
+        data: mut cur,
         cell_of,
         eligible,
         warned,
@@ -366,6 +370,7 @@ fn expand_pass(
 
     for name in &to_expand {
         let sub = &subs[&cell_of[name]];
+        merge_directives(&mut cur.directives, &sub.directives);
         for net in &sub.nets {
             let mut kept: Vec<NetMember> = Vec::with_capacity(net.members.len());
             let mut bound: Vec<String> = Vec::new();
@@ -453,6 +458,7 @@ fn expand_pass(
                 nets,
                 ports: cur.ports,
                 extras,
+                directives: cur.directives,
             },
             cell_of: next_cell_of,
             eligible: next_eligible,

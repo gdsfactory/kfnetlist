@@ -1,0 +1,36 @@
+{
+  "straight_1": {
+    "id": "straight_1",
+    "type": "straight",
+    "model": "gf.components.straight",
+    "props": { "length": 20 },
+    "x": 0,
+    "y": 0,
+    "irl_x": 10,
+    "irl_y": 0,
+    "bbox_width": 20,
+    "bbox_height": 0.5,
+    "ports": [
+      { "name": "o1", "irl_rx": -10, "irl_ry": 0, "orientation": 180, "bendRadii": [5.0] },
+      { "name": "o2", "irl_rx": 10,  "irl_ry": 0, "orientation": 0,   "bendRadii": [5.0] }
+    ]
+  },
+  "in": {
+    "id": "in",
+    "type": "port",
+    "name": "in",
+    "irl_x": -5,
+    "irl_y": 0,
+    "nets": { "P": "net_in" },
+    "attached_port": { "component_id": "straight_1", "port_name": "o1" }
+  },
+  "out": {
+    "id": "out",
+    "type": "port",
+    "name": "out",
+    "irl_x": 25,
+    "irl_y": 0,
+    "nets": {"P": "net_out"},
+    "attached_port": { "component_id": "straight_1", "port_name": "o2" }
+  }
+}

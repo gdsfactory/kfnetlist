@@ -51,8 +51,11 @@ port_decl: IDENT
 // ── Device / subcircuit instance ───────────────────────────────────────
 instance_stmt: IDENT token+ param_assign*
 
-token: SI_NUMBER -> token_number
-     | IDENT    -> token_ident
+token: SI_NUMBER  -> token_number
+     | QSTRING    -> token_expr
+     | PWL_FILE   -> token_func
+     | FUNC_CALL  -> token_func
+     | IDENT      -> token_ident
 
 // ── .model statement ───────────────────────────────────────────────────
 model_stmt: MODEL_KW IDENT IDENT param_assign*
@@ -150,13 +153,17 @@ sim_token: SI_NUMBER  -> token_number
 // ── Parameter assignment: name=value ───────────────────────────────────
 param_assign: IDENT "=" param_value
 ?param_value: SI_NUMBER  -> pvalue_number
+            | BRACE_EXPR -> pvalue_expr
             | IDENT      -> pvalue_ident
-            | QSTRING    -> pvalue_qstring
+            | QSTRING    -> pvalue_string
 
 // ── Terminals ──────────────────────────────────────────────────────────
 SI_NUMBER: /[+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?(?:meg|mil|x|[TtGgKkMmUuNnPpFfAa])?/
 OUTPUT_VAR: /[A-Za-z_]\w*\([^)]*\)/
+PWL_FILE.2: /PWL[ \t]+FILE[ \t]*=?[ \t]*("[^"]*"|'[^']*'|[^\s]+)/i  // `PWL FILE "w"`, LTspice `PWL file=w`
+FUNC_CALL: /[A-Za-z_]\w*[ \t]*\((?:[^()]|\([^()]*\))*\)/  // a source waveform: PULSE(0 1 {a*(b)}), PULSE (0 1)
 IDENT: /[A-Za-z_][A-Za-z0-9_.\[\]:!#]*/
+BRACE_EXPR: /\{[^}]+\}/
 QSTRING: /\"[^\"]*\"/ | /'[^']*'/
 FILE_PATH: /\"[^\"]*\"/ | /'[^']*'/ | /[^\s\"']+/
 

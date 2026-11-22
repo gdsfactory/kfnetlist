@@ -1,0 +1,127 @@
+{
+  "gc2:X1": {
+    "y": 1,
+    "bbox_xmin": 0,
+    "transform": [1, 0, 0, 1, 0, 0],
+    "bbox_ymin": -11.087,
+    "name": "X1",
+    "type": "ckt",
+    "bbox_width": 37.181,
+    "irl_x": 150,
+    "bbox_height": 22.174,
+    "nets": {"o1": "W1", "o2": "P1"},
+    "ports": [
+      {
+        "name": "o1",
+        "irl_rx": -18.5905,
+        "irl_ry": 0,
+        "orientation": 180,
+        "bendRadii": [10],
+        "port_type": "optical",
+        "width": 0.35000000000000003,
+        "cross_section": "wguide_rx_oband",
+        "layer": [2, 0],
+        "layer_name": "RX"
+      },
+      {
+        "name": "o2",
+        "irl_rx": -1.9904999999999973,
+        "irl_ry": 0,
+        "orientation": 0,
+        "bendRadii": [5],
+        "port_type": "electrical",
+        "width": 10,
+        "layer": [2, 0],
+        "layer_name": "RX"
+      }
+    ],
+    "x": 3,
+    "texture_key": "myspclo.gc.gc_00597a9d",
+    "irl_y": 50,
+    "model": "myspclo.gc.gc"
+  },
+  "gc2:X2": {
+    "y": 4,
+    "bbox_xmin": 0,
+    "transform": [1, 0, 0, 1, 0, 0],
+    "bbox_ymin": -11.087,
+    "name": "X2",
+    "type": "ckt",
+    "bbox_width": 37.181,
+    "irl_x": 150,
+    "bbox_height": 22.174,
+    "nets": {"o1": "W1", "o2": "P2"},
+    "ports": [
+      {
+        "name": "o1",
+        "irl_rx": -18.5905,
+        "irl_ry": 0,
+        "orientation": 180,
+        "bendRadii": [10],
+        "port_type": "optical",
+        "width": 0.35000000000000003,
+        "cross_section": "wguide_rx_oband",
+        "layer": [2, 0],
+        "layer_name": "RX"
+      },
+      {
+        "name": "o2",
+        "irl_rx": -1.9904999999999973,
+        "irl_ry": 0,
+        "orientation": 0,
+        "bendRadii": [5],
+        "port_type": "electrical",
+        "width": 10,
+        "layer": [2, 0],
+        "layer_name": "RX"
+      }
+    ],
+    "x": 3,
+    "texture_key": "myspclo.gc.gc_00597a9d",
+    "irl_y": 200,
+    "model": "myspclo.gc.gc"
+  },
+  "gc2:W1": {
+    "type": "wire",
+    "x": 3,
+    "y": 2,
+    "rx": 0,
+    "ry": 3,
+    "variant": "d",
+    "name": "W1",
+    "net": "W1"
+  },
+  "poly_1": {
+    "name": "poly_1",
+    "type": "polyline",
+    "terminals": {
+      "start": {"component_id": "gc2:X1", "port_name": "o1"},
+      "finish": {"component_id": "gc2:X2", "port_name": "o1"}
+    },
+    "vertices": [[131.41000366210938, 50], [95.34302520751953, 50], [95.34302520751953, 200], [131.41000366210938, 200]],
+    "cross_section": "wguide_rx_oband",
+    "layer": "RX",
+    "width": 0.35000000000000003,
+    "radius": 10
+  },
+  "gc2:P1": {
+    "transform": [-1, 0, 0, -1, 0, 0],
+    "type": "port",
+    "x": 5,
+    "y": 1,
+    "variant": "emitter",
+    "name": "P1",
+    "nets": {"P": "P1"},
+    "nature": "electric"
+  },
+  "gc2:P2": {
+    "transform": [-1, 0, 0, 1, 0, 0],
+    "type": "port",
+    "x": 5,
+    "y": 4,
+    "variant": "detector",
+    "name": "P2",
+    "nets": {"P": "P2"},
+    "nature": "electric"
+  }
+}

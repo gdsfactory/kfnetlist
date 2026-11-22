@@ -1,8 +1,18 @@
 from __future__ import annotations
 
 import re
+import warnings
+from collections.abc import Callable, Mapping, Sequence
 
-from kfnetlist.morphnet.morphnet_schema import ParameterValue, PrefixedValue, SIPrefix
+from kfnetlist.morphnet.morphnet_schema import (
+    Expression,
+    Macro,
+    Parameter,
+    ParameterValue,
+    PrefixedValue,
+    SIPrefix,
+    SubCircuit,
+)
 
 # ---------------------------------------------------------------------------
 # SI suffix ↔ SIPrefix enum — O(1) lookups in both directions
@@ -54,6 +64,85 @@ DEVICE_PREFIX_TO_CIRCUIT: dict[str, str] = {
     "I": "isource",
 }
 
+
+SPICE_LANGUAGES = ("spice", "ngspice", "xyce", "hspice")
+
+
+def macro_lines(
+    macros: Sequence[Macro],
+    accept: Mapping[str, tuple[str, str] | None],
+    comment: str,
+) -> list[str]:
+    """Bodies whose ``language`` is in ``accept``, verbatim (between the pair of
+    lines it maps to, if any); any other is a ``skipped macro`` comment and a
+    warning, never a silent drop."""
+    lines: list[str] = []
+    for m in macros:
+        if m.language.lower() not in accept:
+            note = f"skipped macro {m.name} ({m.language})"
+            warnings.warn(note, stacklevel=2)
+            lines.append(f"{comment} {note}")
+            continue
+        wrap = accept[m.language.lower()]
+        body = m.body.splitlines()
+        lines.extend([wrap[0], *body, wrap[1]] if wrap else body)
+    return lines
+
+
+def is_skipped(ref: SubCircuit) -> bool:
+    """Instances flagged ``sim_skip`` are kept in the IR but not simulated."""
+    return ref.properties.get("sim_skip") == "1"
+
+
+def param_text(
+    param: Parameter,
+    fmt: Callable[[ParameterValue], str],
+    dialect: str,
+    named: bool = True,
+    resolve: Callable[[str], Expression | None] | None = None,
+) -> str | None:
+    """Written value of a parameter: its expression printed for ``dialect`` (raw text
+    wrapped only when ``named``; references through ``resolve``), else its default
+    formatted by ``fmt``. None when there is nothing to write (no value, or an empty
+    expression)."""
+    from kfnetlist.morphnet.netlist.expression import format_expression  # a cycle
+
+    value = param.default_value
+    if value is None:
+        return None
+    if value.expression is not None:  # empty raw text or no node: nothing to write
+        text = format_expression(value.expression, dialect, resolve, named=named)
+        return text or None
+    return fmt(value)
+
+
+def sim_params(
+    ref: SubCircuit,
+) -> tuple[list[Parameter], Callable[[str], Expression | None]]:
+    """The params of ``ref`` a simulator sees, and the ``resolve`` that prints a
+    reference to one of its source props as that prop's value.
+
+    Source props (``properties["role"] == "source"``, e.g. a ``.gsch`` ``width``) are
+    what model expressions (``w = width * 1e-6``) read; they are not device params.
+    """
+    sources = {
+        p.name: p.default_value
+        for p in ref.parameters
+        if p.properties.get("role") == "source" and p.default_value is not None
+    }
+
+    def resolve(name: str) -> Expression | None:
+        value = sources.get(name)
+        if value is None or value.expression is not None:
+            return value.expression if value else None
+        if value.prefixed_value is not None:
+            return Expression(literal=value.prefixed_value)
+        return None
+
+    params = [p for p in ref.parameters if p.properties.get("role") != "source"]
+    return params, resolve
+
+
 # Deprecated name, kept for code written before the ExternalCircuit rename.
 DEVICE_PREFIX_TO_MODULE = DEVICE_PREFIX_TO_CIRCUIT
 
@@ -87,6 +176,34 @@ def parse_si_number(token: str) -> PrefixedValue:
         if prefix is None:
             raise ValueError(f"Unknown SI suffix: {suffix!r}")
     return PrefixedValue(double_value=value, prefix=prefix)
+
+
+# Verilog-A scale factors (LRM 2.6.2): case matters, `M` is mega and `m` milli.
+VERILOG_SCALE: dict[str, SIPrefix] = {
+    "T": SIPrefix.TERA, "G": SIPrefix.GIGA, "M": SIPrefix.MEGA, "K": SIPrefix.KILO,
+    "k": SIPrefix.KILO, "m": SIPrefix.MILLI, "u": SIPrefix.MICRO, "n": SIPrefix.NANO,
+    "p": SIPrefix.PICO, "f": SIPrefix.FEMTO, "a": SIPrefix.ATTO,
+}  # fmt: skip
+VERILOG_NUMBER_RE = re.compile(
+    r"([+-]?(?:\d+\.?\d*|\.\d+)(?:[eE][+-]?\d+)?)([TGMKkmunpfa])?"
+)
+
+
+def parse_verilog_number(token: str) -> ParameterValue | None:
+    """A Verilog-A number (``1M`` = 1e6, ``1m`` = 1e-3); None for anything else."""
+    m = VERILOG_NUMBER_RE.fullmatch(token)
+    if m is None:
+        return None
+    prefix = VERILOG_SCALE[m[2]] if m[2] else SIPrefix.UNSPECIFIED
+    return ParameterValue(
+        prefixed_value=PrefixedValue(double_value=float(m[1]), prefix=prefix)
+    )
+
+
+def format_verilog_value(pv: PrefixedValue) -> str:
+    """``pv`` with a Verilog-A scale factor: mega is ``M``, not SPICE's ``meg``."""
+    text = format_si_value(pv)
+    return f"{text[:-3]}M" if text.endswith("meg") else text
 
 
 def parse_parameter_number(token: str) -> ParameterValue:

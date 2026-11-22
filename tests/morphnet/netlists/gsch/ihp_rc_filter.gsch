@@ -1,0 +1,191 @@
+{
+  "demo:V1": {
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "type": "vsource",
+    "x": 2,
+    "y": 3,
+    "name": "V1",
+    "nets": {
+      "P": "W3",
+      "N": "GND"
+    },
+    "props": {
+      "dc": "1",
+      "ac": "1"
+    }
+  },
+  "demo:R1": {
+    "transform": [
+      0,
+      1,
+      -1,
+      0,
+      0,
+      0
+    ],
+    "type": "resistor",
+    "x": 4,
+    "y": 1,
+    "name": "R1",
+    "nets": {
+      "N": "W3",
+      "P": "P1"
+    },
+    "props": {
+      "resistance": "1k"
+    }
+  },
+  "demo:C1": {
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "type": "capacitor",
+    "x": 6,
+    "y": 3,
+    "name": "C1",
+    "nets": {
+      "N": "GND",
+      "P": "P1"
+    },
+    "props": {
+      "capacitance": "0.1u"
+    }
+  },
+  "demo:GND": {
+    "transform": [
+      0,
+      -1,
+      1,
+      0,
+      0,
+      0
+    ],
+    "type": "port",
+    "x": 5,
+    "y": 6,
+    "variant": "ground",
+    "name": "GND",
+    "nets": {
+      "P": "GND"
+    }
+  },
+  "demo:W1": {
+    "y": 5,
+    "rx": -2,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "variant": "vh",
+    "name": "W1",
+    "net": "GND",
+    "type": "wire",
+    "x": 7,
+    "ry": 1
+  },
+  "demo:W12": {
+    "type": "wire",
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "variant": "vh",
+    "x": 5,
+    "y": 6,
+    "rx": -2,
+    "ry": 0,
+    "net": "GND"
+  },
+  "demo:W2": {
+    "type": "wire",
+    "x": 3,
+    "y": 6,
+    "rx": 0,
+    "ry": -1,
+    "variant": "d",
+    "name": "W2",
+    "net": "GND"
+  },
+  "demo:W3": {
+    "y": 3,
+    "rx": 1,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "variant": "vh",
+    "name": "W3",
+    "net": "W3",
+    "type": "wire",
+    "x": 3,
+    "ry": -1
+  },
+  "demo:W39": {
+    "type": "wire",
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "variant": "vh",
+    "x": 6,
+    "y": 2,
+    "rx": 1,
+    "ry": 0,
+    "net": "P1"
+  },
+  "demo:W4": {
+    "type": "wire",
+    "x": 7,
+    "y": 2,
+    "rx": 0,
+    "ry": 1,
+    "variant": "d",
+    "name": "W4",
+    "net": "P1"
+  },
+  "demo:P1": {
+    "transform": [
+      0,
+      1,
+      -1,
+      0,
+      0,
+      0
+    ],
+    "type": "port",
+    "x": 7,
+    "y": 2,
+    "name": "P1",
+    "nets": {
+      "P": "P1"
+    }
+  }
+}

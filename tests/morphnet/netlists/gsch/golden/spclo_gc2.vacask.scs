@@ -1,0 +1,10 @@
+// schematic
+
+ground 0
+
+
+control
+  options temp=27 tnom=27 rawfile="binary"
+  save default
+  analysis op1 op
+endc

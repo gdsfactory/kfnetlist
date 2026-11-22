@@ -7,6 +7,8 @@
 //! YAML and netlist conversions operate on native Rust values throughout.
 mod convert;
 mod document;
+mod expression;
+pub mod paths;
 pub use document::{ArraySpec, CircuitDocument, NetlistDocument, SubCircuitDocument};
 
 #[deprecated(note = "renamed to NetlistDocument")]
@@ -42,19 +44,24 @@ struct ParameterValueWire {
     prefixed_value: Option<proto::PrefixedValue>,
     #[serde(skip_serializing_if = "Option::is_none")]
     model_ref: Option<proto::ModelReference>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    expression: Option<proto::Expression>,
 }
 impl TryFrom<ParameterValueWire> for proto::ParameterValue {
     type Error = Error;
     fn try_from(w: ParameterValueWire) -> Result<Self> {
         use proto::parameter_value::Value;
-        let value = match (w.prefixed_value, w.model_ref) {
-            (Some(_), Some(_)) => {
-                return Err(Error("ParameterValue accepts only one value".into()))
-            }
-            (Some(p), None) => Some(Value::PrefixedValue(p)),
-            (None, Some(m)) => Some(Value::ModelRef(m)),
-            (None, None) => None,
-        };
+        let mut values = [
+            w.prefixed_value.map(Value::PrefixedValue),
+            w.model_ref.map(Value::ModelRef),
+            w.expression.map(Value::Expression),
+        ]
+        .into_iter()
+        .flatten();
+        let value = values.next();
+        if values.next().is_some() {
+            return Err(Error("ParameterValue accepts only one value".into()));
+        }
         Ok(Self { value })
     }
 }
@@ -70,7 +77,71 @@ impl From<proto::ParameterValue> for ParameterValueWire {
                 model_ref: Some(m),
                 ..Self::default()
             },
+            Some(Value::Expression(e)) => Self {
+                expression: Some(e),
+                ..Self::default()
+            },
             None => Self::default(),
         }
+    }
+}
+
+// Expression's oneof is flat in JSON (`{"binary": {...}}`), as in protobuf JSON and
+// the pydantic mirror, rather than serde's `{"node": {"binary": {...}}}`.
+#[derive(Clone, Default, serde::Serialize, serde::Deserialize)]
+#[serde(default, deny_unknown_fields)]
+struct ExpressionWire {
+    #[serde(skip_serializing_if = "Option::is_none")]
+    literal: Option<proto::PrefixedValue>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    reference: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    unary: Option<Box<proto::UnaryOp>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    binary: Option<Box<proto::BinaryOp>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    call: Option<proto::Call>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    ternary: Option<Box<proto::Ternary>>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    raw: Option<String>,
+}
+impl TryFrom<ExpressionWire> for proto::Expression {
+    type Error = Error;
+    fn try_from(w: ExpressionWire) -> Result<Self> {
+        use proto::expression::Node;
+        let mut nodes = [
+            w.literal.map(Node::Literal),
+            w.reference.map(Node::Reference),
+            w.unary.map(Node::Unary),
+            w.binary.map(Node::Binary),
+            w.call.map(Node::Call),
+            w.ternary.map(Node::Ternary),
+            w.raw.map(Node::Raw),
+        ]
+        .into_iter()
+        .flatten();
+        let node = nodes.next();
+        if nodes.next().is_some() {
+            return Err(Error("Expression accepts only one node".into()));
+        }
+        Ok(Self { node })
+    }
+}
+impl From<proto::Expression> for ExpressionWire {
+    fn from(e: proto::Expression) -> Self {
+        use proto::expression::Node;
+        let mut w = Self::default();
+        match e.node {
+            Some(Node::Literal(v)) => w.literal = Some(v),
+            Some(Node::Reference(v)) => w.reference = Some(v),
+            Some(Node::Unary(v)) => w.unary = Some(v),
+            Some(Node::Binary(v)) => w.binary = Some(v),
+            Some(Node::Call(v)) => w.call = Some(v),
+            Some(Node::Ternary(v)) => w.ternary = Some(v),
+            Some(Node::Raw(v)) => w.raw = Some(v),
+            None => {}
+        }
+        w
     }
 }

@@ -1,0 +1,8 @@
+.title schematic
+.subckt rdiv a b
+R1 a b 1k
+R2 b 0 2k
+.ends rdiv
+VV1 in 0 DC 1
+XX1 in mid rdiv
+XX2 mid out rdiv

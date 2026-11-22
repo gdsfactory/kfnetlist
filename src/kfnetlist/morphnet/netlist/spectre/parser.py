@@ -36,5 +36,11 @@ class SpectreParser:
 
 
 def parse_spectre(text: str) -> Netlist:
-    """Parse Spectre netlist text into a Netlist model."""
+    """Parse Spectre netlist text into a Netlist model; ``simulator lang=spice``
+    sections (a SPICE subcircuit, inline model code) are read as SPICE."""
+    from kfnetlist.morphnet.netlist.spectre_spice.parser import SpectreSpiceParser
+    from kfnetlist.morphnet.netlist.spectre_spice.preprocess import SIMULATOR_LANG_RE
+
+    if any(SIMULATOR_LANG_RE.match(line) for line in text.splitlines()):
+        return SpectreSpiceParser.parse(text, language="spectre")
     return SpectreParser.parse(text)

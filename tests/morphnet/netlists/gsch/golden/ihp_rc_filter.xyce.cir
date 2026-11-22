@@ -1,0 +1,4 @@
+.title schematic
+VV1 W3 0 DC 1 AC 1
+RR1 P1 W3 1k
+CC1 P1 0 0.1u

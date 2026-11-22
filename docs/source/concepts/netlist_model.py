@@ -166,6 +166,26 @@ assert instances_a is not instances_b
 print("Properties return fresh snapshots ✓")
 
 # %% [markdown]
+# ## Directives and info
+#
+# Two more properties hold data the connectivity graph has no field for, such as
+# what a SPICE or `.gsch` netlist carries through the
+# [morphnet bridge](../morphnet/api-reference.md#bridge-to-kfnetlistnetlist):
+#
+# | Property | Type | Description |
+# |----------|------|-------------|
+# | `directives` | `list[dict[str, str]]` | File directives `{"kind", "name", "value"}` (`include`, `lib`, ...) |
+# | `info` | `dict[str, Any]` | Free-form metadata; morphnet data is under `info["__morphnet__"]` |
+#
+# Both are snapshots, assigned as a whole, and **excluded from equality**.
+
+# %%
+nl.directives = [{"kind": "include", "name": "", "value": "models.lib"}]
+nl.info = {"source": "example"}
+assert nl.directives[0]["value"] == "models.lib"
+assert nl == Netlist.from_json(nl.to_json())
+
+# %% [markdown]
 # ## Instance metadata
 #
 # Each instance has an `info` dictionary for JSON-compatible metadata. The same
@@ -192,7 +212,8 @@ assert Netlist.from_json(metadata_netlist.to_json()) == metadata_netlist
 # reconstruct it with `from_dict()`.
 #
 # Normalization preserves metadata values, including integer-valued floats.
-# Full instance and netlist equality includes metadata; `find_net_difference()`
+# Full instance and netlist equality includes metadata, except keys that start
+# with `__` (reserved for stashes such as `__morphnet__`); `find_net_difference()`
 # compares connectivity only. Flattening keeps the metadata of surviving and
 # promoted child instances. An eliminated parent's metadata is discarded, and
 # is not merged into its children.

@@ -11,8 +11,9 @@ from kfnetlist.morphnet.morphnet_schema import (
     Circuit,
     OutputRequest,
     Simulation,
+    Stimulus,
 )
-from kfnetlist.morphnet.netlist.spectre.parser import parse_spectre
+from kfnetlist.morphnet.netlist.spectre.parser import SpectreParser
 from kfnetlist.morphnet.netlist.spectre_spice.preprocess import preprocess_spectre_spice
 from kfnetlist.morphnet.netlist.spice.parser import parse_spice
 
@@ -25,8 +26,8 @@ class SpectreSpiceParser:
     """
 
     @classmethod
-    def parse(cls, text: str) -> Netlist:
-        sections = preprocess_spectre_spice(text)
+    def parse(cls, text: str, language: str = "spice") -> Netlist:
+        sections = preprocess_spectre_spice(text, language)
 
         all_circuits: list[Circuit] = []
         all_ext_circuits: dict[str, ExternalCircuit] = {}
@@ -35,6 +36,7 @@ class SpectreSpiceParser:
         all_output_requests: list[OutputRequest] = []
         all_measurements: list[Measurement] = []
         all_temperatures: list[float] = []
+        all_stimuli: list[Stimulus] = []
         ic_conditions: dict[str, str] = {}
         ns_conditions: dict[str, str] = {}
 
@@ -43,11 +45,17 @@ class SpectreSpiceParser:
             if not section.text.strip():
                 continue
             if section.language == "spectre":
-                netlist = parse_spectre(section.text)
+                netlist = SpectreParser.parse(section.text)
             else:
                 netlist = parse_spice(section.text)
 
-            all_circuits.extend(netlist.circuits)
+            for circuit in netlist.circuits:
+                top = next((c for c in all_circuits if c.name == circuit.name), None)
+                if circuit.name == "__top__" and top is not None:  # one deck
+                    top.subcircuits += circuit.subcircuits
+                    top.connections += circuit.connections
+                else:
+                    all_circuits.append(circuit)
             section_of.update((c.name, index) for c in netlist.circuits)
             for ext in netlist.ext_circuits:
                 all_ext_circuits[ext.name] = ext
@@ -58,6 +66,7 @@ class SpectreSpiceParser:
                 all_output_requests.extend(netlist.simulation.output_requests)
                 all_measurements.extend(netlist.simulation.measurements)
                 all_temperatures.extend(netlist.simulation.temperatures)
+                all_stimuli.extend(netlist.simulation.stimuli)
                 if netlist.simulation.initial_conditions:
                     ic_conditions.update(
                         netlist.simulation.initial_conditions.conditions
@@ -66,7 +75,8 @@ class SpectreSpiceParser:
                     ns_conditions.update(netlist.simulation.node_sets.conditions)
 
         resolve_cross_section_pins(all_circuits, section_of)
-        top_circuit = all_circuits[-1].name if all_circuits else ""
+        names = [c.name for c in all_circuits]
+        top_circuit = "__top__" if "__top__" in names else (names or [""])[-1]
 
         has_sim = (
             all_analyses
@@ -75,6 +85,7 @@ class SpectreSpiceParser:
             or ic_conditions
             or ns_conditions
             or all_temperatures
+            or all_stimuli
         )
         simulation: Simulation | None = None
         if has_sim:
@@ -93,6 +104,7 @@ class SpectreSpiceParser:
                     else None
                 ),
                 temperatures=all_temperatures,
+                stimuli=all_stimuli,
             )
 
         return Netlist(

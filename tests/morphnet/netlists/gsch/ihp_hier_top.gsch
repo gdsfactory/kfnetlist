@@ -1,0 +1,343 @@
+{
+  "top:V1": {
+    "type": "vsource",
+    "x": 0,
+    "y": 2,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "V1",
+    "nets": {
+      "P": "vin",
+      "N": "GND"
+    },
+    "props": {
+      "dc": "0.9",
+      "tran": {
+        "type": "pulse",
+        "initial": "0",
+        "pulsed": "1.8",
+        "delay": "1n",
+        "rise": "10p",
+        "fall": "10p",
+        "width": "1n",
+        "period": "2n"
+      }
+    }
+  },
+  "top:V2": {
+    "type": "vsource",
+    "x": 0,
+    "y": 6,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "V2",
+    "nets": {
+      "P": "vdd",
+      "N": "GND"
+    },
+    "props": {
+      "dc": "1.8"
+    }
+  },
+  "top:I1": {
+    "type": "isource",
+    "x": 4,
+    "y": 6,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "I1",
+    "nets": {
+      "P": "vdd",
+      "N": "bias"
+    },
+    "props": {
+      "dc": "1m",
+      "ac": "1",
+      "tran": {
+        "type": "sin",
+        "offset": "1m",
+        "amplitude": "0.5m",
+        "frequency": "1meg"
+      }
+    }
+  },
+  "top:X1": {
+    "type": "ckt",
+    "x": 4,
+    "y": 2,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "X1",
+    "nets": {
+      "in": "vin",
+      "out": "vout",
+      "vdd": "vdd"
+    },
+    "props": {
+      "rload": "2k"
+    },
+    "model": "ihp_hier_cell.gsch"
+  },
+  "top:X2": {
+    "type": "ckt",
+    "x": 8,
+    "y": 2,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "X2",
+    "nets": {
+      "in": "vout",
+      "out": "vout2",
+      "vdd": "vdd"
+    },
+    "props": {},
+    "model": "ihp_hier_cell.gsch"
+  },
+  "top:M2": {
+    "type": "pmos",
+    "x": 8,
+    "y": 6,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "M2",
+    "nets": {
+      "D": "vout2",
+      "G": "vout",
+      "S": "vdd",
+      "B": "vdd"
+    },
+    "props": {
+      "width": 0.5,
+      "length": 0.13,
+      "nf": 1,
+      "m": 2,
+      "model": "sg13_lv_pmos"
+    },
+    "model": "ihp.cells.fet_transistors.pmos"
+  },
+  "top:M3": {
+    "type": "nmos",
+    "x": 12,
+    "y": 6,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "M3",
+    "nets": {
+      "D": "bias",
+      "G": "bias",
+      "S": "GND",
+      "B": "GND"
+    },
+    "props": {
+      "width": 2,
+      "length": 0.5
+    },
+    "model": "pdk.mprim"
+  },
+  "top:L1": {
+    "type": "inductor",
+    "x": 12,
+    "y": 2,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "L1",
+    "nets": {
+      "P": "vout2",
+      "N": "GND"
+    },
+    "props": {
+      "inductance": "1n"
+    }
+  },
+  "top:C1": {
+    "type": "capacitor",
+    "x": 14,
+    "y": 2,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "C1",
+    "nets": {
+      "P": "vout",
+      "N": "GND"
+    },
+    "props": {
+      "capacitance": "10f"
+    }
+  },
+  "top:LED1": {
+    "type": "led",
+    "x": 16,
+    "y": 2,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "LED1",
+    "nets": {
+      "P": "vout2",
+      "N": "GND"
+    },
+    "props": {}
+  },
+  "top:M4": {
+    "type": "nmos",
+    "x": 12,
+    "y": 9,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "M4",
+    "nets": {
+      "D": "vout2",
+      "G": "vin",
+      "S": "GND"
+    },
+    "props": {
+      "model": "nch",
+      "w": "1u"
+    }
+  },
+  "top:Q1": {
+    "type": "npn",
+    "x": 16,
+    "y": 6,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "Q1",
+    "nets": {
+      "C": "vdd",
+      "B": "vout",
+      "E": "GND"
+    },
+    "props": {
+      "model": "qnpn"
+    }
+  },
+  "top:D1": {
+    "type": "diode",
+    "x": 16,
+    "y": 9,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "D1",
+    "nets": {
+      "P": "GND",
+      "N": "vout2"
+    },
+    "props": {
+      "model": "dmod"
+    }
+  },
+  "top:vout": {
+    "type": "port",
+    "x": 10,
+    "y": 0,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "vout",
+    "nets": {
+      "P": "vout"
+    },
+    "nature": "electric"
+  },
+  "top:GND": {
+    "type": "port",
+    "x": 6,
+    "y": 9,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "name": "GND",
+    "nets": {
+      "P": "GND"
+    },
+    "variant": "ground",
+    "nature": "electric"
+  }
+}

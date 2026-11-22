@@ -220,6 +220,7 @@ fn validate_hierarchy(netlists: &Bound<'_, PyAny>) -> PyResult<()> {
                     instances: data.instances,
                     ports: data.ports,
                     nets: data.nets,
+                    ..Default::default()
                 },
             )
         })

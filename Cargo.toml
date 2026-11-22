@@ -8,14 +8,15 @@ default-members = ["crates/kfnetlist-core"]
 resolver = "2"
 
 [workspace.package]
-version = "0.4.1"
+version = "0.5.0"
 edition = "2021"
 license = "Apache-2.0"
 repository = "https://github.com/gdsfactory/kfnetlist"
 
 [workspace.dependencies]
 serde = { version = "1", features = ["derive"] }
-serde_json = "1"
+# float_roundtrip: parse floats exactly (the bridge and .gsch stashes round-trip JSON)
+serde_json = { version = "1", features = ["float_roundtrip"] }
 indexmap = { version = "2", features = ["serde"] }
 
 [profile.release]

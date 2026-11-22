@@ -16,14 +16,17 @@ class SpectreSpiceSection:
     text: str
 
 
-def preprocess_spectre_spice(text: str) -> list[SpectreSpiceSection]:
+def preprocess_spectre_spice(
+    text: str, language: str = "spice"
+) -> list[SpectreSpiceSection]:
     """Split a Spectre-SPICE file into sections by language mode.
 
-    Default mode is 'spice'. Lines matching 'simulator lang=spectre'
-    or 'simulator lang=spice' switch the mode.
+    The file starts in ``language`` ('spice' for a Spectre-SPICE file, 'spectre'
+    for a Spectre one). Lines matching 'simulator lang=spectre' or
+    'simulator lang=spice' switch the mode.
     """
     sections: list[SpectreSpiceSection] = []
-    current_lang = "spice"
+    current_lang = language
     current_lines: list[str] = []
 
     for line in text.splitlines():

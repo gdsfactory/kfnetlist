@@ -21,10 +21,12 @@ Netlist
 │   │   └── name, circuit_name, class_name, parameters
 │   ├── connections: list[Connection]
 │   ├── buses: list[Bus]
-│   └── directives: list[Directive]
+│   ├── directives: list[Directive]
+│   └── macros: list[Macro]                        # verbatim blocks inside the circuit
 ├── ext_circuits: list[ExternalCircuit]            # body-less definitions (resistor, mosfet, PDK cells)
 ├── directives: list[Directive]                    # .include, .lib, .param, ...
 ├── libraries: dict[str, ExternalLibrary]
+├── macros: list[Macro]                            # verbatim blocks (nyanlib inline code)
 └── simulation: Simulation | None                  # analyses, output requests, measurements
 ```
 

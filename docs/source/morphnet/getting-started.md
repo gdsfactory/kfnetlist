@@ -109,6 +109,7 @@ src/kfnetlist/morphnet/
     hspice/            # HSPICE parser, writer, transformer, preprocessor
     spectre/           # Spectre parser, writer, transformer, preprocessor
     spectre_spice/     # Spectre-SPICE parser, writer, preprocessor
+    gsch/              # gsch (gdsfactory+ schematic) parser, writer, simulation view
     spice/             # Generic SPICE parser, writer, transformer, preprocessor
     systemverilog/     # SystemVerilog parser, writer, transformer, preprocessor
     vams/              # Verilog-AMS parser, writer, transformer, preprocessor

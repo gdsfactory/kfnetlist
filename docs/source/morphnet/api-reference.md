@@ -90,6 +90,179 @@ as text in `behavioral_block_N` circuit properties.
 Write a `Netlist` as structural SystemVerilog with ANSI headers and named
 connections. Values are written as plain numbers (SystemVerilog has no SI suffixes).
 
+### GSCH
+
+gdsfactory+ schematics (`.gsch`) are the JSON files written by Mosaic (electrical)
+and Livewire (photonic). They are a flat `{key: entry}` map, so there is no Lark
+grammar. Everything the `Netlist` has no field for (positions, wires, polylines,
+port markers) is stashed as raw JSON, so `write_gsch` restores it.
+
+#### `parse_gsch(text, *, models=None, sim="ngspice", corners=(), name=None) -> Netlist`
+
+Parse `.gsch` JSON text into a `Netlist` with one circuit, the schematic. Exposed
+port markers are the circuit's ports, and the net `GND` is ground.
+
+- `models` is the nyanlib mapping `{"models:<fqn>": {...}}` (the content of
+  `models.nyanlib`). An inline top-level `"models"` key in the file is merged
+  under it.
+- `sim` is `"ngspice"`, `"xyce"` or `"vacask"` (case-insensitive; anything else
+  raises `ValueError`). It picks the model entry of each device: the entry whose
+  `implementation` equals `sim`, else the first one in the simulator's native
+  language (SPICE for ngspice and Xyce, Spectre for VACASK), else, under VACASK,
+  a SPICE library that VACASK loads as foreign (`lang=ngspice` or `lang=xyce`).
+  Devices nyancad would not netlist (no Mosaic `nets`, or no model to netlist)
+  stay in the circuit with the instance property `sim_skip="1"`. The SPICE and
+  Spectre writers skip such instances; `write_gsch` still writes them.
+- `corners` is a section name or a sequence of them. Each library takes the first
+  of `corners` it has, else its own first section.
+- `name` is the circuit name. It defaults to `__top__`, which the writers write
+  flat, without a `.subckt` wrapper.
+
+Model libraries become directives on the netlist: a library with sections is a
+`LIB` (`.lib path section`), one without is an `INCLUDE` (`.include path`).
+The SPICE writers put them at the top of the exported netlist, and the Spectre
+writer writes `include "path" section=<section>` (plus `lang=<dialect>` for a SPICE
+library loaded by VACASK).
+
+```python
+from kfnetlist.morphnet.netlist import parse_gsch, write_spice
+
+netlist = parse_gsch(text, models=models, sim="ngspice", corners=["tt"])
+print(write_spice(netlist))
+```
+
+#### `read_gsch(path, *, project_root=None, models=None, sim="ngspice", corners=()) -> Netlist`
+
+Read a `.gsch` file and the `.gsch` schematics its devices instantiate. Only
+wired devices (with Mosaic `nets`) whose `model` ends in `.gsch` and is not a
+library model (no nyanlib `models` entries) are followed, as in nyancad. Each such
+child, resolved against `project_root` (which defaults to the file's directory),
+becomes a subcircuit named by its nyanlib `name`, else the file stem. Its ports,
+sorted by name, are the pins and its prop defaults are the header parameters. A
+missing child file, or two children with the same circuit name, raise
+`ValueError` with the path. When `models` is `None`, the project's
+`build/models.nyanlib` is read, else `models.nyanlib`. The libraries of the whole
+hierarchy are gathered on the netlist, top first.
+
+#### `write_gsch(netlist: Netlist) -> str`
+
+Write the top circuit of a `Netlist` as `.gsch` JSON text. Instances and port
+markers parsed from a `.gsch` keep their keys and layout fields; the others get
+`type`, `name`, `x` and `y` on a grid. Wires, `net`/`via`/`taper` entries and
+polylines whose endpoints survive are restored. An unedited
+`write_gsch(parse_gsch(text, models=...))` is JSON-equal to `text`: device pins
+keep their spelling (`A`/`B`, not SPICE's `p`/`n`), and a MOS bulk the parser
+tied to ground is not written unless it was moved to another net.
+
+#### Scope of the simulation export
+
+The export follows nyancad's netlister (`nyancad/netlist.py` in gdsfactoryplus):
+model selection, pin order, parameter expressions, sources and waveforms, and the
+library includes. It writes the **circuit netlist**, not the simulator scaffolding
+(title, `.end`, analysis and `control` cards, VACASK `load *.osdi` and model
+cards). Pass the result to your own simulator deck.
+
+Remaining differences from nyancad's output:
+
+- Element names: the SPICE writer adds the device letter only when it is missing
+  (`R1`, where InSpice writes `RR1`); the VACASK writer adds none (`m1`, where
+  InSpice writes `xm1`).
+- Numbers keep the user's text (`1n`, `1meg`); InSpice writes floats with units
+  (`1e-09s`). The values are the same.
+- Xyce netlists use `PARAMS:` on subcircuit headers and X calls. VACASK
+  subcircuit parameters go on a `parameters` line in the body, as in nyancad.
+- Scaffolding: the VACASK output starts with `ground 0`, which nyancad also
+  writes; the other scaffolding (title, `load`/`model` cards, `control`) is not
+  written.
+- InSpice raises on parameters an element class does not know (for example
+  `width=` on a built-in `nmos`); morphnet writes them through.
+- Libraries are ordered top circuit first, then its children in device order;
+  nyancad sorts by model key. The set is the same. With several matching corners
+  the first one in the caller's order wins.
+- Instances without a `name` keep their key, with its `:`.
+- InSpice's element-class filtering is not mirrored: all parameters pass through,
+  including ones VACASK has no name for.
+- Source edge cases: values use the morphnet SI syntax, and a missing required
+  pulse or exponential field raises `ValueError`.
+- Unknown `spice-type` letters are called like subcircuits (`X`).
+- Fixtures where nyancad crashes still netlist, with `nc_<instance>_<pin>` nodes for open pins.
+
+#### Parameters and write-back
+
+`parse_gsch` gives each device the parameters of the simulation view:
+
+- **Source** (`properties["role"] == "source"`): an entry prop merged with its
+  model's prop defaults. A source param is **editable**: `write_gsch` writes its
+  value back to the entry's `props`, and the SPICE, Spectre, VACASK, SystemVerilog
+  and Verilog-AMS writers leave it out of the device parameters and print its value
+  where a derived parameter refers to it.
+- **Derived**: a model `params` entry, an `Expression` over the source props
+  (`w = width * 1e-6`). Not written to `props`.
+- **Computed**: a value the simulation code works out from the props (`$mfactor`), and a model param named like the prop it reads
+  (`w = w * 2`), which is one param holding the substituted value. Any other
+  model param that reads that prop (`ad = w * 0.5`) holds its substituted value
+  too, since `w` then names the device param.
+- **Defaults**: model prop defaults the entry does not set. They are written back
+  only once edited.
+
+A V/I source has no parameters: its `dc`, `ac` and `tran` props become a
+`Stimulus` (above). `write_gsch` writes an edited stimulus back to those props.
+
+An edit to a derived or computed param makes `write_gsch` raise `ValueError`
+naming the props to edit, for example `M1: 'w' is derived from model expression
+'width * 1e-6'; edit 'width' instead`. An unedited param is not an error.
+
+#### Known limits
+
+- Props removed from a simulated instance are not written back by `write_gsch`.
+- A file written from a non-gsch source has no Mosaic wires. Mosaic recomputes
+  `nets` on the first edit; Livewire keeps them.
+- Restored Mosaic `wire` entries are written as parsed. Mosaic recomputes `nets`
+  from the wires on its first edit, so a connectivity edit made through the IR
+  can be undone when the old wires still join the old pins.
+- Through the kfnetlist bridge, the key order inside `.gsch` entries is not
+  preserved: `write_gsch` output after `from_netlists(to_netlists(nl))` is
+  JSON-equal to the output for `nl`, not text-equal.
+- Inline nyanlib `code` blocks become `Netlist.macros`; equal blocks appear once
+  across the hierarchy. A writer that cannot take the block's language (VACASK, SPICE
+  writers for a `spectre` block, ...) writes a `skipped macro <name> (<language>)`
+  comment and warns.
+- An unconnected pin is written on its own node, `nc_<instance>_<pin>` (the
+  instance as written, `XA` for SPICE); parsers drop a one-pin net named
+  `nc_<instance>_...` on that instance, so it reads back unconnected. A one-pin
+  net with any other name is kept.
+
+---
+
+## Bridge to `kfnetlist.Netlist`
+
+`morphnet.to_netlists()` and `morphnet.from_netlists()` are lossless: what
+`kfnetlist.Netlist` has no field for travels in two properties, so
+`from_netlists(to_netlists(nl))` writes the same text as `nl`.
+
+| Property | Type | Description |
+|---|---|---|
+| `Netlist.directives` | `list[dict[str, str]]` | File directives `{"kind", "name", "value"}`; `kind` is one of `include`, `lib`, `global`, `option`, `param`, `define`, `timescale` |
+| `Netlist.info` | `dict[str, Any]` | Free-form metadata; morphnet data with no kfnetlist counterpart is under `info["__morphnet__"]` |
+
+Both return fresh snapshots, like `instances`, `nets` and `ports`. They are
+**excluded from equality**, so LVS comparisons ignore them. Instance `info` keys
+that start with `__` (such as `__morphnet__`) are likewise excluded from instance
+equality.
+
+The document header (`name`, `properties`, `ext_circuits`, `libraries`,
+`simulation`) is stored on every cell, so `from_netlists()` of any subset of the
+cells, or with another `toplevel`, keeps it. Cells from several documents take the
+toplevel's header plus the external circuits it lacks, by name.
+
+An expression parameter is a string setting holding its canonical text (`2 * l`);
+its tree rides in the instance's `info["__morphnet__"]`. Unchanged text restores
+the tree; edited text is parsed again (`raw` when it does not parse). Any other
+string or bool setting becomes a `raw` expression kept verbatim (`nch-lvt`,
+`true`).
+`CircuitDocument.net_names` and `CircuitDocument.directives` expose net names and
+directives on the document side.
+
 ---
 
 ## kfnetlist.morphnet.morphnet_schema — Data Models
@@ -114,9 +287,9 @@ Base class for all kfnetlist.morphnet data models. Extends `pydantic.BaseModel` 
 | `to_proto_bytes() -> bytes` | Serialize to binary protobuf |
 | `from_proto_bytes(data: bytes) -> Self` | Deserialize from binary protobuf (classmethod) |
 | `from_proto(msg: ProtoMessage) -> Self` | Convert from a protobuf Message (classmethod) |
-| `to_json(**kwargs) -> str` | Serialize to JSON string |
+| `to_json(**kwargs) -> str` | Serialize to JSON string (unset fields and empty `macros` left out, as in Rust) |
 | `from_json(json_str: str) -> Self` | Deserialize from JSON string (classmethod) |
-| `to_yaml(**kwargs) -> str` | Serialize to YAML string |
+| `to_yaml(**kwargs) -> str` | Serialize to YAML string (same keys as `to_json`) |
 | `from_yaml(yaml_str: str) -> Self` | Deserialize from YAML string (classmethod) |
 | `model_copy(update={...})` | Create a modified copy (inherited from Pydantic) |
 
@@ -136,6 +309,7 @@ Top-level container: circuit definitions, external circuits, directives and simu
 | `directives` | `directives` | `list[Directive]` | Include, lib, param directives |
 | `simulation` | `simulation` | `Simulation \| None` | Simulation configuration |
 | `libraries` | `libraries` | `dict[str, ExternalLibrary]` | External model libraries by name |
+| `macros` | `macros` | `list[Macro]` | Verbatim blocks, written after the directives |
 
 #### `Circuit`
 
@@ -153,6 +327,7 @@ A circuit definition: ports, parameters, subcircuit instances and connections.
 | `buses` | `buses` | `list[Bus]` | Bus definitions |
 | `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
 | `directives` | `directives` | `list[Directive]` | Circuit-level directives |
+| `macros` | `macros` | `list[Macro]` | Verbatim blocks, written inside the circuit |
 
 #### `ExternalCircuit`
 
@@ -245,6 +420,43 @@ A oneof value — exactly one field should be set:
 |---|---|---|---|
 | `prefixed_value` | `prefixed_value` | `PrefixedValue \| None` | SI-prefixed numeric value |
 | `model_ref` | `model_ref` | `ModelReference \| None` | Reference to a model |
+| `expression` | `expression` | `Expression \| None` | Expression tree or raw text |
+
+#### `Expression`
+
+A oneof, exactly one field set. JSON and YAML name the set field directly
+(`{"binary": {"op": 3, "lhs": ..., "rhs": ...}}`), in Python and Rust alike:
+
+| Field | Type | Description |
+|---|---|---|
+| `literal` | `PrefixedValue` | A number |
+| `reference` | `str` | A parameter name (may contain `$`) |
+| `unary` | `UnaryOp` | `op` (`-` or `!`) and `operand` |
+| `binary` | `BinaryOp` | `op` (`+ - * / % ** == != < <= > >= && \|\|`), `lhs`, `rhs` |
+| `call` | `Call` | `name` and `args` |
+| `ternary` | `Ternary` | `cond`, `then`, `otherwise` |
+| `raw` | `str` | Text no grammar parsed, kept verbatim |
+
+`parse_expression(text) -> Expression` and `format_expression(expr, dialect,
+resolve=None, *, named=False) -> str` live in
+`kfnetlist.morphnet.netlist.expression`. `parse_expression` strips one outer `{}`
+or `'...'`, never raises, and returns `Expression(raw=text)` when the text does not
+parse. `^` is not in the grammar (it is XOR in SystemVerilog), so text with `^`
+stays raw. `format_expression` prints the canonical form (`2 * x`) and wraps a
+compound expression per dialect; `resolve(name)` substitutes a reference. An
+unknown dialect raises `ValueError`.
+
+| Dialect | Wrapping | Example |
+|---|---|---|
+| `ngspice`, `xyce` | `{...}` | `{2 * x}` |
+| `hspice` | `'...'` | `'2 * x'` |
+| `spectre`, `vacask`, `systemverilog`, `vams`, `gsch` | bare | `2 * x` |
+
+A number or a bare name is never wrapped. Raw text is wrapped only when
+`named=True` (the value of a `k=v` parameter) and it is not already wrapped, so
+`x^2` becomes `{x^2}` in `k=v` position; a positional value such as `DC 1 AC 1`
+stays verbatim. `parameter_value(text)` and `value_text(pval, dialect)` in the
+same module build a `ParameterValue` from text and print one as `k=v` text.
 
 #### `PrefixedValue`
 
@@ -279,6 +491,30 @@ A oneof value — exactly one field should be set:
 | `name` | `name` | `str` | Directive name/key |
 | `value` | `value` | `str` | Directive value |
 
+#### `Macro`
+
+A multi-line block in one simulator language, written verbatim where the writer's
+dialect accepts that language: SPICE writers take `spice`, `ngspice`, `xyce` and
+`hspice`; Spectre takes `spectre` and wraps SPICE bodies in `simulator lang=spice`
+/ `simulator lang=spectre`; SystemVerilog takes `systemverilog` and `verilog`;
+Verilog-AMS takes `verilog-ams`, `verilog-a` and `vams`. Any other block is a
+`skipped macro <name> (<language>)` comment (`*` in SPICE, `//` elsewhere) plus a
+warning, so a macro is never dropped silently. The VACASK writer
+takes none, not even `spectre`: every macro is skipped, as nyancad drops them.
+
+`parse_gsch` reads a macro from a nyanlib model entry's inline `code` (language
+`spice` when the entry names none, as nyancad injects it). Equal macros (name,
+language, body) appear once across the hierarchy; a block with the name of another
+but different code is kept as well, with a warning. The kfnetlist bridge merges
+cells' macros the same way. `write_gsch` does not write macros back. A netlist's macros come after its directives; a circuit's inside it.
+
+| Field | Schema name | Type | Description |
+|---|---|---|---|
+| `name` | `name` | `str` | Macro name (a nyanlib model entry name) |
+| `language` | `language` | `str` | Language of the body (`spice`, `spectre`, ...) |
+| `body` | `body` | `str` | The block, written as is |
+| `properties` | `properties` | `dict[str, str]` | Arbitrary properties |
+
 ### Simulation Models
 
 #### `Simulation`
@@ -291,7 +527,75 @@ A oneof value — exactly one field should be set:
 | `initial_conditions` | `initial_conditions` | `InitialCondition \| None` | Initial conditions |
 | `node_sets` | `node_sets` | `InitialCondition \| None` | Node sets |
 | `temperatures` | `temperatures` | `list[float]` | Temperature list |
+| `stimuli` | `stimuli` | `list[Stimulus]` | What drives each V/I source |
 | `options` | `options` | `dict[str, str]` | Simulation options |
+
+#### `Stimulus` and `Waveform`
+
+A V/I source element names its stimulus in `properties["stimulus"]`
+(`"<circuit>/<instance>"`); `stimulus_of(netlist, ref)` in
+`kfnetlist.morphnet.netlist.stimulus` finds it. Values are `ParameterValue`s, so a
+source reading a parameter (`DC {vdd/2}`) keeps its expression.
+
+| Field | Type | Description |
+|---|---|---|
+| `Stimulus.name` | `str` | `"<circuit>/<instance>"` |
+| `Stimulus.dc` / `ac_magnitude` / `ac_phase` | `ParameterValue \| None` | DC value, AC magnitude and phase |
+| `Stimulus.waveform` | `Waveform \| None` | Transient shape |
+| `Waveform.kind` | `WaveformKind` | `PULSE`, `SIN`, `EXP`, `SFFM`, `PWL` |
+| `Waveform.args` | `dict[str, ParameterValue]` | SPICE semantics, Spectre names: pulse `val0 val1 delay rise fall width period`; sin `sinedc ampl freq delay theta`; exp `val0 val1 delay tau1 td2 tau2` (`td2` from time 0); sffm `sinedc ampl freq modindex modfreq` |
+| `Waveform.points` | `list[ParameterValue]` | PWL `t0 v0 t1 v1 ...` |
+| `Waveform.file` | `Path \| None` | PWL from a file instead of `points` (stored POSIX; see **File paths**) |
+
+Every parser reads its language's own source syntax into a stimulus, and every
+writer writes it back:
+
+| Language | Native form |
+|---|---|
+| ngspice, HSPICE, Xyce, Spectre-SPICE | `V1 a 0 DC 0.9 AC 1 0 PULSE(0 1.8 1n 10p 10p 1n 2n)` (a lone value is the DC value; a param name is braced, `{vdd}`) |
+| Spectre | `V1 (a 0) vsource dc=0.9 mag=1 type=pulse val0=0 ...` |
+| VACASK | the Spectre form with InSpice's spelling: quoted `type`, no zero `delay`/`theta`, no `rise <= 0`, `td2` from the delay |
+| Verilog-A/AMS, SystemVerilog | Verilog-AMS LRM Annex E Table E.1 primitives: `vpulse #(.dc(0.9), .val0(0), .td(1n))`; `vsine`/`vexp`/`vpwl` (`i*` for current); a DC/AC source is `vsine #(.dc(..))` (LRM E.2.2.3). Names map `delay`→`td`, `sinedc`→`offset`, `theta`→`damp`, exp `delay tau1 td2 tau2`→`td0 tau0 td1 tau1`, sffm → `vsine` `fmmodindex fmmodfreq`, PWL → `wave` `'{t0, v0, ...}`. SystemVerilog numbers have no SI suffix. |
+
+PWL, inline and from a file (Cadence `vpwlf`/`ipwlf`):
+
+| Language | Inline | From a file |
+|---|---|---|
+| ngspice, HSPICE, Xyce, Spectre-SPICE | `PWL(0 0 1n 1.8)` | `PWL FILE "w.txt"` (native in Xyce) |
+| Spectre, VACASK | `type=pwl wave=[0 0 1n 1.8]` | `type=pwl file="w.txt"` |
+| Verilog-A, SystemVerilog | `vpwl #(.wave('{0, 0, 1n, 1.8}))` | `(* pwl_file = "w.txt" *) vpwl V1 (...)` |
+
+Every SPICE grammar reads a source function with a space before `(`
+(`PULSE (0 1 ...)`).
+
+#### File paths
+
+`kfnetlist.morphnet.netlist.paths` and the Rust `kfnetlist_schema::paths` give the
+same answers on every OS (one shared case table tests both):
+
+- `posix_file(path)`: the stored form, POSIX separators, `.`/`..` resolved
+  (`data\w.txt` → `data/w.txt`).
+- `is_absolute(path)`: `/x`, `C:/x`, `C:\x`, `C:x` (a drive letter is that
+  drive's root), `\\server\share\x` on every host. `..` never climbs above a
+  root: `\\srv\share\..\w.txt` → `//srv/share/w.txt`, `C:..\w.txt` →
+  `C:/w.txt`, `///x` → `/x`.
+- `resolve_file(path, base=None)`: `path` joined to `base` when relative, in the
+  stored form; a `pathlib.Path` in Python, a `String` in Rust. Lexical only: no
+  filesystem access, no symlinks.
+
+Verilog-A has no analysis, option, temperature or save statements; those
+`Simulation` fields are not written to it. Its native forms that are read and
+written:
+
+- **Nodesets**: a top-module net initializer `electrical b = 5.0;` (LRM §3.6.3.2)
+  is `node_sets.conditions["V(b)"]`.
+- **Device models**: a `.model` device is called by its model name, with an empty
+  `paramset <model> <primitive>; endparamset` (LRM §7.5) so a reader knows its kind
+  and pins.
+- **What it cannot say** rides in attributes (IEEE 1364 §3.8) of the module:
+  `(* spice_lib = "path section\n..." *)` for SPICE libraries and
+  `(* spice_code = "<json>" *)` / `(* spice_module_code = "<json>" *)` for inline
+  code in another language, on the top module and on each module.
 
 #### `Analysis`
 

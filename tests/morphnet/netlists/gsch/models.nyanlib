@@ -1,0 +1,402 @@
+{
+  "models:ihp.cells.fet_transistors.nmos": {
+    "name": "nmos",
+    "type": "nmos",
+    "ports": [
+      {
+        "name": "D",
+        "side": "top",
+        "type": "electric"
+      },
+      {
+        "name": "S",
+        "side": "bottom",
+        "type": "electric"
+      },
+      {
+        "name": "G",
+        "side": "left",
+        "type": "electric"
+      },
+      {
+        "name": "B",
+        "side": "right",
+        "type": "electric"
+      }
+    ],
+    "models": [
+      {
+        "implementation": "NgSpice",
+        "language": "spice",
+        "library": "ihp/models/ngspice/models/cornerMOSlv.lib",
+        "name": "sg13_lv_nmos",
+        "params": {
+          "l": "length * 1e-6",
+          "m": "m",
+          "ng": "nf",
+          "w": "width * 1e-6"
+        },
+        "port-order": [
+          "D",
+          "G",
+          "S",
+          "B"
+        ],
+        "sections": [
+          "mos_tt",
+          "mos_ss",
+          "mos_ff",
+          "mos_sf",
+          "mos_fs"
+        ],
+        "spice-type": "SUBCKT"
+      },
+      {
+        "implementation": "VACASK",
+        "language": "spectre",
+        "library": "ihp/models/vacask/models/cornerMOSlv.lib",
+        "name": "sg13_lv_nmos",
+        "params": {
+          "l": "length * 1e-6",
+          "m": "m",
+          "ng": "nf",
+          "w": "width * 1e-6"
+        },
+        "port-order": [
+          "D",
+          "G",
+          "S",
+          "B"
+        ],
+        "sections": [
+          "mos_tt",
+          "mos_ss",
+          "mos_ff",
+          "mos_sf",
+          "mos_fs"
+        ],
+        "spice-type": "SUBCKT"
+      }
+    ],
+    "props": [
+      {
+        "name": "width",
+        "tooltip": "float",
+        "default": 0.15,
+        "schema": {
+          "type": "number"
+        }
+      },
+      {
+        "name": "length",
+        "tooltip": "float",
+        "default": 0.13,
+        "schema": {
+          "type": "number"
+        }
+      },
+      {
+        "name": "nf",
+        "tooltip": "int",
+        "default": 1,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      {
+        "name": "m",
+        "tooltip": "int",
+        "default": 1,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      {
+        "name": "model",
+        "tooltip": "str",
+        "default": "sg13_lv_nmos",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ]
+  },
+  "models:ihp.cells.fet_transistors.pmos": {
+    "name": "pmos",
+    "type": "pmos",
+    "ports": [
+      {
+        "name": "D",
+        "side": "top",
+        "type": "electric"
+      },
+      {
+        "name": "S",
+        "side": "bottom",
+        "type": "electric"
+      },
+      {
+        "name": "G",
+        "side": "left",
+        "type": "electric"
+      },
+      {
+        "name": "B",
+        "side": "right",
+        "type": "electric"
+      }
+    ],
+    "models": [
+      {
+        "implementation": "NgSpice",
+        "language": "spice",
+        "library": "ihp/models/ngspice/models/cornerMOSlv.lib",
+        "name": "sg13_lv_pmos",
+        "params": {
+          "l": "length * 1e-6",
+          "m": "m",
+          "ng": "nf",
+          "w": "width * 1e-6"
+        },
+        "port-order": [
+          "D",
+          "G",
+          "S",
+          "B"
+        ],
+        "sections": [
+          "mos_tt",
+          "mos_ss",
+          "mos_ff",
+          "mos_sf",
+          "mos_fs"
+        ],
+        "spice-type": "SUBCKT"
+      }
+    ],
+    "props": [
+      {
+        "name": "width",
+        "tooltip": "float",
+        "default": 0.15,
+        "schema": {
+          "type": "number"
+        }
+      },
+      {
+        "name": "length",
+        "tooltip": "float",
+        "default": 0.13,
+        "schema": {
+          "type": "number"
+        }
+      },
+      {
+        "name": "nf",
+        "tooltip": "int",
+        "default": 1,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      {
+        "name": "m",
+        "tooltip": "int",
+        "default": 1,
+        "schema": {
+          "type": "integer"
+        }
+      },
+      {
+        "name": "model",
+        "tooltip": "str",
+        "default": "sg13_lv_pmos",
+        "schema": {
+          "type": "string"
+        }
+      }
+    ]
+  },
+  "models:pdk.mprim": {
+    "name": "mprim",
+    "type": "nmos",
+    "ports": [
+      {
+        "name": "D",
+        "side": "top",
+        "type": "electric"
+      },
+      {
+        "name": "S",
+        "side": "bottom",
+        "type": "electric"
+      },
+      {
+        "name": "G",
+        "side": "left",
+        "type": "electric"
+      },
+      {
+        "name": "B",
+        "side": "right",
+        "type": "electric"
+      }
+    ],
+    "models": [
+      {
+        "implementation": "NgSpice",
+        "language": "spice",
+        "library": "pdk/models/mprim.lib",
+        "name": "Mprim",
+        "spice-type": "M",
+        "port-order": [
+          "D",
+          "G",
+          "S",
+          "B"
+        ],
+        "params": {
+          "w": "width * 1e-6",
+          "l": "length * 1e-6",
+          "m": "m"
+        }
+      }
+    ],
+    "props": [
+      {
+        "name": "width",
+        "tooltip": "float",
+        "default": 0.15,
+        "schema": {
+          "type": "number"
+        }
+      },
+      {
+        "name": "length",
+        "tooltip": "float",
+        "default": 0.13,
+        "schema": {
+          "type": "number"
+        }
+      },
+      {
+        "name": "m",
+        "tooltip": "int",
+        "default": 1,
+        "schema": {
+          "type": "integer"
+        }
+      }
+    ]
+  },
+  "models:ihp_hier_cell.gsch": {
+    "name": "hier_cell",
+    "type": "ckt",
+    "ports": [
+      {
+        "name": "vdd",
+        "type": "electric"
+      },
+      {
+        "name": "in",
+        "type": "electric"
+      },
+      {
+        "name": "out",
+        "type": "electric"
+      }
+    ],
+    "props": [
+      {
+        "name": "rload",
+        "default": "1k"
+      }
+    ]
+  },
+  "models:ihp_subckt_child.gsch": {
+    "name": "subckt_child",
+    "type": "ckt",
+    "ports": [
+      {
+        "name": "S",
+        "type": "electric"
+      },
+      {
+        "name": "D",
+        "type": "electric"
+      }
+    ]
+  },
+  "models:pdk.rpoly": {
+    "name": "rpoly",
+    "ports": [
+      {
+        "name": "A",
+        "type": "electric"
+      },
+      {
+        "name": "B",
+        "type": "electric"
+      }
+    ],
+    "models": [
+      {
+        "implementation": "NgSpice",
+        "language": "spice",
+        "library": "pdk/models/rpoly.lib",
+        "name": "rppd",
+        "spice-type": "R",
+        "port-order": [
+          "A",
+          "B"
+        ],
+        "params": {
+          "w": "width"
+        }
+      }
+    ],
+    "props": [
+      {
+        "name": "width",
+        "default": 1
+      }
+    ]
+  },
+  "models:demo.rdiv": {
+    "name": "rdiv",
+    "ports": [
+      {
+        "name": "a",
+        "type": "electric"
+      },
+      {
+        "name": "b",
+        "type": "electric"
+      }
+    ],
+    "models": [
+      {
+        "implementation": "NgSpice",
+        "language": "spice",
+        "name": "rdiv",
+        "spice-type": "SUBCKT",
+        "port-order": [
+          "a",
+          "b"
+        ],
+        "code": ".subckt rdiv a b\nR1 a b 1k\nR2 b 0 2k\n.ends rdiv\n"
+      },
+      {
+        "implementation": "VACASK",
+        "language": "spectre",
+        "name": "rdiv",
+        "spice-type": "SUBCKT",
+        "port-order": [
+          "a",
+          "b"
+        ],
+        "code": "subckt rdiv (a b)\n  r1 (a b) resistor r=1k\n  r2 (b 0) resistor r=2k\nends rdiv\n"
+      }
+    ]
+  }
+}

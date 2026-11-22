@@ -4,7 +4,7 @@
 
 **Build circuit netlists in Python and convert them both ways between SPICE, HSPICE,
 Xyce, Spectre, Spectre-SPICE, Verilog-AMS and SystemVerilog, for electrical and
-photonic circuits.**
+photonic circuits, and read and write gdsfactory+ `.gsch` schematics.**
 
 **kfnetlist** is a standalone, Rust-backed netlist schema for
 [kfactory](https://github.com/gdsfactory/kfactory) and netlist tooling.

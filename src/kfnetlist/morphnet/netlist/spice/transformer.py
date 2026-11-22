@@ -20,8 +20,13 @@ from kfnetlist.morphnet.morphnet_schema import (
     ParameterValue,
     Port,
     PortDirection,
-    PrefixedValue,
     Simulation,
+    Stimulus,
+)
+from kfnetlist.morphnet.netlist.expression import (
+    parameter_value,
+    parse_expression,
+    value_text,
 )
 from kfnetlist.morphnet.netlist.net_utils import (
     NetMap,
@@ -29,6 +34,8 @@ from kfnetlist.morphnet.netlist.net_utils import (
     domain_of,
     net_map_to_connections,
 )
+from kfnetlist.morphnet.netlist.stimulus import attach
+from kfnetlist.morphnet.netlist.stimulus import parse_spice as parse_source
 from kfnetlist.morphnet.netlist.simulation_data import (
     ANALYSIS_KIND_MAP,
     OUTPUT_REQUEST_KIND_MAP,
@@ -43,17 +50,7 @@ from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PREFIX_TO_CIRCUIT,
     is_si_number,
     parse_parameter_number,
-    parse_si_number,
 )
-
-
-def _param_value_to_str(pval: ParameterValue) -> str:
-    """Convert a ParameterValue to a plain string for directive storage."""
-    if pval.prefixed_value is not None:
-        from kfnetlist.morphnet.netlist.value_utils import format_si_value
-
-        return format_si_value(pval.prefixed_value)
-    return ""
 
 
 class InstanceData:
@@ -65,6 +62,7 @@ class InstanceData:
         "name",
         "net_names",
         "params",
+        "source",
         "value",
     )
 
@@ -73,9 +71,10 @@ class InstanceData:
         name: str,
         net_names: list[str],
         model_or_subckt: str,
-        value: PrefixedValue | None,
+        value: ParameterValue | None,
         params: dict[str, ParameterValue],
         device_prefix: str,
+        source: str | None = None,
     ) -> None:
         self.name = name
         self.net_names = net_names
@@ -83,6 +82,7 @@ class InstanceData:
         self.value = value
         self.params = params
         self.device_prefix = device_prefix
+        self.source = source  # a V/I value: `DC 1 AC 1 PULSE(...)`
 
 
 class ModelData:
@@ -172,9 +172,17 @@ class SpiceTransformer(Transformer[Token, Netlist]):
       so later subcircuits can resolve X-instance port names from earlier ones.
     """
 
+    dialect = "ngspice"  # spelling of expression text in directives
+
     def __init__(self) -> None:
         super().__init__()
         self.all_subckts: dict[str, Circuit] = {}
+        self.models: set[str] = set()  # every `.model` name of the deck
+        self.stimuli: list[tuple[str, SubCircuit, Stimulus]] = []
+
+    def transform(self, tree: Any) -> Netlist:
+        self.models = {str(m.children[1]).lower() for m in tree.find_data("model_stmt")}
+        return super().transform(tree)
 
     # ── Leaf transformers ───────────────────────────────────────────────
 
@@ -184,14 +192,26 @@ class SpiceTransformer(Transformer[Token, Netlist]):
     def token_ident(self, items: list[Token]) -> Token:
         return items[0]
 
+    def token_expr(self, items: list[Token]) -> Token:
+        return items[0]
+
+    def token_func(self, items: list[Token]) -> Token:
+        return items[0]
+
     def pvalue_number(self, items: list[Token]) -> ParameterValue:
         return parse_parameter_number(str(items[0]))
 
     def pvalue_ident(self, items: list[Token]) -> ParameterValue:
-        return ParameterValue()
+        return parameter_value(str(items[0]))
+
+    def pvalue_expr(self, items: list[Token]) -> ParameterValue:
+        """``{a*b}`` or ``'a*b'``; ``parse_expression`` strips the wrapping."""
+        return ParameterValue(expression=parse_expression(str(items[0])))
 
     def pvalue_string(self, items: list[Token]) -> ParameterValue:
-        return ParameterValue()
+        """``'…'`` is an expression; a ``"…"`` string value is not kept."""
+        text = str(items[0])
+        return self.pvalue_expr(items) if text[0] == "'" else ParameterValue()
 
     def param_assign(self, items: list[Any]) -> tuple[str, ParameterValue]:
         name = str(items[0])
@@ -240,12 +260,31 @@ class SpiceTransformer(Transformer[Token, Netlist]):
             # Devices like R, C, L: after ports, next token is value or model name
             net_names = token_strs[:n_ports]
             remaining = token_strs[n_ports:]
+            if device_prefix in ("V", "I"):
+                return InstanceData(
+                    name=inst_name,
+                    net_names=net_names,
+                    model_or_subckt="",
+                    value=None,
+                    params=params,
+                    device_prefix=device_prefix,
+                    source=" ".join(remaining) or None,
+                )
 
-            value: PrefixedValue | None = None
+            value: ParameterValue | None = None
             model_name = ""
             for tok in remaining:
                 if is_si_number(tok):
-                    value = parse_si_number(tok)
+                    value = parse_parameter_number(tok)
+                elif tok[:1] in ("{", "'"):
+                    value = ParameterValue(expression=parse_expression(tok))
+                elif (  # `R1 a b rload`: a param; `R1 a b 1k rpoly`: a model
+                    device_prefix in ("R", "C", "L")
+                    and tok.lower() not in self.models
+                    and len(remaining) == 1
+                    and not params
+                ):
+                    value = parameter_value(tok)
                 else:
                     model_name = tok
 
@@ -326,7 +365,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
             if isinstance(item, tuple):
                 pname, pval = item
                 if isinstance(pval, ParameterValue):
-                    options[pname] = _param_value_to_str(pval)
+                    options[pname] = value_text(pval, self.dialect)
                 else:
                     options[pname] = str(pval)
         return OptionData(options=options)
@@ -345,7 +384,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
             if isinstance(item, tuple):
                 pname, pval = item
                 if isinstance(pval, ParameterValue):
-                    opts[pname] = _param_value_to_str(pval)
+                    opts[pname] = value_text(pval, self.dialect)
                 else:
                     opts[pname] = str(pval)
             elif isinstance(item, Token):
@@ -439,7 +478,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
             if isinstance(item, tuple):
                 pname, pval = item
                 if isinstance(pval, ParameterValue):
-                    opts.append(f"{pname}={_param_value_to_str(pval)}")
+                    opts.append(f"{pname}={value_text(pval, self.dialect)}")
                 else:
                     opts.append(f"{pname}={pval}")
         analysis_type = tokens[0] if tokens else ""
@@ -457,7 +496,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
         var_name = str(items[0])
         value = items[1]
         if isinstance(value, ParameterValue):
-            return (var_name, _param_value_to_str(value))
+            return (var_name, value_text(value, self.dialect))
         return (var_name, str(value))
 
     def ic_stmt(self, items: list[Any]) -> InitialConditionData:
@@ -644,12 +683,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
 
                 params: list[Parameter] = []
                 if inst.value is not None:
-                    params.append(
-                        Parameter(
-                            name="value",
-                            default_value=ParameterValue(prefixed_value=inst.value),
-                        )
-                    )
+                    params.append(Parameter(name="value", default_value=inst.value))
                 for pname, pval in inst.params.items():
                     params.append(Parameter(name=pname, default_value=pval))
 
@@ -657,14 +691,15 @@ class SpiceTransformer(Transformer[Token, Netlist]):
                 if inst.model_or_subckt:
                     props["model_name"] = inst.model_or_subckt
 
-                subcircuits.append(
-                    SubCircuit(
-                        name=inst.name,
-                        circuit_name=module_name,
-                        parameters=params,
-                        properties=props,
-                    )
+                ref = SubCircuit(
+                    name=inst.name,
+                    circuit_name=module_name,
+                    parameters=params,
+                    properties=props,
                 )
+                subcircuits.append(ref)
+                if inst.source is not None:
+                    self.stimuli.append((name, ref, parse_source(inst.source)))
             else:
                 # Unknown prefix — treat as subcircuit
                 for i, net_name in enumerate(inst.net_names):
@@ -807,13 +842,15 @@ class SpiceTransformer(Transformer[Token, Netlist]):
                     properties={"model_type": mdata.type_name},
                 )
 
-        # Determine top circuit: last defined subcircuit is conventionally the top
+        # The deck's own elements are the top; else the last subcircuit, by convention
         top_circuit = ""
-        if circuits:
+        if top_instances:
+            top_circuit = "__top__"
+        elif circuits:
             top_circuit = circuits[-1].name
 
         for p in circuit_params:
-            val = _param_value_to_str(p.default_value) if p.default_value else ""
+            val = value_text(p.default_value, self.dialect) if p.default_value else ""
             directives.append(
                 Directive(kind=DirectiveKind.PARAM, name=p.name, value=val)
             )
@@ -865,7 +902,7 @@ class SpiceTransformer(Transformer[Token, Netlist]):
                 temperatures=temperatures,
             )
 
-        return Netlist(
+        netlist = Netlist(
             name="",
             top_circuit=top_circuit,
             circuits=circuits,
@@ -873,3 +910,6 @@ class SpiceTransformer(Transformer[Token, Netlist]):
             directives=directives,
             simulation=simulation,
         )
+        for circuit_name, ref, stim in self.stimuli:
+            attach(netlist, circuit_name, ref, stim)
+        return netlist

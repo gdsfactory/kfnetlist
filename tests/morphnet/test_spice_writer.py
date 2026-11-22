@@ -15,7 +15,10 @@ from kfnetlist.morphnet.morphnet_schema import (
     SignalDomain,
     SIPrefix,
 )
+from kfnetlist.morphnet.netlist.expression import parse_expression
+from kfnetlist.morphnet.netlist.hspice.writer import write_hspice
 from kfnetlist.morphnet.netlist.spice.writer import write_spice
+from kfnetlist.morphnet.netlist.xyce.writer import write_xyce
 
 
 def make_port(name: str) -> Port:
@@ -30,6 +33,10 @@ def make_pv(value: float, prefix: SIPrefix = SIPrefix.UNSPECIFIED) -> ParameterV
     return ParameterValue(
         prefixed_value=PrefixedValue(double_value=value, prefix=prefix)
     )
+
+
+def expr(text: str) -> ParameterValue:
+    return ParameterValue(expression=parse_expression(text))
 
 
 def make_conn(
@@ -189,3 +196,182 @@ class TestDirectiveOutput:
         assert ".model nch nmos" in output
         assert "level=49" in output
         assert "vth0=0.4" in output
+
+
+def _prim_netlist(
+    inst: str = "R1",
+    params: list[Parameter] | None = None,
+    nets: tuple[str, str] = ("a", "b"),
+    props: dict[str, str] | None = None,
+    inst_props: dict[str, str] | None = None,
+    ext_props: dict[str, str] | None = None,
+) -> Netlist:
+    resistor = ExternalCircuit(
+        name="resistor",
+        ports=[make_port("p"), make_port("n")],
+        properties=ext_props if ext_props is not None else {"spice_prefix": "R"},
+    )
+    circ = Circuit(
+        name="test",
+        ports=[make_port("a"), make_port("b")],
+        subcircuits=[
+            SubCircuit(
+                name=inst,
+                circuit_name="resistor",
+                parameters=params or [],
+                properties=inst_props or {},
+            )
+        ],
+        connections=[
+            make_conn(nets[0], "", "a", inst, "p"),
+            make_conn(nets[1], "", "b", inst, "n"),
+        ],
+    )
+    return Netlist(
+        name="t",
+        top_circuit="test",
+        circuits=[circ],
+        ext_circuits=[resistor],
+        properties=props or {},
+    )
+
+
+class TestExprParameters:
+    def test_expr_is_positional_value_and_kv(self) -> None:
+        nl = _prim_netlist(
+            params=[
+                Parameter(name="value", default_value=expr("DC 1 AC 1")),  # raw
+                Parameter(name="w", default_value=expr("{w*1e-6}")),
+            ]
+        )
+        assert "R1 a b DC 1 AC 1 w={w * 1e-6}" in write_spice(nl)
+
+    def test_expr_on_header_and_call_params(self) -> None:
+        inner = Circuit(
+            name="inner",
+            ports=[make_port("p")],
+            parameters=[Parameter(name="k", default_value=expr("2*x"))],
+        )
+        outer = Circuit(
+            name="outer",
+            ports=[make_port("a")],
+            subcircuits=[
+                SubCircuit(
+                    name="X1",
+                    circuit_name="inner",
+                    parameters=[Parameter(name="k", default_value=expr("{3*y}"))],
+                )
+            ],
+            connections=[make_conn("a", "", "a", "X1", "p")],
+        )
+        out = write_spice(Netlist(name="t", circuits=[inner, outer]))
+        assert ".subckt inner p k={2 * x}" in out
+        assert "X1 a inner k={3 * y}" in out
+
+    def test_each_dialect_wraps_its_own_way(self) -> None:
+        nl = _prim_netlist(params=[Parameter(name="w", default_value=expr("w*2"))])
+        assert "w={w * 2}" in write_spice(nl)
+        assert "w={w * 2}" in write_xyce(nl)
+        assert "w='w * 2'" in write_hspice(nl)
+
+    def test_a_bare_reference_or_literal_is_not_wrapped(self) -> None:
+        params = [
+            Parameter(name="w", default_value=expr("wmin")),
+            Parameter(name="l", default_value=expr("2.2u")),
+        ]
+        assert "w=wmin l=2.2u" in write_spice(_prim_netlist(params=params))
+
+
+class TestSpicePrefix:
+    def test_prefix_prepended_when_missing(self) -> None:
+        out = write_spice(_prim_netlist(inst="load"))
+        assert "\nRload a b" in out
+
+    def test_prefix_not_duplicated_case_insensitive(self) -> None:
+        out = write_spice(_prim_netlist(inst="r_load"))
+        assert "\nr_load a b" in out
+        assert "Rr_load" not in out
+
+    def test_defined_circuit_gets_x(self) -> None:
+        inner = Circuit(name="inner", ports=[make_port("p")])
+        outer = Circuit(
+            name="outer",
+            ports=[make_port("a")],
+            subcircuits=[SubCircuit(name="amp", circuit_name="inner")],
+            connections=[make_conn("a", "", "a", "amp", "p")],
+        )
+        out = write_spice(Netlist(name="t", circuits=[inner, outer]))
+        assert "\nXamp a inner" in out
+
+
+class TestGroundNet:
+    def test_ground_is_node_zero_header_unchanged(self) -> None:
+        circ = Circuit(
+            name="blk",
+            ports=[make_port("GND"), make_port("b")],
+            subcircuits=[
+                SubCircuit(
+                    name="R1",
+                    circuit_name="resistor",
+                    parameters=[Parameter(name="value", default_value=expr("1k"))],
+                )
+            ],
+            connections=[
+                make_conn("GND", "", "GND", "R1", "p"),
+                make_conn("b", "", "b", "R1", "n"),
+            ],
+        )
+        resistor = ExternalCircuit(
+            name="resistor",
+            ports=[make_port("p"), make_port("n")],
+            properties={"spice_prefix": "R"},
+        )
+        nl = Netlist(
+            name="t",
+            circuits=[circ],
+            ext_circuits=[resistor],
+            properties={"ground_net": "GND"},
+        )
+        out = write_spice(nl)
+        assert ".subckt blk GND b" in out
+        assert "R1 0 b 1k" in out
+
+    def test_ground_at_top(self) -> None:
+        nl = _prim_netlist(nets=("GND", "b"), props={"ground_net": "GND"})
+        nl.circuits[0].name = "__top__"
+        assert "R1 0 b" in write_spice(nl)
+
+
+class TestSubcktHeaderParams:
+    def test_params_on_header_not_body(self) -> None:
+        inner = Circuit(
+            name="inner",
+            ports=[make_port("p"), make_port("q")],
+            parameters=[Parameter(name="r", default_value=make_pv(1.0, SIPrefix.KILO))],
+        )
+        out = write_spice(Netlist(name="t", circuits=[inner]))
+        assert ".subckt inner p q r=1k" in out
+        assert ".param" not in out
+
+
+class TestSimSkip:
+    def test_sim_skip_instance_omitted(self) -> None:
+        nl = _prim_netlist(inst_props={"sim_skip": "1"})
+        out = write_spice(nl)
+        assert "R1" not in out
+
+
+class TestSpiceLibDirective:
+    def test_lib_path_section(self) -> None:
+        nl = Netlist(
+            name="t",
+            directives=[Directive(kind=DirectiveKind.LIB, value="m.lib tt")],
+        )
+        assert ".lib m.lib tt" in write_spice(nl)
+
+
+def test_an_empty_expression_is_not_written() -> None:
+    nl = _prim_netlist(
+        params=[Parameter(name="w", default_value=expr("")), Parameter(name="n")]
+    )
+    assert "R1 a b\n" in write_spice(nl)  # no `w=`

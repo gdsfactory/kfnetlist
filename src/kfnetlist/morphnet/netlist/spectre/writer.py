@@ -1,31 +1,52 @@
 from __future__ import annotations
 
+from collections.abc import Callable
+
 from kfnetlist.morphnet.morphnet_schema import (
     Analysis,
     AnalysisKind,
     Netlist,
     Directive,
     DirectiveKind,
+    Expression,
     ExternalCircuit,
     Circuit,
+    Macro,
+    Parameter,
     SubCircuit,
     OutputRequest,
     OutputRequestKind,
     ParameterValue,
     Simulation,
 )
-from kfnetlist.morphnet.netlist.net_utils import connections_to_instance_nets
+from kfnetlist.morphnet.netlist.net_utils import (
+    connections_to_instance_nets,
+    open_node,
+)
+from kfnetlist.morphnet.netlist.stimulus import spectre_params, stimulus_of
 from kfnetlist.morphnet.netlist.value_utils import (
     DEVICE_PORT_TEMPLATES,
     DEVICE_PREFIX_TO_CIRCUIT,
+    SPICE_LANGUAGES,
     format_si_value,
+    is_skipped,
+    macro_lines,
+    param_text,
+    sim_params,
 )
 
 CIRCUIT_TO_PREFIX: dict[str, str] = {v: k for k, v in DEVICE_PREFIX_TO_CIRCUIT.items()}
+SPICE_BLOCK = ("simulator lang=spice", "simulator lang=spectre")
+# VACASK has no `simulator lang` switch: every macro is skipped
+MACRO_LANGUAGES = {"spectre": None, **dict.fromkeys(SPICE_LANGUAGES, SPICE_BLOCK)}
 
 
 class SpectreWriter:
     """Convert a Netlist model to Spectre netlist text."""
+
+    ground: str = ""
+    netlist: Netlist  # the one being written
+    vacask: bool = False
 
     def format_param_value(self, pval: ParameterValue) -> str:
         """Format any ParameterValue variant as a Spectre-compatible string."""
@@ -33,8 +54,21 @@ class SpectreWriter:
             return format_si_value(pval.prefixed_value)
         return "0"
 
+    def param_text(
+        self,
+        param: Parameter,
+        resolve: Callable[[str], Expression | None] | None = None,
+    ) -> str | None:
+        dialect = "vacask" if self.vacask else "spectre"
+        return param_text(param, self.format_param_value, dialect, resolve=resolve)
+
     def write(self, netlist: Netlist) -> str:
         lines: list[str] = []
+        self.ground = netlist.properties.get("ground_net", "")
+        self.netlist = netlist
+        self.vacask = netlist.properties.get("dialect") == "vacask"
+        if self.vacask and self.ground:
+            lines.append("ground 0")
 
         ext_by_name: dict[str, ExternalCircuit] = {
             e.name: e for e in netlist.ext_circuits
@@ -42,6 +76,7 @@ class SpectreWriter:
         circuit_by_name: dict[str, Circuit] = {m.name: m for m in netlist.circuits}
 
         self.write_directives(netlist.directives, lines)
+        lines.extend(self.macro_lines(netlist.macros))
 
         for ext in netlist.ext_circuits:
             model_type = ext.properties.get("model_type")
@@ -60,11 +95,23 @@ class SpectreWriter:
         lines.append("")
         return "\n".join(lines)
 
+    def macro_lines(self, macros: list[Macro]) -> list[str]:
+        return macro_lines(macros, {} if self.vacask else MACRO_LANGUAGES, "//")
+
     def write_directives(self, directives: list[Directive], lines: list[str]) -> None:
         params: dict[str, str] = {}
         for d in directives:
-            if d.kind == DirectiveKind.INCLUDE:
-                lines.append(f'include "{d.value}"')
+            if d.kind in (DirectiveKind.INCLUDE, DirectiveKind.LIB):
+                # LIB packs "path section"; name may carry "lang=<dialect>"
+                path, _, section = d.value.rpartition(" ")
+                if d.kind == DirectiveKind.LIB and path:
+                    path = path.strip("\"'")
+                    parts = [f'include "{path}"', f"section={section}"]
+                else:
+                    parts = [f'include "{d.value}"']
+                if d.name.startswith("lang="):
+                    parts.append(d.name)
+                lines.append(" ".join(parts))
             elif d.kind == DirectiveKind.PARAM:
                 params[d.name] = d.value
         if params:
@@ -76,10 +123,9 @@ class SpectreWriter:
     ) -> None:
         param_strs: list[str] = []
         for p in ext.parameters:
-            if p.default_value:
-                param_strs.append(
-                    f"{p.name}={self.format_param_value(p.default_value)}"
-                )
+            text = self.param_text(p)
+            if text is not None:
+                param_strs.append(f"{p.name}={text}")
         params_text = " ".join(param_strs)
         lines.append(f"model {ext.name} {model_type} ({params_text})")
 
@@ -94,20 +140,20 @@ class SpectreWriter:
 
         param_strs: list[str] = []
         for param in circuit.parameters:
-            if param.default_value:
-                param_strs.append(
-                    f"{param.name}={self.format_param_value(param.default_value)}"
-                )
+            text = self.param_text(param)
+            if text is not None:
+                param_strs.append(f"{param.name}={text}")
         params_suffix = " " + " ".join(param_strs) if param_strs else ""
 
-        lines.append(f"subckt {circuit.name} ({port_names}){params_suffix}")
+        if self.vacask:  # VACASK: params go on a `parameters` line in the body
+            lines.append(f"subckt {circuit.name} ({port_names})")
+            if param_strs:
+                lines.append("parameters" + params_suffix)
+        else:
+            lines.append(f"subckt {circuit.name} ({port_names}){params_suffix}")
 
-        inst_nets = connections_to_instance_nets(circuit.connections)
-
-        for ref in circuit.subcircuits:
-            lines.append(
-                self.write_instance(ref, inst_nets, ext_by_name, circuit_by_name)
-            )
+        lines.extend(self.macro_lines(circuit.macros))
+        lines.extend(self.instance_lines(circuit, ext_by_name, circuit_by_name))
 
         lines.append(f"ends {circuit.name}")
 
@@ -118,11 +164,21 @@ class SpectreWriter:
         circuit_by_name: dict[str, Circuit],
         lines: list[str],
     ) -> None:
-        inst_nets = connections_to_instance_nets(circuit.connections)
-        for ref in circuit.subcircuits:
-            lines.append(
-                self.write_instance(ref, inst_nets, ext_by_name, circuit_by_name)
-            )
+        lines.extend(self.macro_lines(circuit.macros))
+        lines.extend(self.instance_lines(circuit, ext_by_name, circuit_by_name))
+
+    def instance_lines(
+        self,
+        circuit: Circuit,
+        ext_by_name: dict[str, ExternalCircuit],
+        circuit_by_name: dict[str, Circuit],
+    ) -> list[str]:
+        inst_nets = connections_to_instance_nets(circuit.connections, self.ground)
+        return [
+            self.write_instance(ref, inst_nets, ext_by_name, circuit_by_name)
+            for ref in circuit.subcircuits
+            if not is_skipped(ref)
+        ]
 
     def write_instance(
         self,
@@ -150,21 +206,34 @@ class SpectreWriter:
             else:
                 port_order = self.infer_port_order(ref, inst_nets)
 
-        nets = [inst_nets.get((ref.name, pn), "?") for pn in port_order]
+        nets = [
+            inst_nets.get((ref.name, pn)) or open_node(ref.name, pn)
+            for pn in port_order
+        ]
         nets_str = " ".join(nets)
 
         cell_name = ref.properties.get("model_name") or ref.circuit_name
 
         # Params
+        # vacask names the primary value of R/C/L after the device
+        value_name = (
+            prefix.lower() if self.vacask and prefix and prefix in "RCL" else "value"
+        )
         param_strs: list[str] = []
-        for param in ref.parameters:
-            if param.default_value:
-                param_strs.append(
-                    f"{param.name}={self.format_param_value(param.default_value)}"
-                )
+        params, resolve = sim_params(ref)
+        for param in params:
+            text = self.param_text(param, resolve)
+            if text is not None:
+                name = value_name if param.name == "value" else param.name
+                param_strs.append(f"{name}={text}")
 
+        stim = stimulus_of(self.netlist, ref)
+        if stim is not None:
+            dialect = "vacask" if self.vacask else "spectre"
+            param_strs += [f"{k}={v}" for k, v in spectre_params(stim, dialect)]
         params_text = " " + " ".join(param_strs) if param_strs else ""
-        return f"{ref.name} ({nets_str}) {cell_name}{params_text}"
+        name = ref.name.lower() if self.vacask else ref.name
+        return f"{name} ({nets_str}) {cell_name}{params_text}"
 
     def infer_port_order(
         self,

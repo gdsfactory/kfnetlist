@@ -1,5 +1,157 @@
 # Changelog
 
+## 0.5.0
+
+- **PWL sources in every grammar** — a PWL waveform has inline `points` or a
+  `file` (`Waveform.file`, proto field 4; a `pathlib.Path` in Python, stored
+  POSIX). Native forms: SPICE `PWL(...)` / Xyce `PWL FILE "w.txt"` (also written
+  for ngspice and HSPICE), Spectre `type=pwl wave=[...]` / `file="w.txt"`
+  (Cadence `vpwlf`/`ipwlf`), Verilog-A and SystemVerilog `vpwl #(.wave('{...}))` /
+  `(* pwl_file = "w.txt" *) vpwl ...`. Every SPICE grammar reads source functions
+  with a space before `(` (`PULSE (0 1 ...)`); SystemVerilog reads `'{...}`
+  assignment patterns.
+- **OS-agnostic file paths** — `kfnetlist.morphnet.netlist.paths`
+  (`posix_file`, `resolve_file`, `is_absolute`) and Rust
+  `kfnetlist_schema::paths` give the same answers on every OS: `\` or `/`
+  separators, `/x`, `C:\x`, `C:x` and `\\server\share` absolute everywhere, `.`/`..`
+  resolved lexically and never above a root, a relative path joined to an optional base. One shared case
+  table (`tests/data/path_cases.json`) tests both.
+- **Simulation stimuli** — `simulation.proto` gains `Stimulus` (dc, AC magnitude
+  and phase, `Waveform` of kind PULSE/SIN/EXP/SFFM/PWL) in `Simulation.stimuli`;
+  each V/I source points to its stimulus in `properties["stimulus"]`. Shared value
+  types (`PrefixedValue`, `Expression`, `ParameterValue`, ...) move to
+  `value.proto` (no Rust path or Python name changes). Every parser reads its
+  language's own source syntax, every writer writes it: SPICE `DC/AC/PULSE(...)`,
+  Spectre `vsource type=pulse ...`, Verilog-A/SystemVerilog LRM Annex E primitives
+  (`vpulse`, `vsine`, ...). See the
+  [API reference](morphnet/api-reference.md#stimulus-and-waveform).
+  - A source's `value` parameter is gone: SPICE `DC 0.9 AC 1` used to read back as
+    `value=1`; `.gsch` sources have no params.
+  - SPICE parsers read `PULSE(...)`-style waveforms, `{...}`/`'...'` element
+    values, and a bare R/C/L value as a parameter reference unless a `.model` of
+    that name is in the deck (`R1 a b rload`).
+  - Spectre reads `simulator lang=spice` sections and keeps quoted strings.
+  - Verilog-A reads expressions in `#(...)`, `module m;`/`module m ();`,
+    attributes, net initializers (nodesets), paramsets of primitives; writes a
+    `.model` device by its model name with a `paramset`, `ground` from the
+    netlist's ground net, and SPICE libraries and foreign inline code as module
+    attributes (no warning, nothing dropped). Identifiers and quoted strings are
+    kept instead of read as empty values.
+  - One-pin nets survive every parser; an unconnected pin is written on its own
+    node `nc_<instance>_<pin>` instead of `?`.
+  - Every SPICE-family and Spectre parser takes a deck's own elements as the top
+    circuit (`__top__`), not the last subcircuit.
+  - `tests/morphnet/test_gsch_conversions.py` converts every `.gsch` fixture to
+    ngspice, HSPICE, Xyce, Spectre, Spectre-SPICE and Verilog-A and reads it back;
+    a conversion passes only when no field is missing.
+- **gsch** — `parse_gsch()`, `read_gsch()` and `write_gsch()` in
+  `kfnetlist.morphnet.netlist` read and write gdsfactory+ `.gsch` schematics
+  (Mosaic and Livewire JSON).
+  - `models.nyanlib` libraries become `LIB`/`INCLUDE` directives, written as
+    `.lib`/`.include` at the top of SPICE netlists and as `include "p" section=s`
+    in Spectre. `sim` (`ngspice`, `xyce`, `vacask`) and `corners` choose the
+    model entry and library section.
+  - The simulation view follows nyancad's netlister: model entries, pins,
+    parameter expressions, sources and waveforms. It exports the circuit, not the
+    simulator scaffolding (`.end`, analyses, `load *.osdi`).
+  - Positions, wires, polylines and port markers survive `write_gsch`.
+  - Source props (`role="source"`) are editable: an edit reaches the `.gsch` props
+    and the SPICE output. An edit to a derived or computed parameter (a model
+    `params` expression, a model param named like
+    the prop it reads, or an expression reading such a prop) raises `ValueError` from `write_gsch`, naming the props to
+    edit. Model prop defaults are written once edited.
+  - Limits: a file written from a non-gsch source has no Mosaic wires. See the
+    [API reference](morphnet/api-reference.md#gsch).
+  - Inline nyanlib `code` blocks become `Netlist.macros` (see **Macros**).
+- **Expressions** — `ParameterValue` gains an `expression` variant, an
+  `Expression` tree (literal, reference, unary, binary, call, ternary, or `raw`
+  text no grammar parsed). `parse_expression()` / `format_expression()` in
+  `kfnetlist.morphnet.netlist.expression` read any dialect's text and print the
+  canonical form (`0.13 * 1e-6`). The `.gsch`, SPICE, HSPICE, Xyce, Spectre and
+  SystemVerilog parsers produce it; the `properties["expr"]` text of earlier
+  development builds is gone. A model parameter such as `w = width * 1e-6` is an
+  expression over the source props, not a fixed number. `^` is XOR in
+  SystemVerilog, so text with `^` stays `raw`. JSON and YAML name the set node
+  directly (`{"binary": {...}}`) in Python and Rust alike, so
+  `ProtoNetlist.from_json(netlist.to_json())` loads expression parameters.
+  `format_expression()` raises `ValueError` for an unknown dialect; an expression
+  with no node is not written.
+  Through the kfnetlist bridge an expression parameter is a string setting with
+  its canonical text, and its tree rides in `info["__morphnet__"]`: unchanged
+  text restores the tree, edited text is parsed again (`raw` when it does not
+  parse). Other kfnetlist string and bool settings become `raw` expressions kept
+  verbatim (`model="nch-lvt"` stays `nch-lvt`).
+- **Macros** — a new `Macro` message (`name`, `language`, `body`,
+  `properties`) on `Netlist.macros` and `Circuit.macros` carries verbatim
+  blocks. Writers print a body when their dialect takes its language (Spectre
+  wraps SPICE bodies in `simulator lang=spice`); otherwise they write a
+  `skipped macro <name> (<language>)` comment and warn. VACASK takes none. The
+  kfnetlist bridge keeps both lists in `info["__morphnet__"]`. Equal macros are
+  kept once; same-named blocks with different code are all kept (`parse_gsch`
+  warns). A nyanlib `code` entry with no `language` is `spice`.
+- **Lossless bridge** — `morphnet.to_netlists()` / `from_netlists()` keep what
+  `kfnetlist.Netlist` has no field for. New `Netlist.directives` (file
+  directives) and `Netlist.info` (metadata) hold it. Both are excluded from
+  equality, and so are instance `info` keys that start with `__`: an instance
+  with only such keys now equals one without. This is a behavior change for
+  instance equality.
+- **Writers**:
+  - Spectre `include "path" section=name [lang=x]` is supported.
+  - The Xyce writer emits `PARAMS:` on subcircuit headers and X calls.
+  - SPICE subcircuit parameters moved from body `.param` lines to the `.subckt`
+    header line.
+  - The SPICE and Spectre writers handle expression parameters, device prefixes
+    and the ground net.
+  - The VACASK dialect of the Spectre writer puts subcircuit parameters on a
+    `parameters` line in the body, as nyancad does; plain Spectre keeps them on
+    the `subckt` line.
+- **Output changes for existing users**:
+  - morphnet `to_json()` / `to_yaml()` leave out unset (`null`) fields and empty
+    `macros`, as the Rust schema does, so a document that uses no new field loads
+    in older kfnetlist readers. Pass `exclude_none=False` for the old output.
+  - kfnetlist string and bool settings now reach SPICE and Spectre output as
+    parameters (`mode=fast`, `on=true`); they used to be dropped.
+  - The SPICE writers prepend the element letter, or `X` for a subcircuit call,
+    to instance names that lack it (`load` is written `Rload`).
+  - JSON from the bridge carries `info` and `directives` on netlists and
+    instances. kfnetlist readers older than this release reject it (their
+    `deny_unknown_fields` schema does not know these keys).
+  - The document header (name, properties, external circuits, libraries,
+    simulation) is kept on every cell, so `from_netlists()` of a subset or with
+    another `toplevel` keeps `.model` cards and `ground_net`.
+  - A port net named after its port (a bridged netlist names every net) keeps its
+    name: `NetlistDocument.from_netlists()` writes it as a named net, and only an
+    unnamed port net uses the plain `ports: {o1: mmi,o1}` form.
+  - A present but non-object `info["__morphnet__"]` raises `ValueError`
+    (`info['__morphnet__'] must be an object`) instead of being dropped.
+  - `Circuit.buses` and `__`-prefixed properties the bridge does not own (on
+    instances, circuits and connections) round-trip through `info["__morphnet__"]`.
+    A bus is restored while an unnamed net still has its members; its member nets
+    stay plain nets in kfnetlist. Foreign properties of a connection come back on
+    the connection with the same endpoints; a net edited to connect different pins
+    loses them.
+  - Writers print expression parameters in canonical form, wrapped per dialect:
+    `{…}` for ngspice and Xyce, `'…'` for HSPICE, bare for Spectre, VACASK,
+    SystemVerilog and Verilog-AMS. A bare name or number is never wrapped; text no
+    grammar parses (`x^2`) is wrapped as a `k=v` value unless already wrapped, and a
+    positional value (`DC 1 AC 1`) stays verbatim. An empty value is not written. Xyce
+    expressions now carry braces, and a `.gsch` prop written `{vdd}` reaches
+    VACASK as `vdd`.
+  - The SPICE-family and Spectre parsers keep expression values (`{a*b+1}`,
+    `'a*b+1'`, Spectre `a*b+1`), where they dropped them. Written back, the
+    ngspice and Xyce text is `{a * b + 1}`: braces and canonical spacing, so
+    `{2*x}` is written `{2 * x}`. An identifier value (`l=a`) is written as
+    `l=a`, where it was written `l=0`. `.option`, analysis, `.meas` and `.ic`
+    values (`errpreset=moderate`) are kept, where they were empty. A `.param`
+    directive keeps its text in the dialect it was parsed from.
+  - A source prop of a `.gsch` device is left out of the SPICE, Spectre, VACASK,
+    SystemVerilog and Verilog-AMS output as a device parameter; references to it
+    are replaced by its value.
+  - A bridged parameter keeps its properties (`role`) when its setting is edited,
+    and text the bridge reads back as `raw` is parsed again when it can be.
+  - The key order inside `.gsch` entries is not preserved through the kfnetlist
+    bridge: `write_gsch` output is JSON-equal, not text-equal.
+
 ## 0.4.1
 
 - **SystemVerilog** — `parse_systemverilog()` / `write_systemverilog()` in

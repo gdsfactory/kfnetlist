@@ -119,10 +119,17 @@ def typed_connections(net_map: NetMap, types: Mapping[str, str]) -> list[Connect
     return connections
 
 
+def open_node(inst: str, pin: str) -> str:
+    """The node an unconnected pin is written on: its own, never one shared by all."""
+    return f"nc_{inst}_{pin}"
+
+
 def net_map_to_connections(net_map: NetMap) -> list[Connection]:
     """Convert a net-based connectivity map to point-to-point Connection objects.
 
-    For each net with N port references, produces N-1 Connection objects.
+    For each net with N port references, produces N-1 Connection objects; a net
+    with one is a source-only Connection, except an ``open_node`` (an unconnected
+    pin as a writer spells it), which is no net at all.
     The first port reference (in insertion order) becomes the source for
     all connections on that net.
 
@@ -130,7 +137,17 @@ def net_map_to_connections(net_map: NetMap) -> list[Connection]:
     """
     connections: list[Connection] = []
     for net_name, port_refs in net_map.items():
-        if len(port_refs) < 2:
+        if len(port_refs) == 1:  # a one-pin net, unless a writer's open-pin node
+            ref = port_refs[0]
+            # by instance: a parser that does not know the master's pins reads `p1`
+            if not net_name.startswith(open_node(ref.instance_name, "")):
+                connections.append(
+                    Connection(
+                        name=net_name, source=ref, domain=domain_of(ref.port_name)
+                    )
+                )
+            continue
+        if not port_refs:
             continue
         source = port_refs[0]
         domain = (
@@ -152,15 +169,17 @@ def net_map_to_connections(net_map: NetMap) -> list[Connection]:
 
 def connections_to_instance_nets(
     connections: list[Connection],
+    ground: str = "",
 ) -> dict[tuple[str, str], str]:
     """Build (instance_name, port_name) → net_name lookup from Connection objects.
 
     Single pass over connections — O(n).  Used by writers to reconstruct
-    instance lines with the correct net names in port order.
+    instance lines with the correct net names in port order.  A net named
+    ``ground`` (when given) is emitted as node ``0``.
     """
     mapping: dict[tuple[str, str], str] = {}
     for conn in connections:
-        net_name = conn.name
+        net_name = "0" if ground and conn.name == ground else conn.name
         if conn.source is not None:
             key = (conn.source.instance_name, conn.source.port_name)
             mapping[key] = net_name

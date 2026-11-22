@@ -1,0 +1,535 @@
+{
+  "demo2:M1": {
+    "y": 3,
+    "bbox_xmin": 0,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "bbox_ymin": -0.105,
+    "name": "M1",
+    "type": "nmos",
+    "bbox_width": 0.87,
+    "irl_x": 303.105,
+    "bbox_height": 0.51,
+    "nets": {
+      "S": "GND",
+      "B": "GND",
+      "G": "P2",
+      "D": "P1"
+    },
+    "ports": [
+      {
+        "name": "S",
+        "irl_rx": -0.285,
+        "irl_ry": 0,
+        "orientation": 180,
+        "bendRadii": [
+          5
+        ],
+        "port_type": "electrical",
+        "width": 0.26
+      },
+      {
+        "name": "D",
+        "irl_rx": 0.285,
+        "irl_ry": 0,
+        "orientation": 0,
+        "bendRadii": [
+          5
+        ],
+        "port_type": "electrical",
+        "width": 0.26
+      },
+      {
+        "name": "G",
+        "irl_rx": 0,
+        "irl_ry": 0,
+        "orientation": 270,
+        "bendRadii": [
+          5
+        ],
+        "port_type": "electrical",
+        "width": 0.51
+      }
+    ],
+    "x": 6,
+    "texture_key": "ihp.cells.fet_transistors.nmos_d80cb31e",
+    "irl_y": 141.125,
+    "model": "ihp.cells.fet_transistors.nmos",
+    "props": {
+      "width": 0.15,
+      "length": 0.13,
+      "nf": 1,
+      "m": 1,
+      "model": "sg13_lv_nmos"
+    }
+  },
+  "demo2:W1": {
+    "type": "wire",
+    "x": 7,
+    "y": 2,
+    "rx": 0,
+    "ry": 1,
+    "variant": "d",
+    "name": "W1",
+    "net": "P1"
+  },
+  "poly_1": {
+    "name": "poly_1",
+    "type": "polyline",
+    "terminals": {
+      "start": {
+        "component_id": "demo2:M2",
+        "port_name": "G"
+      },
+      "finish": {
+        "component_id": "demo2:M1",
+        "port_name": "G"
+      }
+    },
+    "vertices": [
+      [
+        303.67498779296875,
+        147.36000061035156
+      ],
+      [
+        303.1050109863281,
+        144.24000549316406
+      ],
+      [
+        303.1050109863281,
+        141.125
+      ]
+    ],
+    "cross_section": null,
+    "width": 0.05,
+    "radius": 0
+  },
+  "poly_2": {
+    "name": "poly_2",
+    "type": "polyline",
+    "terminals": {
+      "start": {
+        "component_id": "demo2:M1",
+        "port_name": "D"
+      },
+      "finish": {
+        "component_id": "demo2:M2",
+        "port_name": "S"
+      }
+    },
+    "vertices": [
+      [
+        303.3900146484375,
+        141.125
+      ],
+      [
+        306.4049987792969,
+        141.125
+      ],
+      [
+        306.4049987792969,
+        147.36000061035156
+      ],
+      [
+        303.9599914550781,
+        147.36000061035156
+      ]
+    ],
+    "cross_section": null,
+    "width": 0.05,
+    "radius": 0
+  },
+  "demo2:V1": {
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "type": "vsource",
+    "x": 1,
+    "y": 3,
+    "name": "V1",
+    "texture_key": null,
+    "nets": {
+      "P": "W5",
+      "N": "GND"
+    },
+    "props": {
+      "dc": "1.8"
+    }
+  },
+  "demo2:V2": {
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "type": "vsource",
+    "x": 3,
+    "y": 3,
+    "name": "V2",
+    "texture_key": null,
+    "nets": {
+      "N": "GND",
+      "P": "P2"
+    },
+    "props": {
+      "dc": "0.9",
+      "ac": "1",
+      "tran": "sin(0.9 1 1k)"
+    }
+  },
+  "demo2:W4": {
+    "y": 5,
+    "rx": -2,
+    "transform": [
+      -1,
+      0,
+      0,
+      -1,
+      0,
+      0
+    ],
+    "variant": "d",
+    "name": "W4",
+    "net": "GND",
+    "type": "wire",
+    "x": 7,
+    "texture_key": null,
+    "ry": 0
+  },
+  "demo2:W42": {
+    "type": "wire",
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "variant": "d",
+    "x": 4,
+    "y": 5,
+    "rx": -2,
+    "ry": 0,
+    "net": "GND"
+  },
+  "demo2:W5": {
+    "y": 3,
+    "rx": 5,
+    "variant": "vh",
+    "name": "W5",
+    "net": "W5",
+    "type": "wire",
+    "x": 2,
+    "texture_key": null,
+    "ry": -3
+  },
+  "demo2:W6": {
+    "y": 2,
+    "rx": -1,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "variant": "hv",
+    "name": "W6",
+    "net": "P2",
+    "type": "wire",
+    "x": 5,
+    "texture_key": null,
+    "ry": 0
+  },
+  "demo2:W34": {
+    "type": "wire",
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "variant": "vh",
+    "x": 5,
+    "y": 2,
+    "rx": 0,
+    "ry": 1,
+    "net": "P2"
+  },
+  "demo2:P1": {
+    "transform": [
+      -1,
+      0,
+      0,
+      -1,
+      0,
+      0
+    ],
+    "type": "port",
+    "x": 7,
+    "y": 2,
+    "name": "P1",
+    "texture_key": null,
+    "nets": {
+      "P": "P1"
+    },
+    "nature": "electric"
+  },
+  "demo2:P2": {
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "type": "port",
+    "x": 4,
+    "y": 2,
+    "name": "P2",
+    "texture_key": null,
+    "nets": {
+      "P": "P2"
+    },
+    "nature": "electric"
+  },
+  "demo2:W610": {
+    "type": "wire",
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "variant": "hv",
+    "x": 4,
+    "y": 2,
+    "rx": 0,
+    "ry": 1,
+    "net": "P2"
+  },
+  "demo2:W8": {
+    "y": 4,
+    "rx": 0,
+    "transform": [
+      -1,
+      0,
+      0,
+      -1,
+      0,
+      0
+    ],
+    "variant": "d",
+    "name": "W8",
+    "net": "GND",
+    "type": "wire",
+    "x": 7,
+    "texture_key": null,
+    "ry": 1
+  },
+  "demo2:W342": {
+    "type": "wire",
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "variant": "vh",
+    "x": 5,
+    "y": 3,
+    "rx": 1,
+    "ry": 1,
+    "net": "P2"
+  },
+  "demo2:GND": {
+    "transform": [
+      0,
+      -1,
+      1,
+      0,
+      0,
+      0
+    ],
+    "type": "port",
+    "x": 5,
+    "y": 5,
+    "variant": "ground",
+    "name": "GND",
+    "nets": {
+      "P": "GND"
+    },
+    "nature": "electric"
+  },
+  "demo2:W472": {
+    "type": "wire",
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "variant": "d",
+    "x": 5,
+    "y": 5,
+    "rx": -1,
+    "ry": 0,
+    "net": "GND"
+  },
+  "demo2:R1": {
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "type": "resistor",
+    "x": 8,
+    "y": 0,
+    "name": "R1",
+    "nets": {
+      "P": "W5",
+      "N": "P1"
+    },
+    "props": {
+      "resistance": "1meg"
+    }
+  },
+  "demo2:W9": {
+    "type": "wire",
+    "x": 9,
+    "y": 0,
+    "rx": -2,
+    "ry": 0,
+    "variant": "d",
+    "name": "W9",
+    "net": "W5"
+  },
+  "demo2:W10": {
+    "type": "wire",
+    "x": 9,
+    "y": 2,
+    "rx": -2,
+    "ry": 1,
+    "variant": "vh",
+    "name": "W10",
+    "net": "P1"
+  },
+  "demo2:M2": {
+    "y": 0,
+    "bbox_xmin": -0.31,
+    "transform": [
+      1,
+      0,
+      0,
+      1,
+      0,
+      0
+    ],
+    "bbox_ymin": -0.31,
+    "name": "M2",
+    "type": "pmos",
+    "bbox_width": 1.49,
+    "irl_x": 300,
+    "bbox_height": 0.92,
+    "nets": {
+      "D": "W5",
+      "B": "W5",
+      "G": "P2",
+      "S": "P1"
+    },
+    "ports": [
+      {
+        "name": "S",
+        "irl_rx": -0.285,
+        "irl_ry": 0,
+        "orientation": 180,
+        "bendRadii": [
+          5
+        ],
+        "port_type": "electrical",
+        "width": 0.26
+      },
+      {
+        "name": "D",
+        "irl_rx": 0.285,
+        "irl_ry": 0,
+        "orientation": 0,
+        "bendRadii": [
+          5
+        ],
+        "port_type": "electrical",
+        "width": 0.26
+      },
+      {
+        "name": "G",
+        "irl_rx": 0,
+        "irl_ry": 0,
+        "orientation": 270,
+        "bendRadii": [
+          5
+        ],
+        "port_type": "electrical",
+        "width": 0.51
+      }
+    ],
+    "x": 6,
+    "texture_key": "ihp.cells.fet_transistors.pmos_36521960",
+    "irl_y": 0,
+    "model": "ihp.cells.fet_transistors.pmos",
+    "props": {
+      "width": 0.15,
+      "length": 0.13,
+      "nf": 1,
+      "m": 1,
+      "model": "sg13_lv_pmos"
+    }
+  },
+  "demo2:W2": {
+    "type": "wire",
+    "x": 7,
+    "y": 1,
+    "rx": 0,
+    "ry": -1,
+    "variant": "d",
+    "name": "W2",
+    "net": "W5"
+  },
+  "demo2:W3": {
+    "type": "wire",
+    "x": 6,
+    "y": 1,
+    "rx": 0,
+    "ry": 3,
+    "variant": "d",
+    "name": "W3",
+    "net": "P2"
+  }
+}

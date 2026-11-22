@@ -1,6 +1,6 @@
 use super::{error, Error, Result};
 use indexmap::IndexMap;
-use kfnetlist_core::{NetMember, Netlist, NetlistPort, PortArrayRef, PortRef};
+use kfnetlist_core::{Directive, Net, NetMember, Netlist, NetlistPort, PortArrayRef, PortRef};
 use serde::{Deserialize, Serialize};
 use serde_json::{Map, Value};
 
@@ -39,7 +39,12 @@ pub struct CircuitDocument {
     pub ports: IndexMap<String, String>,
     pub connections: IndexMap<String, String>,
     pub nets: Vec<Vec<String>>,
+    /// Name of `nets[i]`; empty (or past the end) means unnamed.
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub net_names: Vec<String>,
     pub routes: Map<String, Value>,
+    #[serde(skip_serializing_if = "Vec::is_empty")]
+    pub directives: Vec<Directive>,
 }
 
 #[derive(Clone, Debug, Default, PartialEq, Serialize)]
@@ -159,8 +164,33 @@ fn unparse(member: &NetMember) -> String {
     }
 }
 impl CircuitDocument {
+    // An instance named like `X[3]` (an expanded Verilog instance array) is a plain
+    // reference, not gdsfactory array syntax.
+    fn member(&self, text: &str) -> Result<NetMember> {
+        match text.split_once(',') {
+            Some((inst, port))
+                if self.instances.contains_key(inst.trim()) && !port.contains(',') =>
+            {
+                Ok(NetMember::Ref(PortRef {
+                    instance: inst.trim().into(),
+                    port: port.trim().into(),
+                }))
+            }
+            _ => parse_port_ref(text),
+        }
+    }
+    /// `members` in the order a `Netlist` net stores them (sorted).
+    pub(crate) fn netlist_order(&self, members: &[String]) -> Option<Vec<String>> {
+        let members = members.iter().map(|m| self.member(m).ok());
+        let net = Net::from_members(members.collect::<Option<_>>()?);
+        Some(net.members.iter().map(unparse).collect())
+    }
     pub fn to_netlist(&self) -> Result<Netlist> {
-        let mut nl = Netlist::default();
+        let mut nl = Netlist {
+            directives: self.directives.clone(),
+            info: self.info.clone(),
+            ..Netlist::default()
+        };
         for name in self.ports.keys() {
             nl.create_port(name.clone());
         }
@@ -193,27 +223,17 @@ impl CircuitDocument {
             )
             .map_err(error)?;
         }
-        // An instance named like `X[3]` (an expanded Verilog instance array) is a plain
-        // reference, not gdsfactory array syntax.
-        let member = |text: &str| -> Result<NetMember> {
-            match text.split_once(',') {
-                Some((inst, port))
-                    if self.instances.contains_key(inst.trim()) && !port.contains(',') =>
-                {
-                    Ok(NetMember::Ref(PortRef {
-                        instance: inst.trim().into(),
-                        port: port.trim().into(),
-                    }))
-                }
-                _ => parse_port_ref(text),
-            }
-        };
+        let member = |text: &str| self.member(text);
         for (src, tgt) in &self.connections {
             nl.create_net([member(src)?, member(tgt)?]).map_err(error)?;
         }
-        for net in &self.nets {
-            nl.create_net(net.iter().map(|s| member(s)).collect::<Result<Vec<_>>>()?)
-                .map_err(error)?;
+        for (i, net) in self.nets.iter().enumerate() {
+            let members = net.iter().map(|s| member(s)).collect::<Result<Vec<_>>>()?;
+            match self.net_name(i) {
+                Some(name) => nl.create_named_net(members, name),
+                None => nl.create_net(members),
+            }
+            .map_err(error)?;
         }
         for (name, reference) in &self.ports {
             if name == reference {
@@ -244,32 +264,46 @@ impl CircuitDocument {
                 )
             })
             .collect();
-        let mut ports = IndexMap::new();
-        let mut nets = Vec::new();
+        let mut module = Self {
+            name: Some(name),
+            instances,
+            info: nl.info.clone(),
+            directives: nl.directives.clone(),
+            ..Self::default()
+        };
         for net in &nl.nets {
             let (pins, others): (Vec<_>, Vec<_>) = net
                 .members
                 .iter()
                 .partition(|m| matches!(m, NetMember::Port(_)));
-            if pins.len() == 1 && others.len() == 1 {
-                ports.insert(unparse(pins[0]), unparse(others[0]));
+            // An unnamed port net: the plain `ports` form, which has no place for a name.
+            if pins.len() == 1 && others.len() == 1 && net.name.is_none() {
+                module.ports.insert(unparse(pins[0]), unparse(others[0]));
             } else {
-                nets.push(net.members.iter().map(unparse).collect());
+                module.push_net(net.members.iter().map(unparse).collect(), net.name.clone());
             }
         }
         // Preserve declared pins, including pins in multi-terminal nets and unconnected pins.
         for p in &nl.ports {
-            ports
+            module
+                .ports
                 .entry(p.name.clone())
                 .or_insert_with(|| p.name.clone());
         }
-        Self {
-            name: Some(name),
-            instances,
-            ports,
-            nets,
-            ..Self::default()
+        module
+    }
+    pub fn net_name(&self, i: usize) -> Option<&str> {
+        self.net_names
+            .get(i)
+            .map(String::as_str)
+            .filter(|n| !n.is_empty())
+    }
+    pub(crate) fn push_net(&mut self, members: Vec<String>, name: Option<String>) {
+        if let Some(name) = name {
+            self.net_names.resize(self.nets.len(), String::new());
+            self.net_names.push(name);
         }
+        self.nets.push(members);
     }
 }
 impl NetlistDocument {

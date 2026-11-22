@@ -1,7 +1,7 @@
 use kfnetlist_core::{
-    flatten_netlist, from_json, to_json, ArrayDirection, Error, FlattenOptions, Net, NetMember,
-    Netlist, NetlistData, NetlistInstance, NetlistPort, PlacedExtra, PlacedInstance, PlacedNetlist,
-    Placement, PortArrayRef, PortRef,
+    flatten_netlist, from_json, to_json, ArrayDirection, Directive, Error, FlattenOptions, Net,
+    NetMember, Netlist, NetlistData, NetlistInstance, NetlistPort, PlacedExtra, PlacedInstance,
+    PlacedNetlist, Placement, PortArrayRef, PortRef,
 };
 use serde_json::json;
 use std::collections::HashMap;
@@ -392,4 +392,129 @@ fn placed_upgrade_drops_unknown_extras_and_defaults_missing_geometry() {
         reloaded.get_instance("known").unwrap(),
         placed.get_instance("known").unwrap()
     );
+}
+
+fn directive(kind: &str, value: &str) -> Directive {
+    Directive {
+        kind: kind.into(),
+        name: String::new(),
+        value: value.into(),
+    }
+}
+
+#[test]
+fn directives_and_info_are_optional_wire_fields_outside_equality() {
+    let mut nl = Netlist::default();
+    nl.create_port("a".into());
+    let old = to_json(&nl).unwrap();
+    assert_eq!(old, r#"{"instances":{},"nets":[],"ports":[{"name":"a"}]}"#);
+
+    let mut header = nl.clone();
+    header.directives = vec![directive("include", "models.lib")];
+    header.info = serde_json::from_value(json!({"dialect": "spice"})).unwrap();
+    let text = to_json(&header).unwrap();
+    assert_eq!(
+        text,
+        r#"{"instances":{},"nets":[],"ports":[{"name":"a"}],"directives":[{"kind":"include","name":"","value":"models.lib"}],"info":{"dialect":"spice"}}"#
+    );
+    let back: Netlist = from_json(&text).unwrap();
+    assert_eq!(back.directives, header.directives);
+    assert_eq!(back.info, header.info);
+    // LVS stays header-agnostic.
+    assert_eq!(header, nl);
+    let placed = PlacedNetlist::new(header.clone(), Default::default());
+    let back: PlacedNetlist = from_json(&to_json(&placed).unwrap()).unwrap();
+    assert_eq!(back.netlist.directives, header.directives);
+    assert_eq!(back.netlist.info, header.info);
+}
+
+#[test]
+fn flattening_unions_directives_of_inlined_netlists_top_first() {
+    let mut leaf = Netlist::default();
+    leaf.create_inst("r".into(), "pdk".into(), "res".into(), json!({}), 1, 1)
+        .unwrap();
+    leaf.directives = vec![
+        directive("lib", "leaf.lib"),
+        directive("include", "shared.lib"),
+    ];
+    let mut child = Netlist::default();
+    child
+        .create_inst("leaf".into(), "pdk".into(), "leaf".into(), json!({}), 1, 1)
+        .unwrap();
+    child.directives = vec![directive("include", "shared.lib")];
+    let mut top = Netlist::default();
+    top.create_inst("sub".into(), "pdk".into(), "child".into(), json!({}), 1, 1)
+        .unwrap();
+    top.directives = vec![directive("include", "top.lib")];
+
+    let maps = HashMap::from([(
+        "child".to_string(),
+        HashMap::from([("leaf".to_string(), "leaf".to_string())]),
+    )]);
+    let output = flatten_netlist(
+        top.into(),
+        Some(&HashMap::from([("sub".into(), "child".into())])),
+        &HashMap::from([
+            ("child".into(), NetlistData::from(child)),
+            ("leaf".into(), NetlistData::from(leaf)),
+        ]),
+        &maps,
+        &FlattenOptions::new(None, None, true, false, false, ".".into()),
+    )
+    .unwrap();
+    assert!(output.data.instances.contains_key("sub.leaf.r"));
+    assert_eq!(
+        output.data.directives,
+        vec![
+            directive("include", "top.lib"),
+            directive("include", "shared.lib"),
+            directive("lib", "leaf.lib"),
+        ]
+    );
+}
+
+#[test]
+fn reserved_instance_info_keys_are_not_part_of_equality() {
+    let make = |info: serde_json::Value| {
+        let mut nl = Netlist::default();
+        nl.create_inst_with_info(
+            "X1".into(),
+            String::new(),
+            "c".into(),
+            json!({}),
+            0,
+            0,
+            serde_json::from_value(info).unwrap(),
+        )
+        .unwrap();
+        nl
+    };
+    assert_eq!(
+        make(json!({"owner": "a", "__x__": 1})),
+        make(json!({"owner": "a", "__x__": 2}))
+    );
+    assert_eq!(make(json!({"__morphnet__": {"a": 1}})), make(json!({})));
+    assert_ne!(make(json!({"owner": "a"})), make(json!({"owner": "b"})));
+}
+
+#[test]
+fn instance_equality_ignores_reserved_info_keys() {
+    let make = |info: serde_json::Value| {
+        let mut nl = Netlist::default();
+        nl.create_inst_with_info(
+            "a".into(),
+            String::new(),
+            "cell".into(),
+            json!({}),
+            0,
+            0,
+            info.as_object().unwrap().clone(),
+        )
+        .unwrap();
+        nl.instances["a"].clone()
+    };
+    let plain = make(json!({"layer": 1}));
+    assert_eq!(make(json!({"layer": 1, "__morphnet__": {"x": 1}})), plain);
+    assert_ne!(make(json!({"layer": 2})), plain);
+    assert_ne!(make(json!({"layer": 1, "extra": 0})), plain);
 }
