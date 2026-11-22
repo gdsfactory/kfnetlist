@@ -1,6 +1,6 @@
 # Changelog
 
-## 0.5.0
+## 0.4.2
 
 - **PWL sources in every grammar** — a PWL waveform has inline `points` or a
   `file` (`Waveform.file`, proto field 4; a `pathlib.Path` in Python, stored
