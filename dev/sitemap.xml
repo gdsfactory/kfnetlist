@@ -109,7 +109,22 @@
         <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/</loc>
       </url>
       <url>
+        <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/expression/</loc>
+      </url>
+      <url>
         <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/grammars/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/gsch/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/gsch/parser/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/gsch/sim/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/gsch/writer/</loc>
       </url>
       <url>
         <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/hdl/</loc>
@@ -131,6 +146,9 @@
       </url>
       <url>
         <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/net_utils/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/paths/</loc>
       </url>
       <url>
         <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/preprocess/</loc>
@@ -179,6 +197,9 @@
       </url>
       <url>
         <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/spice/writer/</loc>
+      </url>
+      <url>
+        <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/stimulus/</loc>
       </url>
       <url>
         <loc>https://gdsfactory.github.io/dev/reference/morphnet/netlist/systemverilog/</loc>

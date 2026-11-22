@@ -8,7 +8,13 @@
               - morphnet_schema: reference/morphnet/morphnet_schema/index.md
               - netlist:
                   - Overview: reference/morphnet/netlist/index.md
+                  - expression: reference/morphnet/netlist/expression.md
                   - grammars: reference/morphnet/netlist/grammars/index.md
+                  - gsch:
+                      - Overview: reference/morphnet/netlist/gsch/index.md
+                      - parser: reference/morphnet/netlist/gsch/parser.md
+                      - sim: reference/morphnet/netlist/gsch/sim.md
+                      - writer: reference/morphnet/netlist/gsch/writer.md
                   - hdl: reference/morphnet/netlist/hdl.md
                   - hspice:
                       - Overview: reference/morphnet/netlist/hspice/index.md
@@ -17,6 +23,7 @@
                       - transformer: reference/morphnet/netlist/hspice/transformer.md
                       - writer: reference/morphnet/netlist/hspice/writer.md
                   - net_utils: reference/morphnet/netlist/net_utils.md
+                  - paths: reference/morphnet/netlist/paths.md
                   - preprocess: reference/morphnet/netlist/preprocess.md
                   - simulation_data: reference/morphnet/netlist/simulation_data.md
                   - spectre:
@@ -36,6 +43,7 @@
                       - preprocess: reference/morphnet/netlist/spice/preprocess.md
                       - transformer: reference/morphnet/netlist/spice/transformer.md
                       - writer: reference/morphnet/netlist/spice/writer.md
+                  - stimulus: reference/morphnet/netlist/stimulus.md
                   - systemverilog:
                       - Overview: reference/morphnet/netlist/systemverilog/index.md
                       - parser: reference/morphnet/netlist/systemverilog/parser.md
