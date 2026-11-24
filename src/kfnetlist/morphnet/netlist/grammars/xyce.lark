@@ -40,7 +40,7 @@ params_kw: /PARAMS:/i
 
 subckt_body: (statement _NL+)*
 
-port_decl: IDENT
+port_decl: IDENT | SI_NUMBER  // SPICE node names may be numbers (".subckt cpl 1 2 5")
 
 // ── Device / subcircuit instance ───────────────────────────────────────
 instance_stmt: IDENT token+ param_assign*
