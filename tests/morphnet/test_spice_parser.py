@@ -1,4 +1,10 @@
-from kfnetlist.morphnet.morphnet_schema import SIPrefix
+from collections.abc import Callable
+
+import pytest
+
+from kfnetlist.morphnet.morphnet_schema import Netlist, SIPrefix
+from kfnetlist.morphnet.netlist.hspice.parser import parse_hspice
+from kfnetlist.morphnet.netlist.xyce.parser import parse_xyce
 from kfnetlist.morphnet.netlist.spice.parser import parse_spice
 
 
@@ -274,3 +280,20 @@ R1 A B 1k
 """
         netlist = parse_spice(text)
         assert netlist.circuits[0].name == "Test"
+
+
+@pytest.mark.parametrize("parse", [parse_spice, parse_hspice, parse_xyce])
+def test_numeric_subckt_ports(parse: Callable[[str], Netlist]) -> None:
+    """SPICE node names may be numbers; a .subckt port list accepts them like instance nets do."""
+    text = """\
+.subckt cpl 1 2 5
+R1 1 2 1k
+.ends cpl
+.subckt top a b
+X1 a b 0 cpl
+.ends top
+.end
+"""
+    netlist = parse(text)
+    cpl = next(c for c in netlist.circuits if c.name == "cpl")
+    assert [p.name for p in cpl.ports] == ["1", "2", "5"]
